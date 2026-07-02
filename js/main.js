@@ -39,7 +39,7 @@ if (saved) {
   world.craftQueue = saved.craftQueue || [];
   pawns = saved.pawns.map(function (p) {
     var pw = createPawn(p.id, { name: p.name, look: p.look, color: p.color, trait: p.trait, equipped: p.equipped }, p.x, p.y);
-    pw.hunger = p.hunger; pw.energy = p.energy; pw.hp = p.hp;
+    pw.hunger = p.hunger; pw.hp = p.hp;
     pw.mood = p.mood === undefined ? 70 : p.mood;
     pw.carry = p.carry || null;
     if (p.dead) pw.state = 'dead';
@@ -148,8 +148,25 @@ var ctx = {
   onCropChange: function (i) { R.refreshCrop(i); },
   onBuildingChange: function (b) { R.refreshBuilding(b); },
   onBuildingBuilt: function (b) {
-    // 완공된 건물 풋프린트에 서 있던 정착민 밀어내기
     var def = buildingDef(b.kind);
+
+    // 창고: 건물 주변 1칸 테두리를 자동으로 비축 구역화 (건물 자체는 진입 불가라 제외)
+    if (def.autoStockRing) {
+      for (var ry = -1; ry <= def.fh; ry++) {
+        for (var rx = -1; rx <= def.fw; rx++) {
+          if (rx >= 0 && rx < def.fw && ry >= 0 && ry < def.fh) continue; // 건물 내부는 제외
+          var rtx = b.x + rx, rty = b.y + ry;
+          var ri = idx(rtx, rty);
+          if (isWalkable(world, rtx, rty) && world.occupancy[ri] === undefined && !world.stockpile[ri]) {
+            world.stockpile[ri] = true;
+          }
+        }
+      }
+      R.refreshZones();
+      UI.addEvent('🏚️ 창고 주변에 비축 구역이 자동 지정되었습니다');
+    }
+
+    // 완공된 건물 풋프린트에 서 있던 정착민 밀어내기
     if (!def.solid) return;
     pawns.forEach(function (p) {
       if (p.x >= b.x && p.x < b.x + def.fw && p.y >= b.y && p.y < b.y + def.fh) {

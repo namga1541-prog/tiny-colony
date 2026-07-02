@@ -84,7 +84,6 @@ export function createUI(handlers) {
   var pawnName = document.getElementById('pawnName');
   var pawnTask = document.getElementById('pawnTask');
   var barHunger = document.getElementById('barHunger');
-  var barEnergy = document.getElementById('barEnergy');
   var barHp = document.getElementById('barHp');
   var barMood = document.getElementById('barMood');
   var pawnTrait = document.getElementById('pawnTrait');
@@ -101,7 +100,6 @@ export function createUI(handlers) {
     pawnName.textContent = pawn.name;
     pawnTask.textContent = taskLabel(pawn);
     barHunger.style.width = pawn.hunger + '%';
-    barEnergy.style.width = pawn.energy + '%';
     barHp.style.width = pawn.hp + '%';
     barMood.style.width = Math.round(pawn.mood) + '%';
     pawnTrait.textContent = pawn.trait && pawn.trait.id !== 'none'

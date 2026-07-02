@@ -67,31 +67,6 @@ export function findFoodJob(world, pawn) {
   return job;
 }
 
-// ── 수면: 집 슬롯 or 맨바닥 ──
-export function findSleepJob(world, pawn) {
-  var cands = [];
-  for (var id in world.buildings) {
-    var b = world.buildings[id];
-    if (b.kind !== 'house' || b.stage !== 'built') continue;
-    var slots = BUILDS.house.sleeps;
-    for (var s = 0; s < slots; s++) {
-      if (world.reserved['house:' + id + ':' + s] === undefined) {
-        var front = buildingFront(world, b);
-        if (front) cands.push({ type: 'sleepHouse', bid: +id, slot: s, x: front.x, y: front.y });
-        break;
-      }
-    }
-  }
-  var job = nearest(pawn, cands, function (c) {
-    return Math.abs(pawn.x - c.x) + Math.abs(pawn.y - c.y);
-  });
-  if (job) {
-    reserve(world, 'house:' + job.bid + ':' + job.slot, pawn.id);
-    return job;
-  }
-  return { type: 'sleepGround' };
-}
-
 // ── 일: 건설 > 자재 운반 > 벌목/채집 > 금 채굴 > 비축 운반 ──
 export function findWorkJob(world, pawn) {
   var cands = [];

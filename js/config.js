@@ -14,17 +14,27 @@ export const T_WATER = 0, T_GRASS = 1, T_SAND = 2;
 export const BUILDS = {
   house: {
     name: '집', cost: { wood: 10 }, work: 60,
-    fw: 2, fh: 2, solid: true, sleeps: 2,
+    fw: 2, fh: 2, solid: true, light: true,
     img: 'House', imgC: 'House_C', pw: 128, ph: 192,
+  },
+  warehouse: {
+    name: '창고', cost: { wood: 12 }, work: 55,
+    fw: 2, fh: 2, solid: true, autoStockRing: true,
+    img: 'House', imgC: 'House_C', pw: 128, ph: 192, tint: 0xe0c088,
   },
   tower: {
     name: '망루', cost: { wood: 15, gold: 5 }, work: 80,
-    fw: 2, fh: 2, solid: true,
+    fw: 2, fh: 2, solid: true, light: true,
     img: 'Tower', imgC: 'Tower_C', pw: 128, ph: 256,
+  },
+  outpost: {
+    name: '초소', cost: { wood: 8 }, work: 40,
+    fw: 2, fh: 2, solid: true,
+    img: 'Tower', imgC: 'Tower_C', pw: 128, ph: 256, tint: 0x8fdc9e,
   },
   castle: {
     name: '성', cost: { wood: 30, gold: 10 }, work: 150,
-    fw: 5, fh: 3, solid: true,
+    fw: 5, fh: 3, solid: true, light: true,
     img: 'Castle', imgC: 'Castle_C', pw: 320, ph: 256,
   },
   campfire: {
@@ -74,17 +84,13 @@ export const MIN_PER_SEC = 6;
 export const DAY_MIN = 1440;
 export const SPEED_MULT = [0, 1, 2.5, 5];
 
-// 욕구 (분당)
+// 욕구 (분당) — 수면/기력 시스템 폐지 (2026-07-02): 정착민은 밤낮 없이 계속 활동
 export const NEEDS = {
   hungerDecay: 100 / DAY_MIN,
-  energyDecay: 100 / 960,
-  sleepRestoreBed: 100 / 420,      // 집에서 수면
-  sleepRestoreGround: 100 / 700,   // 맨바닥
   starveHpDecay: 100 / 720,
   hpRegen: 100 / 2880,
   eatAmount: 55,
   hungryAt: 30,
-  sleepyAt: 25,
 };
 
 export const WALK_MIN_PER_TILE = 1;

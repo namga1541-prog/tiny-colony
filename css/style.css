@@ -106,7 +106,6 @@ html, body {
 }
 .fill { height: 100%; border-radius: 5px; width: 50%; transition: width 0.3s; }
 .fill.hunger { background: linear-gradient(90deg, #ff9d5c, #ffc46b); }
-.fill.energy { background: linear-gradient(90deg, #5cc8ff, #7de0ff); }
 .fill.hp { background: linear-gradient(90deg, #ff6b81, #ff8fa0); }
 .fill.mood { background: linear-gradient(90deg, #9d7dff, #c9a8ff); }
 

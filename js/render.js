@@ -241,7 +241,7 @@ export function createRenderer(world) {
       e.alpha = ready ? 0.95 : 0.45;
       e.tint = ready ? 0xffffff : 0x9ec7ff;
     } else {
-      e.alpha = 1; e.tint = 0xffffff;
+      e.alpha = 1; e.tint = def.tint || 0xffffff;
     }
     rebuildLights();
   }
@@ -354,13 +354,10 @@ export function createRenderer(world) {
     });
     name.anchor.set(0.5, 1);
     name.scale.set(0.62);
-    var zzz = new PIXI.Text('💤', { fontSize: 30 });
-    zzz.scale.set(0.7);
-    zzz.visible = false;
     var carry = new PIXI.Sprite();
     carry.visible = false;
-    pawnSprites[pawn.id] = { spr: s, name: name, zzz: zzz, carry: carry, animOff: pawn.id * 2 };
-    objLayer.addChild(s); objLayer.addChild(name); objLayer.addChild(zzz); objLayer.addChild(carry);
+    pawnSprites[pawn.id] = { spr: s, name: name, carry: carry, animOff: pawn.id * 2 };
+    objLayer.addChild(s); objLayer.addChild(name); objLayer.addChild(carry);
     updatePawnSprite(pawn);
   }
 
@@ -385,9 +382,6 @@ export function createRenderer(world) {
     if (e.name.text !== pawn.name) e.name.text = pawn.name;
     e.name.x = wx; e.name.y = wy - 44;
     e.name.zIndex = 999999;
-    e.zzz.visible = pawn.state === 'sleeping';
-    e.zzz.x = wx + 16; e.zzz.y = wy - 78;
-    e.zzz.zIndex = 999999;
     if (pawn.carry) {
       e.carry.visible = true;
       e.carry.texture = ITEM_TEX[pawn.carry.type]();
@@ -480,7 +474,7 @@ export function createRenderer(world) {
       var wy = (b.y + def.fh * 0.55) * TILE;
       var spr = null;
       if (b.kind === 'campfire') spr = new PIXI.Sprite(glowBig);
-      else if (b.kind === 'house' || b.kind === 'tower' || b.kind === 'castle') spr = new PIXI.Sprite(glowSmall);
+      else if (def.light) spr = new PIXI.Sprite(glowSmall);
       if (spr) {
         spr.anchor.set(0.5);
         spr.blendMode = PIXI.BLEND_MODES.ADD;

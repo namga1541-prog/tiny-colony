@@ -8,7 +8,7 @@ import {
 } from './world.js';
 import { findPath } from './path.js';
 import {
-  findFoodJob, findSleepJob, findWorkJob, bpMissing,
+  findFoodJob, findWorkJob, bpMissing,
   reserve, release, releaseAllOf, findStockpileFor,
 } from './jobs.js';
 
@@ -26,10 +26,9 @@ export function createPawn(id, def, x, y) {
     x: x, y: y,
     px: x, py: y,
     hunger: 60 + Math.random() * 30,
-    energy: 60 + Math.random() * 30,
     hp: 100,
     mood: 70,
-    state: 'idle',       // idle | moving | working | eating | sleeping | dead
+    state: 'idle',       // idle | moving | working | eating | dead
     job: null,
     path: null,
     workLeft: 0,
@@ -58,9 +57,6 @@ export function taskLabel(pawn) {
     }
     return '🎮 직접 조종 중 (WASD·Space)';
   }
-  if (pawn.state === 'sleeping') {
-    return pawn.job && pawn.job.type === 'sleepHouse' ? '😴 집에서 수면 중' : '😴 노숙 중';
-  }
   if (pawn.state === 'eating') return '🍽️ 식사 중';
   var j = pawn.job;
   if (!j) return '🌿 대기 중';
@@ -75,7 +71,6 @@ export function taskLabel(pawn) {
   }
   var names = {
     eat: '식량 가지러 가는 중', eatShroom: '버섯 찾아가는 중',
-    sleepHouse: '집으로 가는 중', sleepGround: '잘 곳 찾는 중',
     build: '건설하러 가는 중', deliver: '자재 운반 중',
     gather: '작업하러 가는 중', mine: '금광으로 가는 중', haul: '자원 정리 중',
     plant: '밭으로 가는 중', harvestCrop: '수확하러 가는 중', craft: '대장간으로 가는 중',
@@ -137,7 +132,7 @@ function jobTarget(world, j) {
       if (!f) return null;
       return { x: f.x, y: f.y, adj: false };
     }
-    case 'mine': case 'sleepHouse':
+    case 'mine':
       return { x: j.x, y: j.y, adj: false };
     default:
       return null;
@@ -193,16 +188,6 @@ function onArrive(world, pawn, ctx) {
       if (!o || o.kind !== 'mushroom') return abandonJob(world, pawn);
       pawn.state = 'working';
       pawn.workLeft = NATURE.mushroom.work;
-      break;
-    }
-    case 'sleepHouse': {
-      var hb = world.buildings[j.bid];
-      if (!hb || hb.stage !== 'built') return abandonJob(world, pawn);
-      pawn.state = 'sleeping';
-      break;
-    }
-    case 'sleepGround': {
-      pawn.state = 'sleeping';
       break;
     }
     case 'gather': {
@@ -442,9 +427,6 @@ export function updatePawn(world, pawn, dtMin, ctx) {
 
   var trait = pawn.trait;
   pawn.hunger = Math.max(0, pawn.hunger - NEEDS.hungerDecay * (trait.hungerMult || 1) * dtMin);
-  if (pawn.state !== 'sleeping') {
-    pawn.energy = Math.max(0, pawn.energy - NEEDS.energyDecay * dtMin);
-  }
   if (pawn.hunger <= 0) {
     pawn.hp = Math.max(0, pawn.hp - NEEDS.starveHpDecay * dtMin);
     if (pawn.hp <= 0) {
@@ -458,8 +440,8 @@ export function updatePawn(world, pawn, dtMin, ctx) {
   }
   if (pawn.stuckCd > 0) pawn.stuckCd -= dtMin;
 
-  // 기분: 포만감·기력·체력의 가중 평균으로 서서히 수렴
-  var moodTarget = pawn.hunger * 0.4 + pawn.energy * 0.35 + pawn.hp * 0.25;
+  // 기분: 포만감·체력의 가중 평균으로 서서히 수렴
+  var moodTarget = pawn.hunger * 0.6 + pawn.hp * 0.4;
   var moodRate = 0.006 * (trait.moodMult || 1);
   pawn.mood += (moodTarget - pawn.mood) * Math.min(1, moodRate * dtMin);
   pawn.mood = Math.max(0, Math.min(100, pawn.mood));
@@ -497,18 +479,6 @@ export function updatePawn(world, pawn, dtMin, ctx) {
           pawn.hunger = Math.min(100, pawn.hunger + NEEDS.eatAmount);
           ctx.onItemChange(idx(pawn.x, pawn.y));
         }
-        releaseAllOf(world, pawn.id);
-        pawn.job = null;
-        pawn.state = 'idle';
-      }
-      break;
-    }
-
-    case 'sleeping': {
-      var inHouse = pawn.job && pawn.job.type === 'sleepHouse';
-      var rate = inHouse ? NEEDS.sleepRestoreBed : NEEDS.sleepRestoreGround;
-      pawn.energy = Math.min(100, pawn.energy + rate * dtMin);
-      if (pawn.energy >= 100 || (pawn.hunger < 10 && pawn.energy > 30)) {
         releaseAllOf(world, pawn.id);
         pawn.job = null;
         pawn.state = 'idle';
@@ -606,21 +576,6 @@ function think(world, pawn, dtMin, ctx) {
       return;
     }
     if (pawn.hunger < 15) ctx.onStarving(pawn);
-  }
-
-  if (pawn.energy <= NEEDS.sleepyAt) {
-    var sj = findSleepJob(world, pawn);
-    pawn.job = sj;
-    if (sj.type === 'sleepHouse') {
-      if (!goTo(world, pawn, sj.x, sj.y, false)) {
-        releaseAllOf(world, pawn.id);
-        pawn.job = { type: 'sleepGround' };
-        pawn.state = 'sleeping';
-      }
-    } else {
-      pawn.state = 'sleeping';
-    }
-    return;
   }
 
   if (pawn.stuckCd <= 0) {
