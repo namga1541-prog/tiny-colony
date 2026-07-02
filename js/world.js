@@ -33,12 +33,16 @@ export function ix(i) { return i % MAP_W; }
 export function iy(i) { return (i / MAP_W) | 0; }
 export function inMap(x, y) { return x >= 0 && y >= 0 && x < MAP_W && y < MAP_H; }
 
+// 지형 코드
+export var T_GRASS = 0, T_GRASS_DECOR = 1, T_FLOWER_R = 2, T_DIRT = 3,
+           T_DIRT_DECOR = 4, T_WATER = 5, T_FLOWER_W = 6, T_FLOWER_B = 7;
+
 export function createWorld(seed) {
   var rng = mulberry32(seed);
   var world = {
     seed: seed,
-    terrain: new Uint8Array(MAP_W * MAP_H), // 0 grass, 1 decor, 2 flower, 3 dirt, 4 dirtDecor
-    objects: {},       // idx -> {kind:'tree'|'treeO'|'rock'|'mushroom'}
+    terrain: new Uint8Array(MAP_W * MAP_H), // T_* 코드
+    objects: {},       // idx -> {kind:'tree'|'treeO'|'pine'|'rock'|'berry'}
     built: {},         // idx -> {kind:'woodWall'|'stoneWall'|'floor'|'bed'}
     blueprints: {},    // idx -> {kind, delivered:{}, work:0}
     items: {},         // idx -> {wood:n, stone:n, food:n}
@@ -53,23 +57,52 @@ export function createWorld(seed) {
   var forest = makeNoise(rng, 16);
   var cx = MAP_W / 2, cy = MAP_H / 2;
 
+  // 호수 1~2개 (타원, 시작 지점에서 떨어진 곳)
+  var lakes = [];
+  var lakeCount = 1 + ((rng() * 2) | 0);
+  var guard = 0;
+  while (lakes.length < lakeCount && guard++ < 60) {
+    var lx = 8 + rng() * (MAP_W - 16);
+    var ly = 8 + rng() * (MAP_H - 16);
+    if (Math.hypot(lx - cx, ly - cy) < 16) continue;
+    lakes.push({ x: lx, y: ly, rx: 3.5 + rng() * 3.5, ry: 2.5 + rng() * 3 });
+  }
+
+  function isLake(x, y) {
+    for (var n = 0; n < lakes.length; n++) {
+      var L = lakes[n];
+      var dx = (x - L.x) / L.rx, dy = (y - L.y) / L.ry;
+      if (dx * dx + dy * dy <= 1) return true;
+    }
+    return false;
+  }
+
   for (var y = 0; y < MAP_H; y++) {
     for (var x = 0; x < MAP_W; x++) {
       var i = idx(x, y);
+      if (isLake(x, y)) {
+        world.terrain[i] = T_WATER;
+        continue;
+      }
       var r = rng();
-      world.terrain[i] = r < 0.08 ? 1 : (r < 0.13 ? 2 : 0);
+      world.terrain[i] =
+        r < 0.05 ? T_GRASS_DECOR :
+        r < 0.075 ? T_FLOWER_R :
+        r < 0.09 ? T_FLOWER_W :
+        r < 0.105 ? T_FLOWER_B : T_GRASS;
 
       var distC = Math.hypot(x - cx, y - cy);
       if (distC < 7) continue; // 시작 지점 주변은 비워둠
 
       var f = forest(x / 6, y / 6);
       if (f > 0.62 && rng() < 0.55) {
-        world.objects[i] = { kind: rng() < 0.8 ? 'tree' : 'treeO' };
+        var tr = rng();
+        world.objects[i] = { kind: tr < 0.55 ? 'tree' : (tr < 0.85 ? 'pine' : 'treeO') };
       } else if (f < 0.30 && rng() < 0.10) {
         world.objects[i] = { kind: 'rock' };
-        world.terrain[i] = rng() < 0.5 ? 3 : 4;
+        world.terrain[i] = rng() < 0.5 ? T_DIRT : T_DIRT_DECOR;
       } else if (rng() < 0.012) {
-        world.objects[i] = { kind: 'mushroom' };
+        world.objects[i] = { kind: 'berry' };
       }
     }
   }
@@ -82,8 +115,8 @@ export function createWorld(seed) {
 }
 
 export function natureKindOf(objKind) {
-  if (objKind === 'tree' || objKind === 'treeO') return 'tree';
-  return objKind; // rock, mushroom
+  if (objKind === 'tree' || objKind === 'treeO' || objKind === 'pine') return 'tree';
+  return objKind; // rock, berry
 }
 
 export function natureDef(objKind) {
@@ -93,8 +126,9 @@ export function natureDef(objKind) {
 export function isWalkable(world, x, y) {
   if (!inMap(x, y)) return false;
   var i = idx(x, y);
+  if (world.terrain[i] === T_WATER) return false;
   var o = world.objects[i];
-  if (o) return o.kind === 'mushroom'; // 버섯 위는 지나갈 수 있음
+  if (o) return o.kind === 'berry'; // 열매 덤불 위는 지나갈 수 있음
   var b = world.built[i];
   if (b && (b.kind === 'woodWall' || b.kind === 'stoneWall')) return false;
   return true;
@@ -142,10 +176,10 @@ export function totalRes(world) {
   return sum;
 }
 
-// 매일 자정: 버섯이 드물게 새로 자람
+// 매일 자정: 열매 덤불이 드물게 새로 자람
 export function dailyRegrowth(world, rng) {
   var count = 0;
-  for (var i in world.objects) if (world.objects[i].kind === 'mushroom') count++;
+  for (var i in world.objects) if (world.objects[i].kind === 'berry') count++;
   var spawned = [];
   var tries = 0;
   while (count < 22 && tries < 400) {
@@ -153,8 +187,8 @@ export function dailyRegrowth(world, rng) {
     var x = (rng() * MAP_W) | 0, y = (rng() * MAP_H) | 0;
     var i2 = idx(x, y);
     if (world.objects[i2] || world.built[i2] || world.blueprints[i2] ||
-        world.stockpile[i2] || world.items[i2] || world.terrain[i2] >= 3) continue;
-    world.objects[i2] = { kind: 'mushroom' };
+        world.stockpile[i2] || world.items[i2] || world.terrain[i2] >= T_DIRT) continue;
+    world.objects[i2] = { kind: 'berry' };
     spawned.push(i2);
     count++;
   }

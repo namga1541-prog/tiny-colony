@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>에셋 후보 비교 (개발용)</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #14161c; color: #e8eaf0;
+    font-family: 'Segoe UI', 'Malgun Gothic', sans-serif;
+    padding: 28px; line-height: 1.55;
+  }
+  h1 { font-size: 22px; margin-bottom: 4px; }
+  .sub { color: #8d94a8; font-size: 13px; margin-bottom: 24px; }
+  .card {
+    background: #1d212b; border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 14px; padding: 20px; margin-bottom: 22px;
+    max-width: 1080px;
+  }
+  .card h2 { font-size: 18px; margin-bottom: 2px; }
+  .meta { font-size: 13px; color: #9aa3b5; margin-bottom: 12px; }
+  .badges { display: flex; gap: 6px; margin: 8px 0 14px; flex-wrap: wrap; }
+  .badge {
+    font-size: 12px; padding: 3px 10px; border-radius: 20px; font-weight: 600;
+  }
+  .b-green { background: #1e4633; color: #7dffb0; }
+  .b-red { background: #4a2028; color: #ff9aa8; }
+  .b-blue { background: #1e3050; color: #8ab6ff; }
+  .b-amber { background: #4a3a18; color: #ffd76e; }
+  .shots { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+  .shots img {
+    max-height: 240px; max-width: 480px; border-radius: 8px;
+    image-rendering: pixelated; background: #0e1015;
+    border: 1px solid rgba(255,255,255,0.07);
+  }
+  .pros { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 24px; font-size: 13.5px; }
+  .pros div::before { margin-right: 6px; }
+  .pro::before { content: '✅'; }
+  .con::before { content: '⚠️'; }
+  .verdict {
+    margin-top: 12px; padding: 10px 14px; border-radius: 8px;
+    background: rgba(74,125,255,0.1); border-left: 3px solid #4a7dff;
+    font-size: 13.5px;
+  }
+  .rank { font-size: 13px; color: #ffd76e; font-weight: 700; }
+  a { color: #8ab6ff; }
+</style>
+</head>
+<body>
+<h1>🎨 타이니 콜로니 — 에셋 교체 후보 비교</h1>
+<div class="sub">2026-07-02 조사 · 라이선스는 각 배포 페이지 원문 기준</div>
+
+<!-- 1 -->
+<div class="card">
+  <div class="rank">후보 1 — 추천 (안전한 대폭 확장)</div>
+  <h2>Kenney Roguelike/RPG Pack</h2>
+  <div class="meta">16×16 · 1,700+ 타일 · <a href="https://kenney.nl/assets/roguelike-rpg-pack">kenney.nl</a></div>
+  <div class="badges">
+    <span class="badge b-green">CC0 — 상업OK·크레딧 불요</span>
+    <span class="badge b-blue">현 그림체와 동일 계열</span>
+    <span class="badge b-blue">즉시 적용 가능</span>
+  </div>
+  <div class="shots"><img src="dev-preview/kenney_rpg_sample1.png" alt="Kenney RPG 샘플"></div>
+  <div class="pros">
+    <div class="pro">물·호수 타일 확보 (현재 최대 결핍)</div>
+    <div class="pro">집·텐트·모닥불·울타리·농작물·가구 등 건축 대확장</div>
+    <div class="pro">지형 전환 타일 → 맵이 훨씬 자연스러움</div>
+    <div class="pro">지금 config 매핑만 바꾸면 끝 (코드 변경 최소)</div>
+    <div class="con">캐릭터 걷기 애니메이션은 없음 (정지 스프라이트)</div>
+    <div class="con">"화질 승격" 체감은 크지 않음 (같은 16px)</div>
+  </div>
+  <div class="verdict">현 게임을 부수지 않고 콘텐츠 폭을 3배로 늘리는 가장 저렴한 길. 물/강 로드맵도 이걸로 해결됩니다.</div>
+</div>
+
+<!-- 2 -->
+<div class="card">
+  <div class="rank">후보 2 — 생동감 승격 (애니메이션)</div>
+  <h2>Ninja Adventure Pack <span style="font-size:13px;color:#9aa3b5">by pixel-boy</span></h2>
+  <div class="meta">16×16 · 캐릭터 50+ (4방향 걷기 애니) · 몬스터 30+ · 음악/효과음 포함 · <a href="https://pixel-boy.itch.io/ninja-adventure-asset-pack">itch.io</a></div>
+  <div class="badges">
+    <span class="badge b-green">CC0 — 상업OK·크레딧 불요</span>
+    <span class="badge b-amber">그림체 교체 (일본풍·아기자기)</span>
+    <span class="badge b-amber">걷기 애니 코드 필요 (render.js 소폭)</span>
+  </div>
+  <div class="shots">
+    <img src="dev-preview/ninja_cover.gif" alt="Ninja Adventure 커버">
+    <img src="dev-preview/ninja_shot1.gif" alt="Ninja Adventure 게임 화면">
+  </div>
+  <div class="pros">
+    <div class="pro">정착민이 걸어다니는 애니메이션 — 생동감 최대 개선</div>
+    <div class="pro">습격 이벤트용 몬스터 스프라이트가 통째로 해결</div>
+    <div class="pro">BGM·효과음까지 CC0 — 사운드 로드맵 공짜</div>
+    <div class="pro">무료 팩 중 압도적 물량 (풀게임 제작 가능 수준)</div>
+    <div class="con">지형 타일은 Kenney보다 종류가 적은 편</div>
+    <div class="con">현 Tiny Town 그림체와 섞이면 이질감 → 전면 교체 권장</div>
+  </div>
+  <div class="verdict">"살아있는 콜로니" 느낌이 목표라면 최고의 선택. 후보 1(지형)과 조합해 캐릭터·몬스터·사운드만 가져오는 것도 가능합니다.</div>
+</div>
+
+<!-- 3 -->
+<div class="card">
+  <div class="rank">후보 3 — 화질 프리미엄 (전면 개편)</div>
+  <h2>Tiny Swords <span style="font-size:13px;color:#9aa3b5">by Pixel Frog</span></h2>
+  <div class="meta">64×64 그리드 · 유닛 애니메이션 10fps · 지형 고저+물 · <a href="https://pixelfrog-assets.itch.io/tiny-swords">itch.io</a></div>
+  <div class="badges">
+    <span class="badge b-green">무료 — 상업OK (재배포만 금지)</span>
+    <span class="badge b-red">그림체·스케일 전면 교체 (작업 큼)</span>
+    <span class="badge b-blue">스팀 게임급 비주얼</span>
+  </div>
+  <div class="shots">
+    <img src="dev-preview/tinyswords_cover.png" alt="Tiny Swords 커버">
+    <img src="dev-preview/tinyswords_shot1.gif" alt="Tiny Swords 게임 화면">
+  </div>
+  <div class="pros">
+    <div class="pro">네 후보 중 압도적 최고 화질 — 즉시 상용 게임 인상</div>
+    <div class="pro">물·해안·고저차 지형, 건물, 유닛, 파티클까지 한 세트</div>
+    <div class="pro">전략게임(콜로니/RTS) 감성에 정확히 부합</div>
+    <div class="con">64px 전환: TILE 상수·카메라·맵 스케일 개편 필요</div>
+    <div class="con">애니메이션 프레임 시스템 필수 (하루 정도 작업)</div>
+    <div class="con">농사·가구 등 콜로니 살림살이 스프라이트는 부족한 편</div>
+  </div>
+  <div class="verdict">"보는 맛"을 단번에 스팀급으로 올리는 길. 대신 이건 리스킨이 아니라 비주얼 리메이크 규모입니다.</div>
+</div>
+
+<!-- 4 -->
+<div class="card">
+  <div class="rank">후보 4 — 참고 (유료 전환 시)</div>
+  <h2>Cute Fantasy RPG <span style="font-size:13px;color:#9aa3b5">by Kenmi</span></h2>
+  <div class="meta">16×16 · 무료판 + 유료 풀버전 · <a href="https://kenmi-art.itch.io/cute-fantasy-rpg">itch.io</a></div>
+  <div class="badges">
+    <span class="badge b-red">무료판 비상업 전용 + 크레딧 필수</span>
+    <span class="badge b-amber">풀버전 유료 (~$5) 구매 시 상업 가능</span>
+  </div>
+  <div class="shots"><img src="dev-preview/cutefantasy_cover.gif" alt="Cute Fantasy 커버"></div>
+  <div class="pros">
+    <div class="pro">요즘 인기 그림체 (스타듀밸리풍 파스텔) — 실제 콜로니 심 게임들이 채택</div>
+    <div class="pro">캐릭터·동물 애니메이션, 물 타일 포함</div>
+    <div class="con">무료판으로는 스팀 출시 불가 (비상업 제한)</div>
+  </div>
+  <div class="verdict">그림체가 마음에 드시면 소액 결제로 열리는 옵션. 무료 원칙이면 제외.</div>
+</div>
+
+<div class="card" style="border-color: rgba(255,215,110,0.25)">
+  <h2>📋 탈락 후보 메모</h2>
+  <div style="font-size:13.5px; color:#b9c0d0; margin-top:8px">
+    <b>Mystic Woods</b> — 무료판은 노이즈 필터로 에셋이 가려져 있어 사용 불가 (사실상 데모).<br>
+    <b>Sprout Lands</b> — 무료판 비상업 전용. 그림체는 훌륭하나 Cute Fantasy와 포지션 중복.
+  </div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>시트 피커 v2 (개발용)</title>
+<style>
+  body { background:#14161c; color:#dfe3ee; font-family:monospace; margin:0; padding:10px; }
+  #grid { display:grid; gap:0; width:max-content; }
+  .hd { font-size:10px; color:#8ab6ff; text-align:center; background:#1b1f29; position:sticky; }
+  .hd.top { top:0; }
+  .rowhd { font-size:10px; color:#ffd76e; text-align:right; padding-right:4px; background:#1b1f29; position:sticky; left:0; display:flex; align-items:center; justify-content:flex-end; }
+  .cell { background-repeat:no-repeat; image-rendering:pixelated; outline:0.5px solid rgba(255,60,60,0.35); }
+  .cell.mark5 { outline:0.5px solid rgba(255,215,110,0.7); }
+</style>
+</head>
+<body>
+<div id="grid"></div>
+<script>
+  var q = new URLSearchParams(location.search);
+  var URL2 = q.get('u') || 'assets/rpg/roguelikeSheet_transparent.png';
+  var COLS = +(q.get('cols') || 57);
+  var ROWS = +(q.get('rows') || 31);
+  var SP = +(q.get('sp') || 1);
+  var PX = +(q.get('px') || 40);
+  var R0 = +(q.get('r0') || 0);
+  var R1 = +(q.get('r1') || ROWS - 1);
+  var C0 = +(q.get('c0') || 0);
+  var C1 = +(q.get('c1') || COLS - 1);
+  var SHEET_W = COLS * 16 + (COLS - 1) * SP;
+  var SHEET_H = ROWS * 16 + (ROWS - 1) * SP;
+  var k = PX / 16;
+  var nCols = C1 - C0 + 1;
+
+  var grid = document.getElementById('grid');
+  grid.style.gridTemplateColumns = '52px repeat(' + nCols + ', ' + PX + 'px)';
+
+  var corner = document.createElement('div');
+  corner.className = 'hd top';
+  grid.appendChild(corner);
+  for (var c = C0; c <= C1; c++) {
+    var h = document.createElement('div');
+    h.className = 'hd top';
+    h.textContent = (c % 2 === 0) ? c : '·';
+    grid.appendChild(h);
+  }
+  for (var r = R0; r <= R1; r++) {
+    var rh = document.createElement('div');
+    rh.className = 'rowhd';
+    rh.textContent = r;
+    rh.style.height = PX + 'px';
+    grid.appendChild(rh);
+    for (var c2 = C0; c2 <= C1; c2++) {
+      var cell = document.createElement('div');
+      cell.className = 'cell' + (c2 % 5 === 0 ? ' mark5' : '');
+      cell.style.width = PX + 'px';
+      cell.style.height = PX + 'px';
+      cell.style.backgroundImage = 'url(' + URL2 + ')';
+      cell.style.backgroundSize = (SHEET_W * k) + 'px ' + (SHEET_H * k) + 'px';
+      cell.style.backgroundPosition = (-(c2 * (16 + SP)) * k) + 'px ' + (-(r * (16 + SP)) * k) + 'px';
+      cell.title = 'r' + r + ' c' + c2 + ' = ' + (r * COLS + c2);
+      grid.appendChild(cell);
+    }
+  }
+</script>
+</body>
+</html>

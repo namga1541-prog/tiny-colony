@@ -52,9 +52,9 @@ export function findFoodJob(world, pawn) {
   if (cands.length === 0) {
     for (var j in world.objects) {
       var jj = +j;
-      if (world.objects[j].kind === 'mushroom' &&
+      if (world.objects[j].kind === 'berry' &&
           world.reserved['eat:' + jj] === undefined && reachable(world, jj)) {
-        cands.push({ type: 'eatMushroom', idx: jj });
+        cands.push({ type: 'eatBerry', idx: jj });
       }
     }
   }

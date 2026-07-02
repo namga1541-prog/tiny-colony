@@ -51,15 +51,25 @@ npx serve -p 5800 .
 
 ## 로드맵
 
-- [ ] 습격 이벤트 (야생동물·도적) + 전투
+- [x] ~~물·호수 지형~~ (v0.2 — Kenney RPG 팩 + 호숫가 오토타일)
+- [x] ~~정착민 걷기 애니메이션~~ (v0.2 — Ninja Adventure 4방향×4프레임)
+- [ ] 습격 이벤트 (야생동물·도적) + 전투 — Ninja Adventure 몬스터 스프라이트 확보됨
 - [ ] 농사 (밭 구역 → 파종 → 수확)
-- [ ] 요리·모닥불, 온도/계절
-- [ ] 물·강 타일 (에셋 추가 필요)
+- [ ] 요리·모닥불(타일 확보: rpg 13·14), 온도/계절
+- [ ] BGM·효과음 (Ninja Adventure 사운드 CC0)
 - [ ] 정착민 영입·특성·기분
 - [ ] 문(도어), 구역별 방 인식
 - [ ] 모바일 터치 조작
 
+## 개발 도구
+
+- `tiles.html` — town/dungeon 시트 인덱스 피커
+- `picker.html` — 파라미터형 시트 피커 (`?u=&cols=&rows=&sp=&px=&r0=&r1=&c0=&c1=`) — rpg 시트(57×31, 간격1px) 매핑에 사용
+- `candidates.html` — 에셋 팩 후보 비교 (2026-07-02 조사)
+- 헤드리스 스크린샷: Playwright는 `--use-gl=angle` 필수 (기본 GL이면 WebGL 캡처가 백지)
+
 ## 크레딧
 
-- 아트: [Kenney](https://kenney.nl) — Tiny Town, Tiny Dungeon (CC0)
+- 아트(지형·건축): [Kenney](https://kenney.nl) — Roguelike/RPG Pack, Tiny Town, Tiny Dungeon (CC0)
+- 아트(캐릭터): [pixel-boy — Ninja Adventure](https://pixel-boy.itch.io/ninja-adventure-asset-pack) (CC0)
 - 렌더링: [PixiJS](https://pixijs.com) 7 (MIT)

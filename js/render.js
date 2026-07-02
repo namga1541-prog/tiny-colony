@@ -1,7 +1,7 @@
 // PixiJS 렌더러: 지형·오브젝트·아이템·설계도·정착민·구역 오버레이·카메라
 /* global PIXI */
-import { TILE, MAP_W, MAP_H, SHEET, SPR } from './config.js';
-import { idx, ix, iy } from './world.js';
+import { TILE, MAP_W, MAP_H, SHEET, SPR, SHORE, GHOST_CHAR } from './config.js';
+import { idx, ix, iy, inMap, T_WATER } from './world.js';
 
 var SCALE = 3; // 16px 타일을 48px 로 표시 (기본 줌)
 
@@ -15,23 +15,48 @@ export function createRenderer(world) {
 
   PIXI.settings.SCALE_MODE = PIXI.SCALE_MODES.NEAREST;
 
-  var sheets = {
-    town: PIXI.BaseTexture.from(SHEET.town),
-    dungeon: PIXI.BaseTexture.from(SHEET.dungeon),
-  };
-  sheets.town.scaleMode = PIXI.SCALE_MODES.NEAREST;
-  sheets.dungeon.scaleMode = PIXI.SCALE_MODES.NEAREST;
+  var sheets = {};
+  for (var sk in SHEET) {
+    sheets[sk] = PIXI.BaseTexture.from(SHEET[sk].url);
+    sheets[sk].scaleMode = PIXI.SCALE_MODES.NEAREST;
+  }
 
   var texCache = {};
-  function tex(sprKey) {
-    if (texCache[sprKey]) return texCache[sprKey];
-    var def = SPR[sprKey];
-    var base = sheets[def[0]];
-    var i = def[1];
-    var col = i % 12, row = (i / 12) | 0;
-    var t = new PIXI.Texture(base, new PIXI.Rectangle(col * TILE, row * TILE, TILE, TILE));
-    texCache[sprKey] = t;
+  function texOf(sheetKey, i) {
+    var ck = sheetKey + ':' + i;
+    if (texCache[ck]) return texCache[ck];
+    var meta = SHEET[sheetKey];
+    var col = i % meta.cols, row = (i / meta.cols) | 0;
+    var step = TILE + meta.sp;
+    var t = new PIXI.Texture(sheets[sheetKey],
+      new PIXI.Rectangle(col * step, row * step, TILE, TILE));
+    texCache[ck] = t;
     return t;
+  }
+  function tex(sprKey) {
+    var def = SPR[sprKey];
+    return texOf(def[0], def[1]);
+  }
+
+  // ── 캐릭터 텍스처 (Ninja Adventure: Walk 4방향x4프레임, Idle 4방향) ──
+  var charCache = {};
+  function charTex(name) {
+    if (charCache[name]) return charCache[name];
+    var wb = PIXI.BaseTexture.from('assets/ninja/' + name + '/Walk.png');
+    var ib = PIXI.BaseTexture.from('assets/ninja/' + name + '/Idle.png');
+    wb.scaleMode = PIXI.SCALE_MODES.NEAREST;
+    ib.scaleMode = PIXI.SCALE_MODES.NEAREST;
+    var walk = [], idle = [];
+    for (var d = 0; d < 4; d++) {
+      idle.push(new PIXI.Texture(ib, new PIXI.Rectangle(d * TILE, 0, TILE, TILE)));
+      var frames = [];
+      for (var f = 0; f < 4; f++) {
+        frames.push(new PIXI.Texture(wb, new PIXI.Rectangle(d * TILE, f * TILE, TILE, TILE)));
+      }
+      walk.push(frames);
+    }
+    charCache[name] = { walk: walk, idle: idle };
+    return charCache[name];
   }
 
   // ── 레이어 ──
@@ -53,10 +78,35 @@ export function createRenderer(world) {
   app.stage.addChild(darkness);
 
   // ── 지형 (정적) ──
-  var TERRAIN_SPR = ['grass', 'grassDecor', 'grassFlower', 'dirt', 'dirtDecor'];
+  var TERRAIN_SPR = ['grass', 'grassDecor', 'flowerRed', 'dirt', 'dirtDecor', 'water', 'flowerWhite', 'flowerBlue'];
+
+  function isLandAt(x, y) {
+    if (!inMap(x, y)) return false; // 맵 밖은 물 취급 (호수는 경계에 안 닿음)
+    return world.terrain[idx(x, y)] !== T_WATER;
+  }
+
+  // 물 타일: 이웃 육지 방향에 따라 호숫가 전환 타일 선택
+  function waterTex(x, y) {
+    var n = isLandAt(x, y - 1), s = isLandAt(x, y + 1);
+    var w = isLandAt(x - 1, y), e = isLandAt(x + 1, y);
+    var key = null;
+    if (n && w) key = 'TL';
+    else if (n && e) key = 'TR';
+    else if (s && w) key = 'BL';
+    else if (s && e) key = 'BR';
+    else if (n) key = 'T';
+    else if (s) key = 'B';
+    else if (w) key = 'L';
+    else if (e) key = 'R';
+    if (!key) return tex('water');
+    return texOf(SHORE[key][0], SHORE[key][1]);
+  }
+
   for (var y = 0; y < MAP_H; y++) {
     for (var x = 0; x < MAP_W; x++) {
-      var s = new PIXI.Sprite(tex(TERRAIN_SPR[world.terrain[idx(x, y)]]));
+      var code = world.terrain[idx(x, y)];
+      var t2 = code === T_WATER ? waterTex(x, y) : tex(TERRAIN_SPR[code]);
+      var s = new PIXI.Sprite(t2);
       s.x = x * TILE; s.y = y * TILE;
       terrainLayer.addChild(s);
     }
@@ -68,7 +118,7 @@ export function createRenderer(world) {
   var bpSprites = {};
   var itemSprites = {};   // idx -> {spr, label}
 
-  var OBJ_SPR = { tree: 'treeGreen', treeO: 'treeOrange', rock: 'rock', mushroom: 'mushroom' };
+  var OBJ_SPR = { tree: 'treeGreen', treeO: 'treeOrange', pine: 'pine', rock: 'rock', berry: 'berry' };
   var ITEM_SPR = { wood: 'itemWood', stone: 'itemStone', food: 'itemFood' };
   var DESIG_COLOR = { chop: 0xff8844, mine: 0x66bbff, forage: 0x77dd66 };
 
@@ -190,10 +240,11 @@ export function createRenderer(world) {
     refreshZones();
   }
 
-  // ── 정착민 ──
+  // ── 정착민 (4방향 걷기 애니메이션) ──
   var pawnSprites = {};
   function addPawn(pawn) {
-    var s = new PIXI.Sprite(tex(pawn.spr));
+    var ct = charTex(pawn.char);
+    var s = new PIXI.Sprite(ct.idle[0]);
     s.anchor.set(0.5, 0.6);
     pawnLayer.addChild(s);
     var zzz = new PIXI.Text('💤', { fontSize: 26 });
@@ -213,10 +264,24 @@ export function createRenderer(world) {
     if (!e) return;
     e.spr.x = (pawn.px + 0.5) * TILE;
     e.spr.y = (pawn.py + 0.5) * TILE;
-    if (pawn.state === 'dead' && e.spr.texture !== tex('ghost')) {
-      e.spr.texture = tex('ghost');
-      e.spr.alpha = 0.75;
+
+    var dir = pawn.dir || 0;
+    var t;
+    if (pawn.state === 'dead') {
+      t = charTex(GHOST_CHAR).idle[0];
+      e.spr.alpha = 0.7;
+    } else if (pawn.state === 'moving') {
+      var frame = ((performance.now() / 140) | 0) % 4;
+      t = charTex(pawn.char).walk[dir][frame];
+    } else if (pawn.state === 'working' || pawn.state === 'eating') {
+      // 작업 중엔 두 프레임을 번갈아 살짝 움직이는 느낌
+      var f2 = ((performance.now() / 260) | 0) % 2;
+      t = charTex(pawn.char).walk[dir][f2 * 2];
+    } else {
+      t = charTex(pawn.char).idle[dir];
     }
+    if (e.spr.texture !== t) e.spr.texture = t;
+
     e.zzz.visible = pawn.state === 'sleeping';
     e.zzz.x = e.spr.x + 3; e.zzz.y = e.spr.y - TILE * 0.95;
     if (pawn.carry) {

@@ -15,7 +15,8 @@ export function createPawn(id, def, x, y) {
   return {
     id: id,
     name: def.name,
-    spr: def.spr,
+    char: def.char,
+    dir: 0,              // 0 하 / 1 상 / 2 좌 / 3 우
     x: x, y: y,          // 논리 위치 (타일)
     px: x, py: y,        // 표시 위치 (부드러운 이동)
     hunger: 85, energy: 85, hp: 100,
@@ -36,7 +37,7 @@ export function taskLabel(pawn) {
   var j = pawn.job;
   if (!j) return '🌿 대기 중';
   var names = {
-    eat: '식량 가지러 가는 중', eatMushroom: '버섯 먹으러 가는 중',
+    eat: '식량 가지러 가는 중', eatBerry: '열매 먹으러 가는 중',
     sleepBed: '침대로 가는 중', sleepGround: '잘 곳 찾는 중',
     build: '건설 중', deliver: '자재 운반 중',
     gather: '채취 작업 중', haul: '자원 정리 중',
@@ -84,6 +85,8 @@ function moveStep(world, pawn, dtMin, ctx) {
       return;
     }
     var dx = next.x - pawn.px, dy = next.y - pawn.py;
+    if (Math.abs(dx) >= Math.abs(dy)) pawn.dir = dx >= 0 ? 3 : 2;
+    else pawn.dir = dy >= 0 ? 0 : 1;
     var d = Math.abs(dx) + Math.abs(dy);
     if (d <= budget) {
       budget -= d;
@@ -105,7 +108,7 @@ function moveStep(world, pawn, dtMin, ctx) {
 
 function jobAdjacentOk(world, job) {
   if (!job) return false;
-  if (job.type === 'gather' || job.type === 'build' || job.type === 'eatMushroom') return true;
+  if (job.type === 'gather' || job.type === 'build' || job.type === 'eatBerry') return true;
   if (job.type === 'deliver' && job.stage === 'toBp') return true;
   return false;
 }
@@ -123,11 +126,11 @@ function onArrive(world, pawn, ctx) {
       pawn.workLeft = 6; // 6 게임분 식사
       break;
     }
-    case 'eatMushroom': {
+    case 'eatBerry': {
       var o = world.objects[j.idx];
-      if (!o || o.kind !== 'mushroom') return abandonJob(world, pawn);
+      if (!o || o.kind !== 'berry') return abandonJob(world, pawn);
       pawn.state = 'working';
-      pawn.workLeft = NATURE.mushroom.work;
+      pawn.workLeft = NATURE.berry.work;
       break;
     }
     case 'sleepBed': {
@@ -234,13 +237,13 @@ function finishWork(world, pawn, ctx) {
   var here;
   if (!j) { pawn.state = 'idle'; return; }
 
-  if (j.type === 'gather' || j.type === 'eatMushroom') {
+  if (j.type === 'gather' || j.type === 'eatBerry') {
     var o = world.objects[j.idx];
     if (o) {
       var def = natureDef(o.kind);
       delete world.objects[j.idx];
       delete world.designations[j.idx];
-      if (j.type === 'eatMushroom') {
+      if (j.type === 'eatBerry') {
         pawn.hunger = Math.min(100, pawn.hunger + NEEDS.eatAmount);
       } else {
         for (var t in def.drops) addItem(world, j.idx, t, def.drops[t]);
@@ -357,7 +360,7 @@ function think(world, pawn, dtMin, ctx) {
     var fj = findFoodJob(world, pawn);
     if (fj) {
       pawn.job = fj;
-      var adjOk = fj.type === 'eatMushroom';
+      var adjOk = fj.type === 'eatBerry';
       if (!goTo(world, pawn, fj.idx, adjOk)) return abandonJob(world, pawn);
       return;
     }

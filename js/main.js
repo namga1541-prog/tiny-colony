@@ -28,7 +28,7 @@ if (saved) {
   world.timeMin = saved.timeMin;
   world.day = saved.day;
   pawns = saved.pawns.map(function (p) {
-    var pw = createPawn(p.id, { name: p.name, spr: p.spr }, p.x, p.y);
+    var pw = createPawn(p.id, { name: p.name, char: p.char }, p.x, p.y);
     pw.hunger = p.hunger; pw.energy = p.energy; pw.hp = p.hp;
     pw.carry = p.carry || null;
     if (p.dead) pw.state = 'dead';
@@ -124,11 +124,11 @@ function applyTool(tool, a, b) {
   var res = totalRes(world);
 
   if (tool === 'chop' || tool === 'mine' || tool === 'forage') {
-    var want = { chop: 'tree', mine: 'rock', forage: 'mushroom' }[tool];
+    var want = { chop: 'tree', mine: 'rock', forage: 'berry' }[tool];
     forRect(a, b, function (i) {
       var o = world.objects[i];
       if (!o) return;
-      var kind = o.kind === 'treeO' ? 'tree' : o.kind;
+      var kind = (o.kind === 'treeO' || o.kind === 'pine') ? 'tree' : o.kind;
       if (kind === want && !world.designations[i]) {
         world.designations[i] = tool;
         count++;
