@@ -36,6 +36,9 @@ export function createRenderer(world) {
     base[n] = PIXI.BaseTexture.from(TS + n + '.png');
     base[n].scaleMode = PIXI.SCALE_MODES.NEAREST;
   });
+  // 건물 전용: Kenney Tiny Town 타일맵(16px, 12x11) — 건물별 고유 스프라이트 크롭용
+  base.TinyTown = PIXI.BaseTexture.from('assets/town/Tilemap/tilemap_packed.png');
+  base.TinyTown.scaleMode = PIXI.SCALE_MODES.NEAREST;
 
   var texCache = {};
   function tx(n, x, y, w, h) {
@@ -241,6 +244,9 @@ export function createRenderer(world) {
     if (b.kind === 'bridge') return tx('Bridge_All', 0, 0, 192, 64);
     if (b.kind === 'campfire') return fireFrames[0];
     var def = BUILDS[b.kind];
+    if (def.town) { // Tiny Town 고유 건물 스프라이트 (타일맵에서 크롭)
+      return tx('TinyTown', def.town.sx, def.town.sy, def.town.sw, def.town.sh);
+    }
     if (b.stage === 'bp' && bpMissing(b) === null) {
       return tx(def.imgC, 0, 0, def.pw, def.ph); // 자재 완비 → 공사 중 모습
     }
@@ -306,8 +312,13 @@ export function createRenderer(world) {
       e.alpha = 1;
       e.tint = b.kind === 'ironmine' ? 0xaab4c2 : (def.tint || 0xffffff);
     }
-    // 창고 업그레이드 단계: 단계가 오를수록 조금씩 커 보이게 (앵커가 바닥이라 자연스럽게 위로 자람)
-    if (b.kind === 'warehouse') {
+    // Tiny Town 건물: 소스 크롭을 풋프린트 폭(fw*TILE)에 맞춰 확대 (16px→표시 크기)
+    if (def.town) {
+      var tScale = (def.fw * TILE) / def.town.sw;
+      if (b.kind === 'warehouse') tScale *= 1 + ((b.tier || 1) - 1) * 0.08; // 창고 단계 확대 유지
+      e.scale.set(tScale);
+    } else if (b.kind === 'warehouse') {
+      // 창고 업그레이드 단계: 단계가 오를수록 조금씩 커 보이게 (앵커가 바닥이라 자연스럽게 위로 자람)
       var wScale = 1 + ((b.tier || 1) - 1) * 0.08;
       e.scale.set(wScale);
     } else if (e.scale.x !== 1 || e.scale.y !== 1) {

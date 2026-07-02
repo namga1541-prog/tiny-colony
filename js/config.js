@@ -16,6 +16,7 @@ export const BUILDS = {
     name: '집', cost: { wood: 10 }, work: 60,
     fw: 2, fh: 2, solid: true, light: true,
     img: 'House', imgC: 'House_C', pw: 128, ph: 192,
+    town: { sx: 0, sy: 64, sw: 64, sh: 64 }, // Tiny Town 회색지붕 집
     desc: '정착촌의 기본 건물입니다.',
   },
   smithy: {
@@ -28,7 +29,8 @@ export const BUILDS = {
   warehouse: {
     name: '창고', cost: { wood: 12 }, work: 55,
     fw: 2, fh: 2, solid: true,
-    img: 'House', imgC: 'House_C', pw: 128, ph: 192, tint: 0xe0c088,
+    img: 'House', imgC: 'House_C', pw: 128, ph: 192,
+    town: { sx: 64, sy: 64, sw: 64, sh: 64 }, // Tiny Town 빨간지붕 석조집
     desc: '저장 용량을 크게 늘립니다.',
   },
   tower: {
@@ -49,6 +51,7 @@ export const BUILDS = {
     name: '성', cost: { wood: 30, gold: 10 }, work: 150,
     fw: 5, fh: 3, solid: true, light: true,
     img: 'Castle', imgC: 'Castle_C', pw: 320, ph: 256,
+    town: { sx: 0, sy: 128, sw: 80, sh: 48 }, // Tiny Town 석조 성문
     attack: { power: 18, range: 8, cd: 10 },
     desc: '콜로니의 심장. 넓은 사거리로 강력하게 방어합니다.',
   },
