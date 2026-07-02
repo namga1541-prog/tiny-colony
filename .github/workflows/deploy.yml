@@ -1,0 +1,40 @@
+name: Deploy static site to GitHub Pages
+
+# 정적 사이트를 GitHub Actions 로 명시 배포한다.
+# 레거시 "브랜치에서 배포"가 멈추던 문제(배포 반영 안 됨) 해결 + 향후 신뢰성 확보.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 동시 배포 1건으로 제한 (진행 중 배포는 유지, 대기 중은 최신으로 교체)
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+        with:
+          # 소스가 "브랜치에서 배포"였어도 Actions 로 전환·활성화
+          enablement: true
+      - name: Upload artifact (repo root as-is)
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
