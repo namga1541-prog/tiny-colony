@@ -1,17 +1,18 @@
-// 부팅·게임 루프·입력 처리
+// v0.3 부팅·게임 루프·입력
 import {
   MAP_W, MAP_H, MIN_PER_SEC, DAY_MIN, SPEED_MULT, BUILDS, PAWN_DEFS,
 } from './config.js';
 import {
-  createWorld, mulberry32, idx, ix, iy, isWalkable, isBuildableAt,
-  addItem, totalRes, dailyRegrowth,
+  createWorld, mulberry32, idx, ix, iy, isWalkable, footprintClear,
+  addBuilding, removeBuilding, buildingDef, addItem, totalRes, dailyRegrowth,
+  updateSheep,
 } from './world.js';
 import { createPawn, updatePawn } from './pawns.js';
 import { createRenderer } from './render.js';
 import { createUI } from './ui.js';
 import { saveGame, loadSaveData, clearSave } from './save.js';
 
-// ── 월드 준비 (저장본 있으면 복원) ──
+// ── 월드 준비 ──
 var world, pawns;
 var saved = loadSaveData();
 
@@ -19,16 +20,19 @@ if (saved) {
   world = createWorld(saved.seed);
   world.terrain = Uint8Array.from(saved.terrain);
   world.objects = saved.objects;
-  world.built = saved.built;
-  world.blueprints = saved.blueprints;
+  world.buildings = saved.buildings;
+  world.occupancy = saved.occupancy;
+  world.nextBid = saved.nextBid;
   world.items = saved.items;
   world.stockpile = saved.stockpile;
   world.designations = saved.designations;
+  world.mineDesig = saved.mineDesig || {};
+  world.sheep = saved.sheep || [];
   world.reserved = {};
   world.timeMin = saved.timeMin;
   world.day = saved.day;
   pawns = saved.pawns.map(function (p) {
-    var pw = createPawn(p.id, { name: p.name, char: p.char }, p.x, p.y);
+    var pw = createPawn(p.id, { name: p.name, color: p.color }, p.x, p.y);
     pw.hunger = p.hunger; pw.energy = p.energy; pw.hp = p.hp;
     pw.carry = p.carry || null;
     if (p.dead) pw.state = 'dead';
@@ -38,7 +42,7 @@ if (saved) {
   world = createWorld((Math.random() * 1e9) | 0);
   var cx = MAP_W / 2, cy = MAP_H / 2;
   pawns = PAWN_DEFS.map(function (def, n) {
-    return createPawn(n, def, cx - 1 + n, cy);
+    return createPawn(n, def, cx - 1 + n, cy + 1);
   });
 }
 
@@ -75,14 +79,37 @@ function setSpeed(s) {
   UI.setSpeedUI(s);
 }
 
-// ── 정착민 컨텍스트 콜백 ──
+// ── 콜백 ──
 var starveToastCd = {};
 var ctx = {
   rng: ambientRng,
   onWorldChange: function (i) { R.refreshTile(i); R.refreshZones(); },
   onItemChange: function (i) { R.refreshItem(i); },
+  onBuildingChange: function (b) { R.refreshBuilding(b); },
+  onBuildingBuilt: function (b) {
+    // 완공된 건물 풋프린트에 서 있던 정착민 밀어내기
+    var def = buildingDef(b.kind);
+    if (!def.solid) return;
+    pawns.forEach(function (p) {
+      if (p.x >= b.x && p.x < b.x + def.fw && p.y >= b.y && p.y < b.y + def.fh) {
+        for (var r = 1; r <= 3; r++) {
+          for (var dy = -r; dy <= r; dy++) {
+            for (var dx = -r; dx <= r; dx++) {
+              if (isWalkable(world, p.x + dx, p.y + dy)) {
+                p.x += dx; p.y += dy; p.px = p.x; p.py = p.y;
+                p.path = null;
+                return;
+              }
+            }
+          }
+        }
+      }
+    });
+  },
+  onEvent: function (msg) { UI.addEvent(msg); },
   onDeath: function (pawn) {
     UI.toast('💀 ' + pawn.name + ' 이(가) 굶주림으로 사망했습니다...', true);
+    UI.addEvent('💀 ' + pawn.name + ' 사망');
     R.updatePawnSprite(pawn);
   },
   onStarving: function (pawn) {
@@ -91,22 +118,6 @@ var ctx = {
       starveToastCd[pawn.id] = now;
       UI.toast('⚠️ ' + pawn.name + ' 이(가) 굶주리고 있습니다! 식량이 필요합니다', true);
     }
-  },
-  onWallBuilt: function (i) {
-    // 벽이 완성된 칸에 서 있는 정착민을 인접 칸으로 밀어냄
-    pawns.forEach(function (p) {
-      if (p.x === ix(i) && p.y === iy(i)) {
-        var dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
-        for (var d = 0; d < 4; d++) {
-          var nx = p.x + dirs[d][0], ny = p.y + dirs[d][1];
-          if (isWalkable(world, nx, ny)) {
-            p.x = nx; p.y = ny; p.px = nx; p.py = ny;
-            p.path = null;
-            break;
-          }
-        }
-      }
-    });
   },
 };
 
@@ -123,31 +134,50 @@ function applyTool(tool, a, b) {
   var count = 0;
   var res = totalRes(world);
 
-  if (tool === 'chop' || tool === 'mine' || tool === 'forage') {
-    var want = { chop: 'tree', mine: 'rock', forage: 'berry' }[tool];
+  if (tool === 'chop' || tool === 'forage') {
+    var want = tool === 'chop' ? 'tree' : 'mushroom';
     forRect(a, b, function (i) {
       var o = world.objects[i];
-      if (!o) return;
-      var kind = (o.kind === 'treeO' || o.kind === 'pine') ? 'tree' : o.kind;
-      if (kind === want && !world.designations[i]) {
+      if (o && o.kind === want && !world.designations[i]) {
         world.designations[i] = tool;
         count++;
       }
     });
-    if (count) UI.toast({ chop: '🪓 벌목', mine: '⛏️ 채굴', forage: '🧺 채집' }[tool] + ' ' + count + '건 지시');
+    if (count) UI.toast((tool === 'chop' ? '🪓 벌목' : '🧺 채집') + ' ' + count + '건 지시');
+  }
+
+  else if (tool === 'mine') {
+    var seen = {};
+    forRect(a, b, function (i) {
+      var bid = world.occupancy[i];
+      if (bid === undefined || seen[bid]) return;
+      seen[bid] = 1;
+      var bld = world.buildings[bid];
+      if (bld && bld.kind === 'goldmine' && !bld.depleted && !world.mineDesig[bid]) {
+        world.mineDesig[bid] = true;
+        count++;
+      }
+    });
+    if (count) UI.toast('⛏️ 금광 ' + count + '곳 채굴 지시');
+    else UI.toast('⚠️ 범위에 채굴할 금광이 없습니다', true);
   }
 
   else if (tool === 'cancel') {
     forRect(a, b, function (i) {
       if (world.designations[i]) { delete world.designations[i]; count++; }
-      var bp = world.blueprints[i];
-      if (bp) {
-        for (var t in bp.delivered) {
-          if (bp.delivered[t] > 0) addItem(world, i, t, bp.delivered[t]);
+      var bid = world.occupancy[i];
+      if (bid !== undefined) {
+        var bld = world.buildings[bid];
+        if (bld && world.mineDesig[bid]) { delete world.mineDesig[bid]; count++; }
+        if (bld && bld.stage === 'bp') {
+          for (var t in bld.delivered) {
+            if (bld.delivered[t] > 0) addItem(world, idx(bld.x, bld.y + buildingDef(bld.kind).fh - 1), t, bld.delivered[t]);
+          }
+          removeBuilding(world, bld);
+          R.removeBuildingSprite(bld.id);
+          R.refreshItem(idx(bld.x, bld.y + buildingDef(bld.kind).fh - 1));
+          count++;
         }
-        delete world.blueprints[i];
-        R.refreshTile(i); R.refreshItem(i);
-        count++;
       }
     });
     if (count) UI.toast('✖️ ' + count + '건 취소');
@@ -155,7 +185,7 @@ function applyTool(tool, a, b) {
 
   else if (tool === 'stockpile') {
     forRect(a, b, function (i, x, y) {
-      if (!world.stockpile[i] && isWalkable(world, x, y) && !world.blueprints[i]) {
+      if (!world.stockpile[i] && isWalkable(world, x, y) && world.occupancy[i] === undefined) {
         world.stockpile[i] = true;
         count++;
       }
@@ -164,17 +194,23 @@ function applyTool(tool, a, b) {
   }
 
   else if (tool === 'demolish') {
+    var seenD = {};
     forRect(a, b, function (i) {
       if (world.stockpile[i]) { delete world.stockpile[i]; count++; }
-      var bd = world.built[i];
-      if (bd) {
-        var cost = BUILDS[bd.kind].cost;
+      var bid = world.occupancy[i];
+      if (bid === undefined || seenD[bid]) return;
+      seenD[bid] = 1;
+      var bld = world.buildings[bid];
+      if (bld && bld.stage === 'built' && !bld.natural) {
+        var cost = BUILDS[bld.kind].cost;
+        var dropAt = idx(bld.x, bld.y + buildingDef(bld.kind).fh - 1);
         for (var t in cost) {
           var back = Math.floor(cost[t] / 2);
-          if (back > 0) addItem(world, i, t, back);
+          if (back > 0) addItem(world, dropAt, t, back);
         }
-        delete world.built[i];
-        R.refreshTile(i); R.refreshItem(i);
+        removeBuilding(world, bld);
+        R.removeBuildingSprite(bld.id);
+        R.refreshItem(dropAt);
         count++;
       }
     });
@@ -182,36 +218,30 @@ function applyTool(tool, a, b) {
   }
 
   else if (BUILDS[tool]) {
-    // 침대는 1개씩만 배치
-    if (tool === 'bed') { b = a; }
-    var totalNeeded = {};
-    forRect(a, b, function (i, x, y) {
-      if (!isBuildableAt(world, i)) return;
-      if (!isWalkable(world, x, y)) return;
-      world.blueprints[i] = { kind: tool, delivered: {}, work: 0 };
-      R.refreshTile(i);
-      count++;
-      var cost = BUILDS[tool].cost;
-      for (var t in cost) totalNeeded[t] = (totalNeeded[t] || 0) + cost[t];
-    });
-    if (count) {
-      var needStr = Object.keys(totalNeeded).map(function (t) {
-        var name = { wood: '목재', stone: '석재' }[t] || t;
-        var lack = totalNeeded[t] > (res[t] || 0) ? ' (부족!)' : '';
-        return name + ' ' + totalNeeded[t] + lack;
+    var def = BUILDS[tool];
+    var px = Math.min(a.x, b.x), py = Math.min(a.y, b.y);
+    if (!footprintClear(world, px, py, def.fw, def.fh, false)) {
+      UI.toast('⚠️ 그 위치에는 지을 수 없습니다 (' + def.fw + '×' + def.fh + ' 필요)', true);
+    } else {
+      var bNew = addBuilding(world, tool, px, py);
+      R.refreshBuilding(bNew);
+      var needStr = Object.keys(def.cost).map(function (t) {
+        var nm = { wood: '목재', gold: '금' }[t] || t;
+        var lack = def.cost[t] > (res[t] || 0) ? ' (부족!)' : '';
+        return nm + ' ' + def.cost[t] + lack;
       }).join(', ');
-      UI.toast('📐 ' + BUILDS[tool].name + ' ' + count + '칸 설계 — ' + needStr);
+      UI.toast('📐 ' + def.name + ' 설계 — ' + needStr);
     }
   }
 
   R.refreshZones();
 }
 
-// ── 입력 (마우스) ──
+// ── 마우스 입력 ──
 var canvas = R.app.view;
 var panning = false;
 var panStart = null;
-var dragStart = null;   // 좌클릭 드래그 시작 타일
+var dragStart = null;
 
 canvas.addEventListener('contextmenu', function (e) { e.preventDefault(); });
 
@@ -225,13 +255,10 @@ canvas.addEventListener('mousedown', function (e) {
     var t = R.screenToTile(e.clientX, e.clientY);
     var tool = UI.getTool();
     if (tool === 'select') {
-      // 클릭 지점 근처 정착민 선택
       var hit = null;
       pawns.forEach(function (p) {
-        if (Math.abs(p.px - t.x) <= 1 && Math.abs(p.py - t.y) <= 1) {
-          var d = Math.hypot(p.px + 0.5 - (t.x + 0.5), p.py + 0.5 - (t.y + 0.5));
-          if (d < 0.9 && (!hit || d < hit.d)) hit = { p: p, d: d };
-        }
+        var d = Math.hypot(p.px - t.x, p.py - t.y);
+        if (d < 1.1 && (!hit || d < hit.d)) hit = { p: p, d: d };
       });
       selectedPawn = hit ? hit.p : null;
       R.setSelected(selectedPawn);
@@ -250,9 +277,16 @@ window.addEventListener('mousemove', function (e) {
     R.applyCamera();
     return;
   }
+  var tool = UI.getTool();
   if (dragStart) {
     var t = R.screenToTile(e.clientX, e.clientY);
     R.showDrag(dragStart.x, dragStart.y, t.x, t.y, 0x8ab6ff);
+  } else if (BUILDS[tool]) {
+    // 건설 도구: 풋프린트 미리보기
+    var t2 = R.screenToTile(e.clientX, e.clientY);
+    var def = BUILDS[tool];
+    var ok = footprintClear(world, t2.x, t2.y, def.fw, def.fh, false);
+    R.showDrag(t2.x, t2.y, t2.x + def.fw - 1, t2.y + def.fh - 1, ok ? 0x7dffb0 : 0xff6b81);
   }
 });
 
@@ -276,14 +310,13 @@ canvas.addEventListener('wheel', function (e) {
   var factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
   R.cam.zoom *= factor;
   R.applyCamera();
-  // 커서 위치 고정 줌
   var t2 = R.screenToTile(e.clientX, e.clientY);
-  R.cam.x += (t2.x - t.x) * 16 * R.cam.zoom;
-  R.cam.y += (t2.y - t.y) * 16 * R.cam.zoom;
+  R.cam.x += (t2.x - t.x) * 64 * R.cam.zoom;
+  R.cam.y += (t2.y - t.y) * 64 * R.cam.zoom;
   R.applyCamera();
 }, { passive: false });
 
-// ── 입력 (키보드) ──
+// ── 키보드 ──
 var keys = {};
 window.addEventListener('keydown', function (e) {
   keys[e.code] = true;
@@ -297,49 +330,39 @@ window.addEventListener('keydown', function (e) {
 });
 window.addEventListener('keyup', function (e) { keys[e.code] = false; });
 
-// ── 밤 어둡기 ──
-function darknessFor(timeMin) {
-  var h = (timeMin % DAY_MIN) / 60;
-  if (h >= 21 && h < 23) return 0.55 * (h - 21) / 2;
-  if (h >= 23 || h < 4) return 0.55;
-  if (h >= 4 && h < 6) return 0.55 * (1 - (h - 4) / 2);
-  return 0;
-}
-
 // ── 게임 루프 ──
 var hudTimer = 0;
 R.app.ticker.add(function () {
   var realSec = R.app.ticker.deltaMS / 1000;
 
-  // 카메라 키 이동
   var panSpd = 900 * realSec;
   if (keys.KeyW || keys.ArrowUp) { R.cam.y += panSpd; R.applyCamera(); }
   if (keys.KeyS || keys.ArrowDown) { R.cam.y -= panSpd; R.applyCamera(); }
   if (keys.KeyA || keys.ArrowLeft) { R.cam.x += panSpd; R.applyCamera(); }
   if (keys.KeyD || keys.ArrowRight) { R.cam.x -= panSpd; R.applyCamera(); }
 
-  // 시뮬레이션
   var gameMin = Math.min(30, realSec * MIN_PER_SEC * SPEED_MULT[speed]);
   var prevDay = world.day;
   while (gameMin > 0) {
     var dt = Math.min(1, gameMin);
     gameMin -= dt;
     world.timeMin += dt;
-    world.day = 1 + Math.floor(world.timeMin / DAY_MIN) - Math.floor((8 * 60) / DAY_MIN);
+    world.day = 1 + Math.floor(world.timeMin / DAY_MIN);
     for (var n = 0; n < pawns.length; n++) updatePawn(world, pawns[n], dt, ctx);
+    updateSheep(world, dt, ambientRng);
   }
   if (world.day !== prevDay) {
     UI.toast('🌅 ' + world.day + '일차 아침이 밝았습니다');
+    UI.addEvent('🌅 ' + world.day + '일차');
     var regrown = dailyRegrowth(world, mulberry32(world.seed + world.day));
     regrown.forEach(function (i) { R.refreshTile(i); });
   }
 
-  // 렌더 동기화
+  R.tick(realSec);
   for (var m = 0; m < pawns.length; m++) R.updatePawnSprite(pawns[m]);
   R.tickSelection();
-  R.setDarkness(darknessFor(world.timeMin));
+  R.setTimeOfDay((world.timeMin % DAY_MIN) / 60);
 
-  // HUD 갱신 (0.25초마다)
   hudTimer += realSec;
   if (hudTimer > 0.25) {
     hudTimer = 0;
@@ -350,12 +373,11 @@ R.app.ticker.add(function () {
   }
 });
 
-// 첫 안내
 if (!saved) {
   setTimeout(function () {
-    UI.toast('🏕️ 정착민 3명이 도착했습니다. 나무를 벌목하고 비축 구역을 지정해 보세요!');
+    UI.toast('🏝️ 정착민 3명이 섬에 도착했습니다. 나무를 벌목하고 집을 지어 보세요!');
+    UI.addEvent('🏝️ 섬에 도착했습니다');
   }, 600);
 }
 
-// 디버그 훅 (개발용)
 window.game = { world: world, pawns: pawns, R: R, applyTool: applyTool, setSpeed: setSpeed };

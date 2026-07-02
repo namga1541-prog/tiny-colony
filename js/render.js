@@ -1,201 +1,251 @@
-// PixiJS 렌더러: 지형·오브젝트·아이템·설계도·정착민·구역 오버레이·카메라
+// v0.3 렌더러 (Tiny Swords): 지형·거품·건물·유닛 애니메이션·조명·색보정
 /* global PIXI */
-import { TILE, MAP_W, MAP_H, SHEET, SPR, SHORE, GHOST_CHAR } from './config.js';
-import { idx, ix, iy, inMap, T_WATER } from './world.js';
-
-var SCALE = 3; // 16px 타일을 48px 로 표시 (기본 줌)
+import {
+  TILE, MAP_W, MAP_H, TS, BUILDS, PAWN_SHEET_ROWS,
+  ZOOM_DEFAULT, ZOOM_MIN, ZOOM_MAX,
+} from './config.js';
+import {
+  idx, ix, iy, inMap, T_WATER, T_GRASS, T_SAND, buildingDef,
+} from './world.js';
+import { poseOf } from './pawns.js';
+import { bpMissing } from './jobs.js';
 
 export function createRenderer(world) {
   var app = new PIXI.Application({
     resizeTo: window,
-    background: 0x2a3b28,
+    background: 0x47abc8, // 바다색
     antialias: false,
   });
   document.getElementById('stage').appendChild(app.view);
-
   PIXI.settings.SCALE_MODE = PIXI.SCALE_MODES.NEAREST;
 
-  var sheets = {};
-  for (var sk in SHEET) {
-    sheets[sk] = PIXI.BaseTexture.from(SHEET[sk].url);
-    sheets[sk].scaleMode = PIXI.SCALE_MODES.NEAREST;
-  }
+  // ── 베이스 텍스처 ──
+  var SHEETS = ['Tilemap_Flat', 'Water', 'Foam', 'Tree', 'Fire', 'Sheep_Idle', 'Dead',
+    'House', 'House_C', 'Tower', 'Tower_C', 'Castle', 'Castle_C',
+    'GoldMine_Active', 'GoldMine_Destroyed',
+    'W_Idle', 'G_Idle', 'M_Idle',
+    'Pawn_Blue', 'Pawn_Red', 'Pawn_Yellow', 'Pawn_Purple',
+    'deco03'];
+  var base = {};
+  SHEETS.forEach(function (n) {
+    base[n] = PIXI.BaseTexture.from(TS + n + '.png');
+    base[n].scaleMode = PIXI.SCALE_MODES.NEAREST;
+  });
 
   var texCache = {};
-  function texOf(sheetKey, i) {
-    var ck = sheetKey + ':' + i;
-    if (texCache[ck]) return texCache[ck];
-    var meta = SHEET[sheetKey];
-    var col = i % meta.cols, row = (i / meta.cols) | 0;
-    var step = TILE + meta.sp;
-    var t = new PIXI.Texture(sheets[sheetKey],
-      new PIXI.Rectangle(col * step, row * step, TILE, TILE));
-    texCache[ck] = t;
-    return t;
-  }
-  function tex(sprKey) {
-    var def = SPR[sprKey];
-    return texOf(def[0], def[1]);
+  function tx(n, x, y, w, h) {
+    var k = n + ':' + x + ':' + y + ':' + w + ':' + h;
+    if (!texCache[k]) {
+      texCache[k] = new PIXI.Texture(base[n], new PIXI.Rectangle(x, y, w, h));
+    }
+    return texCache[k];
   }
 
-  // ── 캐릭터 텍스처 (Ninja Adventure: Walk 4방향x4프레임, Idle 4방향) ──
-  var charCache = {};
-  function charTex(name) {
-    if (charCache[name]) return charCache[name];
-    var wb = PIXI.BaseTexture.from('assets/ninja/' + name + '/Walk.png');
-    var ib = PIXI.BaseTexture.from('assets/ninja/' + name + '/Idle.png');
-    wb.scaleMode = PIXI.SCALE_MODES.NEAREST;
-    ib.scaleMode = PIXI.SCALE_MODES.NEAREST;
-    var walk = [], idle = [];
-    for (var d = 0; d < 4; d++) {
-      idle.push(new PIXI.Texture(ib, new PIXI.Rectangle(d * TILE, 0, TILE, TILE)));
-      var frames = [];
-      for (var f = 0; f < 4; f++) {
-        frames.push(new PIXI.Texture(wb, new PIXI.Rectangle(d * TILE, f * TILE, TILE, TILE)));
-      }
-      walk.push(frames);
-    }
-    charCache[name] = { walk: walk, idle: idle };
-    return charCache[name];
+  // 지형 오토타일 (잔디 ox=0, 모래 ox=320)
+  function groundTex(kind, up, dn, lf, rt) {
+    var ox = kind === T_SAND ? 320 : 0;
+    var col = (!lf && rt) ? 0 : (lf && rt) ? 1 : (lf && !rt) ? 2 : 3;
+    var row = (!up && dn) ? 0 : (up && dn) ? 1 : (up && !dn) ? 2 : 3;
+    if (col === 3 && row !== 3) row = Math.min(row, 2);
+    if (row === 3 && col !== 3) col = Math.min(col, 2);
+    return tx('Tilemap_Flat', ox + col * 64, row * 64, 64, 64);
+  }
+
+  var foamFrames = [], treeFrames = [], fireFrames = [], sheepFrames = [];
+  for (var ff = 0; ff < 8; ff++) foamFrames.push(tx('Foam', ff * 192, 0, 192, 192));
+  for (var tf = 0; tf < 4; tf++) treeFrames.push(tx('Tree', tf * 192, 0, 192, 192));
+  var stumpTex = tx('Tree', 0, 384, 192, 192);
+  for (var fi = 0; fi < 7; fi++) fireFrames.push(tx('Fire', fi * 128, 0, 128, 128));
+  for (var sf = 0; sf < 8; sf++) sheepFrames.push(tx('Sheep_Idle', sf * 128, 0, 128, 128));
+  var mushroomTex = PIXI.Texture.from(TS + 'deco03.png');
+  var ITEM_TEX = {
+    wood: function () { return tx('W_Idle', 0, 0, 128, 128); },
+    gold: function () { return tx('G_Idle', 0, 0, 128, 128); },
+    food: function () { return tx('M_Idle', 0, 0, 128, 128); },
+  };
+
+  function pawnTex(color, rowName, frame) {
+    return tx('Pawn_' + color, frame * 192, PAWN_SHEET_ROWS[rowName] * 192, 192, 192);
   }
 
   // ── 레이어 ──
   var camera = new PIXI.Container();
   app.stage.addChild(camera);
 
-  var terrainLayer = new PIXI.Container();
-  var builtLayer = new PIXI.Container();     // 바닥·벽·침대
-  var zoneGfx = new PIXI.Graphics();         // 비축 구역·지정 표시
+  var waterLayer = new PIXI.Container();
+  var foamLayer = new PIXI.Container();
+  var landLayer = new PIXI.Container();
+  var groundDecor = new PIXI.Container();  // 그루터기
+  var zoneGfx = new PIXI.Graphics();
   var itemLayer = new PIXI.Container();
-  var bpLayer = new PIXI.Container();        // 설계도 고스트
-  var objLayer = new PIXI.Container();       // 나무·바위·버섯
-  var pawnLayer = new PIXI.Container();
-  var selGfx = new PIXI.Graphics();          // 선택 링
-  var dragGfx = new PIXI.Graphics();         // 드래그 박스
-  camera.addChild(terrainLayer, builtLayer, zoneGfx, itemLayer, bpLayer, objLayer, pawnLayer, selGfx, dragGfx);
+  var objLayer = new PIXI.Container();     // y정렬: 나무·건물·유닛·양·불
+  objLayer.sortableChildren = true;
+  var selGfx = new PIXI.Graphics();
+  var dragGfx = new PIXI.Graphics();
+  camera.addChild(waterLayer, foamLayer, landLayer, groundDecor, zoneGfx, itemLayer, objLayer, selGfx, dragGfx);
 
-  var darkness = new PIXI.Graphics();        // 밤 어둡기 (화면 고정)
-  app.stage.addChild(darkness);
+  var tintOverlay = new PIXI.Graphics(); // 시간대 색보정
+  app.stage.addChild(tintOverlay);
+  var lightLayer = new PIXI.Container(); // 광원 (스크린 좌표)
+  app.stage.addChild(lightLayer);
 
-  // ── 지형 (정적) ──
-  var TERRAIN_SPR = ['grass', 'grassDecor', 'flowerRed', 'dirt', 'dirtDecor', 'water', 'flowerWhite', 'flowerBlue'];
-
-  function isLandAt(x, y) {
-    if (!inMap(x, y)) return false; // 맵 밖은 물 취급 (호수는 경계에 안 닿음)
-    return world.terrain[idx(x, y)] !== T_WATER;
-  }
-
-  // 물 타일: 이웃 육지 방향에 따라 호숫가 전환 타일 선택
-  function waterTex(x, y) {
-    var n = isLandAt(x, y - 1), s = isLandAt(x, y + 1);
-    var w = isLandAt(x - 1, y), e = isLandAt(x + 1, y);
-    var key = null;
-    if (n && w) key = 'TL';
-    else if (n && e) key = 'TR';
-    else if (s && w) key = 'BL';
-    else if (s && e) key = 'BR';
-    else if (n) key = 'T';
-    else if (s) key = 'B';
-    else if (w) key = 'L';
-    else if (e) key = 'R';
-    if (!key) return tex('water');
-    return texOf(SHORE[key][0], SHORE[key][1]);
-  }
+  // ── 지형 렌더 (정적 + 거품 애니) ──
+  var foamSprites = [];
+  function landAt(x, y) { return inMap(x, y) && world.terrain[idx(x, y)] !== T_WATER; }
 
   for (var y = 0; y < MAP_H; y++) {
     for (var x = 0; x < MAP_W; x++) {
-      var code = world.terrain[idx(x, y)];
-      var t2 = code === T_WATER ? waterTex(x, y) : tex(TERRAIN_SPR[code]);
-      var s = new PIXI.Sprite(t2);
-      s.x = x * TILE; s.y = y * TILE;
-      terrainLayer.addChild(s);
+      var w = new PIXI.Sprite(tx('Water', 0, 0, 64, 64));
+      w.x = x * TILE; w.y = y * TILE;
+      waterLayer.addChild(w);
+      var k = world.terrain[idx(x, y)];
+      if (k === T_WATER) continue;
+      if (!landAt(x - 1, y) || !landAt(x + 1, y) || !landAt(x, y - 1) || !landAt(x, y + 1)) {
+        var f = new PIXI.Sprite(foamFrames[(x + y) % 8]);
+        f.anchor.set(0.5);
+        f.x = x * TILE + 32; f.y = y * TILE + 32;
+        f.foamPhase = (x * 3 + y * 5) % 8;
+        foamLayer.addChild(f);
+        foamSprites.push(f);
+      }
+      var g = new PIXI.Sprite(groundTex(k,
+        landAt(x, y - 1), landAt(x, y + 1), landAt(x - 1, y), landAt(x + 1, y)));
+      g.x = x * TILE; g.y = y * TILE;
+      landLayer.addChild(g);
     }
   }
 
-  // ── 동적 스프라이트 (idx 키) ──
-  var objSprites = {};
-  var builtSprites = {};
-  var bpSprites = {};
-  var itemSprites = {};   // idx -> {spr, label}
-
-  var OBJ_SPR = { tree: 'treeGreen', treeO: 'treeOrange', pine: 'pine', rock: 'rock', berry: 'berry' };
-  var ITEM_SPR = { wood: 'itemWood', stone: 'itemStone', food: 'itemFood' };
-  var DESIG_COLOR = { chop: 0xff8844, mine: 0x66bbff, forage: 0x77dd66 };
+  // ── 자연물·건물 (동적) ──
+  var objSprites = {};    // idx -> sprite (tree/mushroom)
+  var stumpSprites = {};  // idx -> sprite
+  var bSprites = {};      // buildingId -> sprite
+  var treeList = [];      // 흔들림 애니용
 
   function refreshTile(i) {
-    // 자연물
     var o = world.objects[i];
-    if (o && !objSprites[i]) {
-      var s = new PIXI.Sprite(tex(OBJ_SPR[o.kind]));
-      s.x = ix(i) * TILE; s.y = iy(i) * TILE;
-      objSprites[i] = s;
-      objLayer.addChild(s);
-    } else if (!o && objSprites[i]) {
-      objLayer.removeChild(objSprites[i]);
-      objSprites[i].destroy();
+    var cur = objSprites[i];
+    var wantKind = o && (o.kind === 'tree' || o.kind === 'mushroom') ? o.kind : null;
+    if (cur && cur.objKind !== wantKind) {
+      objLayer.removeChild(cur); cur.destroy();
+      if (cur.objKind === 'tree') treeList.splice(treeList.indexOf(cur), 1);
       delete objSprites[i];
+      cur = null;
     }
-
-    // 건축물
-    var b = world.built[i];
-    if (b && !builtSprites[i]) {
-      var bs = new PIXI.Sprite(tex(b.kind));
-      bs.x = ix(i) * TILE; bs.y = iy(i) * TILE;
-      builtSprites[i] = bs;
-      builtLayer.addChild(bs);
-    } else if (!b && builtSprites[i]) {
-      builtLayer.removeChild(builtSprites[i]);
-      builtSprites[i].destroy();
-      delete builtSprites[i];
+    if (wantKind && !cur) {
+      var s;
+      if (wantKind === 'tree') {
+        s = new PIXI.Sprite(treeFrames[o.phase || 0]);
+        s.anchor.set(0.5, 0.88);
+        s.x = ix(i) * TILE + 32; s.y = (iy(i) + 1) * TILE;
+        s.treePhase = o.phase || 0;
+        treeList.push(s);
+      } else {
+        s = new PIXI.Sprite(mushroomTex);
+        s.anchor.set(0.5, 0.85);
+        s.x = ix(i) * TILE + 32; s.y = (iy(i) + 1) * TILE - 8;
+      }
+      s.objKind = wantKind;
+      s.zIndex = (iy(i) + 1) * TILE;
+      objLayer.addChild(s);
+      objSprites[i] = s;
     }
-
-    // 설계도 고스트
-    var bp = world.blueprints[i];
-    if (bp && !bpSprites[i]) {
-      var gs = new PIXI.Sprite(tex(bp.kind));
-      gs.x = ix(i) * TILE; gs.y = iy(i) * TILE;
-      gs.alpha = 0.45;
-      gs.tint = 0x8ab6ff;
-      bpSprites[i] = gs;
-      bpLayer.addChild(gs);
-    } else if (!bp && bpSprites[i]) {
-      bpLayer.removeChild(bpSprites[i]);
-      bpSprites[i].destroy();
-      delete bpSprites[i];
+    // 그루터기
+    var wantStump = o && o.kind === 'stump';
+    if (wantStump && !stumpSprites[i]) {
+      var st = new PIXI.Sprite(stumpTex);
+      st.anchor.set(0.5, 0.88);
+      st.x = ix(i) * TILE + 32; st.y = (iy(i) + 1) * TILE;
+      groundDecor.addChild(st);
+      stumpSprites[i] = st;
+    } else if (!wantStump && stumpSprites[i]) {
+      groundDecor.removeChild(stumpSprites[i]);
+      stumpSprites[i].destroy();
+      delete stumpSprites[i];
     }
   }
 
+  function buildingTexture(b) {
+    if (b.kind === 'goldmine') {
+      return b.depleted ? tx('GoldMine_Destroyed', 0, 0, 192, 128) : tx('GoldMine_Active', 0, 0, 192, 128);
+    }
+    if (b.kind === 'campfire') return fireFrames[0];
+    var def = BUILDS[b.kind];
+    if (b.stage === 'bp' && bpMissing(b) === null) {
+      return tx(def.imgC, 0, 0, def.pw, def.ph); // 자재 완비 → 공사 중 모습
+    }
+    return tx(def.img, 0, 0, def.pw, def.ph);
+  }
+
+  function refreshBuilding(b) {
+    var e = bSprites[b.id];
+    if (!b || !world.buildings[b.id]) {
+      if (e) { objLayer.removeChild(e); e.destroy(); delete bSprites[b.id]; }
+      return;
+    }
+    var def = buildingDef(b.kind);
+    if (!e) {
+      e = new PIXI.Sprite(buildingTexture(b));
+      e.anchor.set(0.5, 1);
+      e.x = (b.x + def.fw / 2) * TILE;
+      e.y = (b.y + def.fh) * TILE;
+      e.zIndex = (b.y + def.fh) * TILE - 1;
+      objLayer.addChild(e);
+      bSprites[b.id] = e;
+      if (b.kind === 'campfire') {
+        e.firePhase = ((b.x + b.y) % 7);
+        e.anchor.set(0.5, 0.8);
+      }
+    } else {
+      e.texture = buildingTexture(b);
+    }
+    if (b.stage === 'bp') {
+      var ready = bpMissing(b) === null;
+      e.alpha = ready ? 0.95 : 0.45;
+      e.tint = ready ? 0xffffff : 0x9ec7ff;
+    } else {
+      e.alpha = 1; e.tint = 0xffffff;
+    }
+    rebuildLights();
+  }
+
+  function removeBuildingSprite(bid) {
+    var e = bSprites[bid];
+    if (e) { objLayer.removeChild(e); e.destroy(); delete bSprites[bid]; }
+    rebuildLights();
+  }
+
+  // ── 아이템 ──
+  var itemSprites = {};
   function refreshItem(i) {
     var slot = world.items[i];
     var entry = itemSprites[i];
+    var type = null, total = 0;
     if (slot) {
-      var type = null, total = 0;
       for (var k in slot) { if (slot[k] > 0) { type = type || k; total += slot[k]; } }
-      if (!type) { slot = null; }
-      if (type) {
-        if (!entry) {
-          var spr = new PIXI.Sprite(tex(ITEM_SPR[type]));
-          var label = new PIXI.Text('', {
-            fontFamily: 'monospace', fontSize: 26, fill: 0xffffff,
-            stroke: 0x000000, strokeThickness: 6,
-          });
-          label.scale.set(0.18);
-          entry = { spr: spr, label: label, type: type };
-          itemSprites[i] = entry;
-          itemLayer.addChild(spr);
-          itemLayer.addChild(label);
-        }
-        if (entry.type !== type) {
-          entry.spr.texture = tex(ITEM_SPR[type]);
-          entry.type = type;
-        }
-        entry.spr.x = ix(i) * TILE + 2; entry.spr.y = iy(i) * TILE + 2;
-        entry.spr.width = TILE - 4; entry.spr.height = TILE - 4;
-        entry.label.text = String(total);
-        entry.label.x = ix(i) * TILE + 1;
-        entry.label.y = iy(i) * TILE + TILE - 6.5;
-        return;
+    }
+    if (type) {
+      if (!entry) {
+        var spr = new PIXI.Sprite(ITEM_TEX[type]());
+        spr.anchor.set(0.5, 0.6);
+        var label = new PIXI.Text('', {
+          fontFamily: 'Malgun Gothic', fontSize: 26, fill: 0xffffff,
+          stroke: 0x000000, strokeThickness: 6, fontWeight: '700',
+        });
+        label.scale.set(0.55);
+        entry = { spr: spr, label: label, type: type };
+        itemSprites[i] = entry;
+        itemLayer.addChild(spr);
+        itemLayer.addChild(label);
       }
+      if (entry.type !== type) {
+        entry.spr.texture = ITEM_TEX[type]();
+        entry.type = type;
+      }
+      entry.spr.x = ix(i) * TILE + 32; entry.spr.y = iy(i) * TILE + 36;
+      entry.label.text = String(total);
+      entry.label.x = ix(i) * TILE + 34;
+      entry.label.y = iy(i) * TILE + 30;
+      return;
     }
     if (entry) {
       itemLayer.removeChild(entry.spr); entry.spr.destroy();
@@ -204,103 +254,130 @@ export function createRenderer(world) {
     }
   }
 
+  // ── 구역·지정 오버레이 ──
+  var DESIG_COLOR = { chop: 0xffa04d, forage: 0x8dea76 };
   function refreshZones() {
     zoneGfx.clear();
     var i;
     for (i in world.stockpile) {
-      zoneGfx.beginFill(0xffd76e, 0.16);
+      zoneGfx.beginFill(0xffd76e, 0.14);
       zoneGfx.drawRect(ix(+i) * TILE, iy(+i) * TILE, TILE, TILE);
       zoneGfx.endFill();
-      zoneGfx.lineStyle(0.6, 0xffd76e, 0.5);
-      zoneGfx.drawRect(ix(+i) * TILE + 0.3, iy(+i) * TILE + 0.3, TILE - 0.6, TILE - 0.6);
+      zoneGfx.lineStyle(2, 0xffd76e, 0.45);
+      zoneGfx.drawRect(ix(+i) * TILE + 1, iy(+i) * TILE + 1, TILE - 2, TILE - 2);
       zoneGfx.lineStyle(0);
     }
     for (i in world.designations) {
       var c = DESIG_COLOR[world.designations[i]] || 0xffffff;
-      zoneGfx.lineStyle(1, c, 0.9);
-      zoneGfx.drawRect(ix(+i) * TILE + 1, iy(+i) * TILE + 1, TILE - 2, TILE - 2);
+      zoneGfx.lineStyle(3, c, 0.85);
+      zoneGfx.drawRect(ix(+i) * TILE + 3, iy(+i) * TILE + 3, TILE - 6, TILE - 6);
+      zoneGfx.lineStyle(0);
+    }
+    for (var id in world.mineDesig) {
+      var b = world.buildings[id];
+      if (!b) continue;
+      zoneGfx.lineStyle(3, 0xffd94d, 0.9);
+      zoneGfx.drawRect(b.x * TILE + 3, b.y * TILE + 3, 3 * TILE - 6, 2 * TILE - 6);
       zoneGfx.lineStyle(0);
     }
   }
 
   function refreshAll() {
-    var i;
-    var seen = {};
+    var seen = {}, i;
     for (i in world.objects) seen[i] = 1;
-    for (i in world.built) seen[i] = 1;
-    for (i in world.blueprints) seen[i] = 1;
     for (i in objSprites) seen[i] = 1;
-    for (i in builtSprites) seen[i] = 1;
-    for (i in bpSprites) seen[i] = 1;
+    for (i in stumpSprites) seen[i] = 1;
     for (i in seen) refreshTile(+i);
-    var seenItems = {};
-    for (i in world.items) seenItems[i] = 1;
-    for (i in itemSprites) seenItems[i] = 1;
-    for (i in seenItems) refreshItem(+i);
+    for (var id in world.buildings) refreshBuilding(world.buildings[id]);
+    var seenI = {};
+    for (i in world.items) seenI[i] = 1;
+    for (i in itemSprites) seenI[i] = 1;
+    for (i in seenI) refreshItem(+i);
     refreshZones();
   }
 
-  // ── 정착민 (4방향 걷기 애니메이션) ──
+  // ── 정착민 ──
   var pawnSprites = {};
   function addPawn(pawn) {
-    var ct = charTex(pawn.char);
-    var s = new PIXI.Sprite(ct.idle[0]);
-    s.anchor.set(0.5, 0.6);
-    pawnLayer.addChild(s);
-    var zzz = new PIXI.Text('💤', { fontSize: 26 });
-    zzz.scale.set(0.22);
+    var s = new PIXI.Sprite(pawnTex(pawn.color, 'idle', 0));
+    s.anchor.set(0.5, 0.72);
+    var name = new PIXI.Text(pawn.name, {
+      fontFamily: 'Malgun Gothic', fontSize: 22, fill: 0xffffff, fontWeight: '600',
+      stroke: 0x14161c, strokeThickness: 5,
+    });
+    name.anchor.set(0.5, 1);
+    name.scale.set(0.62);
+    var zzz = new PIXI.Text('💤', { fontSize: 30 });
+    zzz.scale.set(0.7);
     zzz.visible = false;
-    pawnLayer.addChild(zzz);
     var carry = new PIXI.Sprite();
     carry.visible = false;
-    carry.width = TILE * 0.5; carry.height = TILE * 0.5;
-    pawnLayer.addChild(carry);
-    pawnSprites[pawn.id] = { spr: s, zzz: zzz, carry: carry };
+    pawnSprites[pawn.id] = { spr: s, name: name, zzz: zzz, carry: carry, animOff: pawn.id * 2 };
+    objLayer.addChild(s); objLayer.addChild(name); objLayer.addChild(zzz); objLayer.addChild(carry);
     updatePawnSprite(pawn);
   }
 
+  var animTime = 0;
   function updatePawnSprite(pawn) {
     var e = pawnSprites[pawn.id];
     if (!e) return;
-    e.spr.x = (pawn.px + 0.5) * TILE;
-    e.spr.y = (pawn.py + 0.5) * TILE;
+    var wx = (pawn.px + 0.5) * TILE, wy = (pawn.py + 0.5) * TILE;
+    e.spr.x = wx; e.spr.y = wy + 14;
+    e.spr.zIndex = wy + TILE * 0.5;
+    e.spr.scale.x = pawn.face < 0 ? -1 : 1;
 
-    var dir = pawn.dir || 0;
-    var t;
-    if (pawn.state === 'dead') {
-      t = charTex(GHOST_CHAR).idle[0];
-      e.spr.alpha = 0.7;
-    } else if (pawn.state === 'moving') {
-      var frame = ((performance.now() / 140) | 0) % 4;
-      t = charTex(pawn.char).walk[dir][frame];
-    } else if (pawn.state === 'working' || pawn.state === 'eating') {
-      // 작업 중엔 두 프레임을 번갈아 살짝 움직이는 느낌
-      var f2 = ((performance.now() / 260) | 0) % 2;
-      t = charTex(pawn.char).walk[dir][f2 * 2];
+    var pose = poseOf(pawn);
+    if (pose === 'dead') {
+      e.spr.texture = tx('Dead', 768, 0, 128, 256);
+      e.spr.alpha = 0.85;
     } else {
-      t = charTex(pawn.char).idle[dir];
+      var frame = (((animTime / 0.1) | 0) + e.animOff) % 6;
+      e.spr.texture = pawnTex(pawn.color, pose, frame);
     }
-    if (e.spr.texture !== t) e.spr.texture = t;
 
+    e.name.x = wx; e.name.y = wy - 44;
+    e.name.zIndex = 999999;
     e.zzz.visible = pawn.state === 'sleeping';
-    e.zzz.x = e.spr.x + 3; e.zzz.y = e.spr.y - TILE * 0.95;
+    e.zzz.x = wx + 16; e.zzz.y = wy - 78;
+    e.zzz.zIndex = 999999;
     if (pawn.carry) {
       e.carry.visible = true;
-      e.carry.texture = tex(ITEM_SPR[pawn.carry.type]);
-      e.carry.x = e.spr.x - TILE * 0.25;
-      e.carry.y = e.spr.y - TILE * 0.9;
-      e.carry.width = TILE * 0.5; e.carry.height = TILE * 0.5;
+      e.carry.texture = ITEM_TEX[pawn.carry.type]();
+      e.carry.width = 40; e.carry.height = 40;
+      e.carry.anchor.set(0.5);
+      e.carry.x = wx; e.carry.y = wy - 52;
+      e.carry.zIndex = 999999;
     } else {
       e.carry.visible = false;
     }
   }
 
+  // ── 양 ──
+  var sheepSprites = [];
+  function syncSheep() {
+    while (sheepSprites.length < world.sheep.length) {
+      var s = new PIXI.Sprite(sheepFrames[0]);
+      s.anchor.set(0.5, 0.7);
+      objLayer.addChild(s);
+      sheepSprites.push(s);
+    }
+    for (var n = 0; n < world.sheep.length; n++) {
+      var sh = world.sheep[n], sp = sheepSprites[n];
+      sp.x = (sh.px + 0.5) * TILE;
+      sp.y = (sh.py + 0.5) * TILE + 10;
+      sp.zIndex = sp.y;
+      sp.scale.x = sh.dir < 0 ? -1 : 1;
+      sp.texture = sheepFrames[(((animTime / 0.18) | 0) + sh.phase) % 8];
+    }
+  }
+
+  // ── 선택·드래그 ──
   function setSelected(pawn) {
     selGfx.clear();
     if (pawn) {
-      selGfx.lineStyle(1, 0xffffff, 0.9);
-      selGfx.drawCircle(0, 0, TILE * 0.55);
-      selGfx.position.set((pawn.px + 0.5) * TILE, (pawn.py + 0.5) * TILE);
+      selGfx.lineStyle(3, 0xffffff, 0.9);
+      selGfx.drawEllipse(0, 0, TILE * 0.42, TILE * 0.26);
+      selGfx.position.set((pawn.px + 0.5) * TILE, (pawn.py + 0.5) * TILE + 18);
       selGfx.visible = true;
       selGfx.pawnRef = pawn;
     } else {
@@ -308,43 +385,98 @@ export function createRenderer(world) {
       selGfx.pawnRef = null;
     }
   }
-
   function tickSelection() {
     if (selGfx.visible && selGfx.pawnRef) {
-      selGfx.position.set((selGfx.pawnRef.px + 0.5) * TILE, (selGfx.pawnRef.py + 0.5) * TILE);
+      selGfx.position.set((selGfx.pawnRef.px + 0.5) * TILE, (selGfx.pawnRef.py + 0.5) * TILE + 18);
     }
   }
-
-  // ── 드래그 박스 ──
   function showDrag(x0, y0, x1, y1, color) {
     dragGfx.clear();
-    if (x0 === null) return;
+    if (x0 === null || x0 === undefined) return;
     var minX = Math.min(x0, x1), minY = Math.min(y0, y1);
-    var w = Math.abs(x1 - x0) + 1, h = Math.abs(y1 - y0) + 1;
-    dragGfx.beginFill(color, 0.15);
-    dragGfx.drawRect(minX * TILE, minY * TILE, w * TILE, h * TILE);
+    var w2 = Math.abs(x1 - x0) + 1, h2 = Math.abs(y1 - y0) + 1;
+    dragGfx.beginFill(color, 0.13);
+    dragGfx.drawRect(minX * TILE, minY * TILE, w2 * TILE, h2 * TILE);
     dragGfx.endFill();
-    dragGfx.lineStyle(1, color, 0.9);
-    dragGfx.drawRect(minX * TILE, minY * TILE, w * TILE, h * TILE);
+    dragGfx.lineStyle(2, color, 0.9);
+    dragGfx.drawRect(minX * TILE, minY * TILE, w2 * TILE, h2 * TILE);
     dragGfx.lineStyle(0);
   }
 
-  // ── 밤 어둡기 ──
-  function setDarkness(alpha) {
-    darkness.clear();
-    if (alpha <= 0.01) return;
-    darkness.beginFill(0x0a1030, alpha);
-    darkness.drawRect(0, 0, app.screen.width, app.screen.height);
-    darkness.endFill();
+  // ── 조명·색보정 ──
+  function glowTexture(r, color) {
+    var cv = document.createElement('canvas');
+    cv.width = cv.height = r * 2;
+    var c2 = cv.getContext('2d');
+    var grd = c2.createRadialGradient(r, r, r * 0.08, r, r, r);
+    var cs = '#' + color.toString(16).padStart(6, '0');
+    grd.addColorStop(0, cs + 'c8');
+    grd.addColorStop(0.5, cs + '4d');
+    grd.addColorStop(1, cs + '00');
+    c2.fillStyle = grd;
+    c2.fillRect(0, 0, r * 2, r * 2);
+    return PIXI.Texture.from(cv);
+  }
+  var glowBig = null, glowSmall = null;
+  var lights = []; // {wx, wy, spr}
+
+  function rebuildLights() {
+    if (!glowBig) { glowBig = glowTexture(170, 0xff9a33); glowSmall = glowTexture(110, 0xffb050); }
+    lights.forEach(function (l) { lightLayer.removeChild(l.spr); l.spr.destroy(); });
+    lights = [];
+    for (var id in world.buildings) {
+      var b = world.buildings[id];
+      if (b.stage !== 'built') continue;
+      var def = buildingDef(b.kind);
+      var wx = (b.x + def.fw / 2) * TILE;
+      var wy = (b.y + def.fh * 0.55) * TILE;
+      var spr = null;
+      if (b.kind === 'campfire') spr = new PIXI.Sprite(glowBig);
+      else if (b.kind === 'house' || b.kind === 'tower' || b.kind === 'castle') spr = new PIXI.Sprite(glowSmall);
+      if (spr) {
+        spr.anchor.set(0.5);
+        spr.blendMode = PIXI.BLEND_MODES.ADD;
+        lightLayer.addChild(spr);
+        lights.push({ wx: wx, wy: wy, spr: spr });
+      }
+    }
+  }
+
+  var nightAlpha = 0;
+  function setTimeOfDay(hour) {
+    var color = 0x16204d, alpha = 0;
+    if (hour >= 21 && hour < 23) alpha = 0.5 * (hour - 21) / 2;
+    else if (hour >= 23 || hour < 4) alpha = 0.52;
+    else if (hour >= 4 && hour < 6) alpha = 0.52 * (1 - (hour - 4) / 2);
+    else if (hour >= 6 && hour < 7.2) { color = 0xff9a55; alpha = 0.12 * (1 - (hour - 6) / 1.2); }
+    else if (hour >= 17.5 && hour < 21) { color = 0xff8844; alpha = 0.16 * ((hour - 17.5) / 3.5); }
+    nightAlpha = (hour >= 20 || hour < 5.5) ? 1 : (hour >= 17.5 ? (hour - 17.5) / 2.5 : 0);
+    if (nightAlpha > 1) nightAlpha = 1;
+    tintOverlay.clear();
+    if (alpha > 0.01) {
+      tintOverlay.beginFill(color, alpha);
+      tintOverlay.drawRect(0, 0, app.screen.width, app.screen.height);
+      tintOverlay.endFill();
+    }
+    // 밤~해질녘 색보정이 강할수록 광원 표시
+    var flicker = 0.9 + Math.sin(animTime * 7) * 0.08;
+    for (var n = 0; n < lights.length; n++) {
+      var l = lights[n];
+      l.spr.alpha = nightAlpha * flicker;
+      l.spr.visible = nightAlpha > 0.03;
+      l.spr.x = cam.x + l.wx * cam.zoom;
+      l.spr.y = cam.y + l.wy * cam.zoom;
+      l.spr.scale.set(cam.zoom);
+    }
   }
 
   // ── 카메라 ──
-  var cam = { x: 0, y: 0, zoom: SCALE };
+  var cam = { x: 0, y: 0, zoom: ZOOM_DEFAULT };
   function applyCamera() {
-    cam.zoom = Math.max(1.2, Math.min(8, cam.zoom));
+    cam.zoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, cam.zoom));
     var worldPxW = MAP_W * TILE * cam.zoom;
     var worldPxH = MAP_H * TILE * cam.zoom;
-    var margin = 200;
+    var margin = 160;
     cam.x = Math.max(-(worldPxW - app.screen.width + margin), Math.min(margin, cam.x));
     cam.y = Math.max(-(worldPxH - app.screen.height + margin), Math.min(margin, cam.y));
     camera.scale.set(cam.zoom);
@@ -356,12 +488,37 @@ export function createRenderer(world) {
     applyCamera();
   }
   function screenToTile(sx, sy) {
-    var wx = (sx - cam.x) / cam.zoom / TILE;
-    var wy = (sy - cam.y) / cam.zoom / TILE;
-    return { x: Math.floor(wx), y: Math.floor(wy) };
+    return {
+      x: Math.floor((sx - cam.x) / cam.zoom / TILE),
+      y: Math.floor((sy - cam.y) / cam.zoom / TILE),
+    };
+  }
+
+  // ── 애니메이션 틱 ──
+  function tick(dtSec) {
+    animTime += dtSec;
+    var foamF = (animTime / 0.15) | 0;
+    for (var n = 0; n < foamSprites.length; n++) {
+      var fs = foamSprites[n];
+      fs.texture = foamFrames[(foamF + fs.foamPhase) % 8];
+    }
+    var treeF = (animTime / 0.3) | 0;
+    for (var m = 0; m < treeList.length; m++) {
+      var ts2 = treeList[m];
+      ts2.texture = treeFrames[(treeF + ts2.treePhase) % 4];
+    }
+    var fireF = (animTime / 0.09) | 0;
+    for (var id in bSprites) {
+      var b = world.buildings[id];
+      if (b && b.kind === 'campfire' && b.stage === 'built') {
+        bSprites[id].texture = fireFrames[(fireF + bSprites[id].firePhase) % 7];
+      }
+    }
+    syncSheep();
   }
 
   refreshAll();
+  rebuildLights();
   centerOn(MAP_W / 2, MAP_H / 2);
 
   return {
@@ -373,12 +530,16 @@ export function createRenderer(world) {
     refreshTile: refreshTile,
     refreshItem: refreshItem,
     refreshZones: refreshZones,
+    refreshBuilding: refreshBuilding,
+    removeBuildingSprite: removeBuildingSprite,
     refreshAll: refreshAll,
+    rebuildLights: rebuildLights,
     addPawn: addPawn,
     updatePawnSprite: updatePawnSprite,
     setSelected: setSelected,
     tickSelection: tickSelection,
     showDrag: showDrag,
-    setDarkness: setDarkness,
+    setTimeOfDay: setTimeOfDay,
+    tick: tick,
   };
 }

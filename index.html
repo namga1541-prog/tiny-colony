@@ -16,9 +16,9 @@
     <span id="timeLabel">08:00</span>
   </div>
   <div class="hud-group" id="resBox">
-    <span class="res"><img src="assets/town/Tiles/tile_0082.png" alt="목재"><b id="resWood">0</b></span>
-    <span class="res"><img src="assets/dungeon/Tiles/tile_0065.png" alt="석재"><b id="resStone">0</b></span>
-    <span class="res"><img src="assets/rpg/berry.png" alt="식량"><b id="resFood">0</b></span>
+    <span class="res"><img src="assets/ts/W_Idle.png" alt="목재"><b id="resWood">0</b></span>
+    <span class="res"><img src="assets/ts/G_Idle.png" alt="금"><b id="resGold">0</b></span>
+    <span class="res"><img src="assets/ts/M_Idle.png" alt="식량"><b id="resFood">0</b></span>
     <span class="res">👥 <b id="resPop">3</b></span>
   </div>
   <div class="hud-group" id="speedBox">
@@ -37,22 +37,25 @@
 <!-- 하단 도구모음 -->
 <div id="toolbar" class="hud">
   <div class="tool-section">
-    <button class="tool active" data-tool="select" title="선택 / 이동 지시">🖱️ 선택</button>
-    <button class="tool" data-tool="chop" title="나무를 벌목하도록 지시">🪓 벌목</button>
-    <button class="tool" data-tool="mine" title="바위를 채굴하도록 지시">⛏️ 채광</button>
-    <button class="tool" data-tool="forage" title="버섯을 수확하도록 지시">🧺 채집</button>
-    <button class="tool" data-tool="cancel" title="지시·설계도 취소">✖️ 취소</button>
+    <button class="tool active" data-tool="select" title="선택">🖱️ 선택</button>
+    <button class="tool" data-tool="chop" title="나무를 벌목하도록 지시 (드래그)">🪓 벌목</button>
+    <button class="tool" data-tool="mine" title="금광을 채굴하도록 지시 (금광 위에 드래그)">⛏️ 채굴</button>
+    <button class="tool" data-tool="forage" title="버섯을 수확하도록 지시 (드래그)">🧺 채집</button>
+    <button class="tool" data-tool="cancel" title="지시·설계도 취소 (드래그)">✖️ 취소</button>
   </div>
   <div class="tool-sep"></div>
   <div class="tool-section">
-    <button class="tool" data-tool="woodWall" title="목재 2 필요">🪵 나무 벽</button>
-    <button class="tool" data-tool="stoneWall" title="석재 2 필요">🧱 돌 벽</button>
-    <button class="tool" data-tool="floor" title="목재 1 필요">▦ 바닥</button>
-    <button class="tool" data-tool="bed" title="목재 8 필요">🛏️ 침대</button>
+    <button class="tool" data-tool="house" title="목재 10 — 정착민 2명이 잘 수 있습니다">🏠 집</button>
+    <button class="tool" data-tool="tower" title="목재 15 + 금 5">🗼 망루</button>
+    <button class="tool" data-tool="castle" title="목재 30 + 금 10 — 콜로니의 위용!">🏰 성</button>
+    <button class="tool" data-tool="campfire" title="목재 2 — 밤을 밝힙니다">🔥 모닥불</button>
     <button class="tool" data-tool="stockpile" title="자원을 모아 둘 구역 지정">📦 비축 구역</button>
     <button class="tool" data-tool="demolish" title="건축물·구역 철거 (자재 일부 회수)">🔨 철거</button>
   </div>
 </div>
+
+<!-- 우하단 이벤트 피드 -->
+<div id="eventFeed"></div>
 
 <!-- 정착민 패널 -->
 <div id="pawnPanel" class="hud hidden">

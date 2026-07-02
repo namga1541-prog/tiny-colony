@@ -118,6 +118,21 @@ html, body {
   to { opacity: 1; transform: translateY(0); }
 }
 
+/* ── 이벤트 피드 ───────────────────────── */
+#eventFeed {
+  position: fixed; right: 14px; bottom: 74px;
+  display: flex; flex-direction: column; gap: 4px;
+  align-items: flex-end;
+  z-index: 9;
+  pointer-events: none;
+}
+.feed-line {
+  font-size: 12.5px;
+  color: #dfe5f2;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+  transition: opacity 1.2s;
+}
+
 /* ── 힌트 ──────────────────────────────── */
 #hint {
   left: 12px; bottom: 12px;

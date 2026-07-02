@@ -36,7 +36,7 @@ export function createUI(handlers) {
   var dayLabel = document.getElementById('dayLabel');
   var timeLabel = document.getElementById('timeLabel');
   var resWood = document.getElementById('resWood');
-  var resStone = document.getElementById('resStone');
+  var resGold = document.getElementById('resGold');
   var resFood = document.getElementById('resFood');
   var resPop = document.getElementById('resPop');
 
@@ -50,9 +50,22 @@ export function createUI(handlers) {
 
   function updateRes(sum, alivePawns) {
     resWood.textContent = sum.wood || 0;
-    resStone.textContent = sum.stone || 0;
+    resGold.textContent = sum.gold || 0;
     resFood.textContent = sum.food || 0;
     resPop.textContent = alivePawns;
+  }
+
+  // 우하단 이벤트 피드
+  var feedHost = document.getElementById('eventFeed');
+  function addEvent(msg) {
+    var el = document.createElement('div');
+    el.className = 'feed-line';
+    el.textContent = msg;
+    feedHost.appendChild(el);
+    while (feedHost.children.length > 4) feedHost.removeChild(feedHost.firstChild);
+    setTimeout(function () {
+      el.style.opacity = '0.35';
+    }, 12000);
   }
 
   // 정착민 패널
@@ -93,6 +106,7 @@ export function createUI(handlers) {
   }
 
   return {
+    addEvent: addEvent,
     getTool: function () { return tool; },
     setSpeedUI: setSpeedUI,
     updateClock: updateClock,

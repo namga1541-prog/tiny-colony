@@ -1,6 +1,8 @@
-# 🏕️ 타이니 콜로니 (Tiny Colony)
+# 🏝️ 타이니 콜로니 (Tiny Colony)
 
 림월드 스타일의 브라우저 콜로니 생존 시뮬레이션. 빌드 도구 없는 순수 정적 웹앱 (바닐라 JS + PixiJS 7).
+
+**v0.3 — Tiny Swords 비주얼 리메이크**: 바다 위 절차 생성 섬, 64px 아트, 유닛 6프레임 애니메이션(대기·걷기·망치·도끼·운반), 완성형 건물(집·망루·성·모닥불), 금광 채굴, 양 방목, 시간대 색보정 + 밤 광원(모닥불·창문), 이벤트 피드.
 
 ## 플레이
 
@@ -70,6 +72,6 @@ npx serve -p 5800 .
 
 ## 크레딧
 
-- 아트(지형·건축): [Kenney](https://kenney.nl) — Roguelike/RPG Pack, Tiny Town, Tiny Dungeon (CC0)
-- 아트(캐릭터): [pixel-boy — Ninja Adventure](https://pixel-boy.itch.io/ninja-adventure-asset-pack) (CC0)
+- 아트(v0.3 메인): [Pixel Frog — Tiny Swords](https://pixelfrog-assets.itch.io/tiny-swords) — 무료·상업 사용 가능, 에셋 단독 재배포 금지 (이 저장소의 `assets/ts/`는 게임 구동용이며 에셋팩 재배포가 아닙니다. 에셋이 필요하면 원본 페이지에서 받아 주세요)
+- 아트(구버전): [Kenney](https://kenney.nl) Roguelike/RPG·Tiny Town·Tiny Dungeon (CC0), [pixel-boy — Ninja Adventure](https://pixel-boy.itch.io/ninja-adventure-asset-pack) (CC0)
 - 렌더링: [PixiJS](https://pixijs.com) 7 (MIT)
