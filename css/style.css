@@ -41,9 +41,11 @@ body.touch .touch-only { display: inline-block; }
 #dayLabel { color: #ffd76e; }
 #timeLabel { font-variant-numeric: tabular-nums; }
 
-.res { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; }
+.res { display: inline-flex; align-items: center; gap: 3px; font-size: 13px; cursor: default; }
 .res img { width: 18px; height: 18px; image-rendering: pixelated; }
-.res b { min-width: 22px; font-variant-numeric: tabular-nums; }
+.res-ic { font-size: 15px; }
+.res-lbl { color: #aeb6c6; font-size: 12px; }
+.res b { min-width: 18px; font-variant-numeric: tabular-nums; font-weight: 700; }
 
 #speedBox button, #sysBox button {
   background: rgba(255, 255, 255, 0.07);
@@ -329,6 +331,7 @@ body.touch .touch-only { display: inline-block; }
 @media (max-width: 760px) {
   #hint { display: none; }
   .tool { font-size: 12px; padding: 6px 8px; }
+  .res-lbl { display: none; } /* 좁은 창: 라벨 숨겨 상단바 넘침 방지 (아이콘+숫자+툴팁 유지) */
 }
 
 @media (max-width: 480px) {

@@ -84,7 +84,9 @@ export function createUI(handlers) {
   function updateStorage(used, cap) {
     if (!resStorage) return;
     resStorage.textContent = Math.round(used) + '/' + cap;
-    resStorage.style.color = used >= cap ? '#ff9a5c' : '#e8eaf0';
+    // 가득 참=주황, 90%↑=노랑(미리 경고), 그 외 기본색
+    var ratio = cap > 0 ? used / cap : 0;
+    resStorage.style.color = ratio >= 1 ? '#ff9a5c' : (ratio >= 0.9 ? '#ffd76e' : '#e8eaf0');
   }
 
   // ── 정착민 명단 (7) ──

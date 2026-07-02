@@ -7,10 +7,10 @@
 |------|------|
 | `abandonJob` | js/pawns.js:170 |
 | `addBuilding` | js/world.js:195 |
-| `addEvent` | js/ui.js:120 |
+| `addEvent` | js/ui.js:122 |
 | `addItem` | js/world.js:285 |
 | `addPawn` | js/render.js:396 |
-| `affordCost` | js/ui.js:452 |
+| `affordCost` | js/ui.js:454 |
 | `alivePawns` | js/goals.js:4 |
 | `applyCamera` | js/render.js:686 |
 | `applyTool` | js/main.js:301 |
@@ -31,7 +31,7 @@
 | `clinicExists` | js/pawns.js:592 |
 | `consider` | js/pawns.js:799 |
 | `consumeGlobal` | js/world.js:436 |
-| `costStr` | js/ui.js:384 |
+| `costStr` | js/ui.js:386 |
 | `countBuilt` | js/goals.js:10 |
 | `createAudio` | js/audio.js:11 |
 | `createPawn` | js/pawns.js:19 |
@@ -67,8 +67,8 @@
 | `hasStockpileSpace` | js/jobs.js:247 |
 | `heapPop` | js/path.js:23 |
 | `heapPush` | js/path.js:12 |
-| `hideBuilding` | js/ui.js:250 |
-| `hidePawn` | js/ui.js:146 |
+| `hideBuilding` | js/ui.js:252 |
+| `hidePawn` | js/ui.js:148 |
 | `hireCost` | js/config.js:153 |
 | `idx` | js/world.js:46 |
 | `inMap` | js/world.js:49 |
@@ -94,7 +94,7 @@
 | `nearest` | js/jobs.js:38 |
 | `nearestEnemy` | js/world.js:504 |
 | `onArrive` | js/pawns.js:251 |
-| `openModal` | js/ui.js:333 |
+| `openModal` | js/ui.js:335 |
 | `panelPawn` | js/main.js:90 |
 | `pawnPower` | js/pawns.js:601 |
 | `pawnRange` | js/pawns.js:605 |
@@ -120,8 +120,8 @@
 | `removeBuilding` | js/world.js:215 |
 | `removeBuildingSprite` | js/render.js:290 |
 | `removeItem` | js/world.js:289 |
-| `render` | js/ui.js:352 |
-| `render` | js/ui.js:395 |
+| `render` | js/ui.js:354 |
+| `render` | js/ui.js:397 |
 | `researchProgress` | js/world.js:451 |
 | `reserve` | js/jobs.js:7 |
 | `rpgTex` | js/render.js:76 |
@@ -138,13 +138,13 @@
 | `setTimeOfDay` | js/render.js:597 |
 | `setTool` | js/ui.js:15 |
 | `sheepById` | js/world.js:248 |
-| `showBuilding` | js/ui.js:194 |
-| `showCraft` | js/ui.js:390 |
-| `showCustomize` | js/ui.js:267 |
+| `showBuilding` | js/ui.js:196 |
+| `showCraft` | js/ui.js:392 |
+| `showCustomize` | js/ui.js:269 |
 | `showDrag` | js/render.js:544 |
-| `showGoals` | js/ui.js:458 |
-| `showPawn` | js/ui.js:142 |
-| `showResearch` | js/ui.js:347 |
+| `showGoals` | js/ui.js:460 |
+| `showPawn` | js/ui.js:144 |
+| `showResearch` | js/ui.js:349 |
 | `skillLevel` | js/config.js:88 |
 | `skillMult` | js/config.js:89 |
 | `spawnAttackFx` | js/render.js:710 |
@@ -165,7 +165,7 @@
 | `tickResearch` | js/world.js:447 |
 | `tickSelection` | js/render.js:541 |
 | `tickTowers` | js/world.js:571 |
-| `toast` | js/ui.js:254 |
+| `toast` | js/ui.js:256 |
 | `toggleMute` | js/audio.js:39 |
 | `toolIconOf` | js/pawns.js:118 |
 | `totalRes` | js/world.js:298 |
@@ -175,10 +175,10 @@
 | `updateClock` | js/ui.js:69 |
 | `updateEnemies` | js/world.js:515 |
 | `updatePawn` | js/pawns.js:662 |
-| `updatePawnPanel` | js/ui.js:149 |
+| `updatePawnPanel` | js/ui.js:151 |
 | `updatePawnSprite` | js/render.js:416 |
 | `updateRes` | js/ui.js:78 |
-| `updateRoster` | js/ui.js:92 |
+| `updateRoster` | js/ui.js:94 |
 | `updateSheep` | js/world.js:590 |
 | `updateStorage` | js/ui.js:84 |
 | `warehouseCap` | js/world.js:311 |
