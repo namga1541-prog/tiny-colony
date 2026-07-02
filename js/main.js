@@ -33,7 +33,7 @@ if (saved) {
   world.timeMin = saved.timeMin;
   world.day = saved.day;
   pawns = saved.pawns.map(function (p) {
-    var pw = createPawn(p.id, { name: p.name, color: p.color }, p.x, p.y);
+    var pw = createPawn(p.id, { name: p.name, look: p.look, color: p.color }, p.x, p.y);
     pw.hunger = p.hunger; pw.energy = p.energy; pw.hp = p.hp;
     pw.carry = p.carry || null;
     if (p.dead) pw.state = 'dead';
@@ -82,6 +82,16 @@ function exitControl() {
 var UI = createUI({
   onToolChange: function () { R.showDrag(null); },
   onSpeed: setSpeed,
+  onEditPawn: function () {
+    if (!selectedPawn || selectedPawn.state === 'dead') return;
+    var wasSpeed = speed;
+    setSpeed(0);
+    UI.showCustomize([selectedPawn], '✏️ ' + selectedPawn.name + ' 편집', function () {
+      setSpeed(wasSpeed || 1);
+      UI.updatePawnPanel(selectedPawn);
+      UI.toast('✅ 변경되었습니다');
+    });
+  },
   onSave: function () {
     UI.toast(saveGame(world, pawns) ? '💾 저장되었습니다' : '⚠️ 저장 실패', false);
   },
@@ -348,7 +358,11 @@ canvas.addEventListener('wheel', function (e) {
 
 // ── 키보드 ──
 var keys = {};
+function isTyping(e) {
+  return e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA');
+}
 window.addEventListener('keydown', function (e) {
+  if (isTyping(e)) return;
   keys[e.code] = true;
   if (e.code === 'Space') {
     e.preventDefault();
@@ -371,7 +385,10 @@ window.addEventListener('keydown', function (e) {
   if (e.code === 'Digit2') setSpeed(2);
   if (e.code === 'Digit3') setSpeed(3);
 });
-window.addEventListener('keyup', function (e) { keys[e.code] = false; });
+window.addEventListener('keyup', function (e) {
+  if (isTyping(e)) return;
+  keys[e.code] = false;
+});
 
 // 직접 조종 이동 (충돌 시 축 분리 슬라이드)
 function manualMove(pawn, gameMin) {
@@ -464,10 +481,15 @@ R.app.ticker.add(function () {
 });
 
 if (!saved) {
+  // 새 게임: 커스터마이징 먼저
+  setSpeed(0);
   setTimeout(function () {
-    UI.toast('🏝️ 정착민 3명이 섬에 도착했습니다. 나무를 벌목하고 집을 지어 보세요!');
-    UI.addEvent('🏝️ 섬에 도착했습니다');
-  }, 600);
+    UI.showCustomize(pawns, '🏝️ 정착민 커스터마이징 — 이름과 외형을 정해 주세요', function () {
+      setSpeed(1);
+      UI.toast('🏝️ ' + pawns.map(function (p) { return p.name; }).join('·') + ' — 섬에 도착했습니다!');
+      UI.addEvent('🏝️ 섬에 도착했습니다');
+    });
+  }, 400);
 }
 
 window.game = {

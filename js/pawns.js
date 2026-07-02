@@ -16,7 +16,7 @@ export function createPawn(id, def, x, y) {
   return {
     id: id,
     name: def.name,
-    color: def.color,
+    look: def.look || { unit: 'pawn', color: def.color || 'Blue' },
     face: 1,             // 1 우 / -1 좌
     x: x, y: y,
     px: x, py: y,

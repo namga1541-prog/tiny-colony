@@ -19,7 +19,7 @@ export function saveGame(world, pawns) {
     day: world.day,
     pawns: pawns.map(function (p) {
       return {
-        id: p.id, name: p.name, color: p.color,
+        id: p.id, name: p.name, look: p.look,
         x: p.x, y: p.y,
         hunger: p.hunger, energy: p.energy, hp: p.hp,
         dead: p.state === 'dead',

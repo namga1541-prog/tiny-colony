@@ -1,7 +1,7 @@
 // v0.3 렌더러 (Tiny Swords): 지형·거품·건물·유닛 애니메이션·조명·색보정
 /* global PIXI */
 import {
-  TILE, MAP_W, MAP_H, TS, BUILDS, PAWN_SHEET_ROWS,
+  TILE, MAP_W, MAP_H, TS, BUILDS, UNITS, COLORS,
   ZOOM_DEFAULT, ZOOM_MIN, ZOOM_MAX,
 } from './config.js';
 import {
@@ -24,8 +24,11 @@ export function createRenderer(world) {
     'House', 'House_C', 'Tower', 'Tower_C', 'Castle', 'Castle_C',
     'GoldMine_Active', 'GoldMine_Destroyed',
     'W_Idle', 'G_Idle', 'M_Idle',
-    'Pawn_Blue', 'Pawn_Red', 'Pawn_Yellow', 'Pawn_Purple',
     'deco03'];
+  // 외형 시트 (직업 x 색상)
+  for (var uk in UNITS) {
+    for (var ci = 0; ci < COLORS.length; ci++) SHEETS.push(UNITS[uk].sheet + COLORS[ci]);
+  }
   var base = {};
   SHEETS.forEach(function (n) {
     base[n] = PIXI.BaseTexture.from(TS + n + '.png');
@@ -64,8 +67,9 @@ export function createRenderer(world) {
     food: function () { return tx('M_Idle', 0, 0, 128, 128); },
   };
 
-  function pawnTex(color, rowName, frame) {
-    return tx('Pawn_' + color, frame * 192, PAWN_SHEET_ROWS[rowName] * 192, 192, 192);
+  function pawnTex(look, rowName, frame) {
+    var u = UNITS[look.unit] || UNITS.pawn;
+    return tx(u.sheet + look.color, frame * 192, u.rows[rowName] * 192, 192, 192);
   }
 
   // ── 레이어 ──
@@ -299,7 +303,7 @@ export function createRenderer(world) {
   // ── 정착민 ──
   var pawnSprites = {};
   function addPawn(pawn) {
-    var s = new PIXI.Sprite(pawnTex(pawn.color, 'idle', 0));
+    var s = new PIXI.Sprite(pawnTex(pawn.look, 'idle', 0));
     s.anchor.set(0.5, 0.72);
     var name = new PIXI.Text(pawn.name, {
       fontFamily: 'Malgun Gothic', fontSize: 22, fill: 0xffffff, fontWeight: '600',
@@ -332,9 +336,10 @@ export function createRenderer(world) {
       e.spr.alpha = 0.85;
     } else {
       var frame = (((animTime / 0.1) | 0) + e.animOff) % 6;
-      e.spr.texture = pawnTex(pawn.color, pose, frame);
+      e.spr.texture = pawnTex(pawn.look, pose, frame);
     }
 
+    if (e.name.text !== pawn.name) e.name.text = pawn.name;
     e.name.x = wx; e.name.y = wy - 44;
     e.name.zIndex = 999999;
     e.zzz.visible = pawn.state === 'sleeping';

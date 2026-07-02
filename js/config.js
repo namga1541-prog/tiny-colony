@@ -64,13 +64,20 @@ export const NEEDS = {
 export const WALK_MIN_PER_TILE = 1;
 export const STACK_MAX = 50;
 
-// 정착민 (Pawn 색상 시트)
+// 정착민 외형: 직업(실루엣) 3종 x 색상 4종 = 12종
+// rows: 포즈 → 시트 행 (전사·궁수는 작업/운반 포즈가 없어 공격/이동 행으로 대체)
+export const UNITS = {
+  pawn:    { label: '일꾼', sheet: 'Pawn_',    rows: { idle: 0, walk: 1, hammer: 2, axe: 3, carryIdle: 4, carryWalk: 5 } },
+  warrior: { label: '전사', sheet: 'Warrior_', rows: { idle: 0, walk: 1, hammer: 2, axe: 2, carryIdle: 0, carryWalk: 1 } },
+  archer:  { label: '궁수', sheet: 'Archer_',  rows: { idle: 0, walk: 1, hammer: 3, axe: 3, carryIdle: 0, carryWalk: 1 } },
+};
+export const COLORS = ['Blue', 'Red', 'Yellow', 'Purple'];
+
 export const PAWN_DEFS = [
-  { name: '단비', color: 'Blue' },
-  { name: '산',   color: 'Red' },
-  { name: '호두', color: 'Yellow' },
+  { name: '단비', look: { unit: 'pawn', color: 'Blue' } },
+  { name: '산',   look: { unit: 'pawn', color: 'Red' } },
+  { name: '호두', look: { unit: 'pawn', color: 'Yellow' } },
 ];
-export const PAWN_SHEET_ROWS = { idle: 0, walk: 1, hammer: 2, axe: 3, carryIdle: 4, carryWalk: 5 };
 
 // 카메라 (넓게 보기)
 export const ZOOM_DEFAULT = 0.62;
