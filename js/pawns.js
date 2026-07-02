@@ -35,6 +35,13 @@ export function createPawn(id, def, x, y) {
 
 export function taskLabel(pawn) {
   if (pawn.state === 'dead') return '💀 사망';
+  if (pawn.manual) {
+    if (pawn.state === 'working' && pawn.job) {
+      var mw = { gather: '작업', mine: '금 채굴', build: '건설' };
+      return '🎮 직접 조종 — ' + (mw[pawn.job.type] || '작업') + ' 중';
+    }
+    return '🎮 직접 조종 중 (WASD·Space)';
+  }
   if (pawn.state === 'sleeping') {
     return pawn.job && pawn.job.type === 'sleepHouse' ? '😴 집에서 수면 중' : '😴 노숙 중';
   }
@@ -59,6 +66,9 @@ export function taskLabel(pawn) {
 // 렌더러용 포즈
 export function poseOf(pawn) {
   if (pawn.state === 'dead') return 'dead';
+  if (pawn.manual && pawn.manualMoving && pawn.state !== 'working') {
+    return pawn.carry ? 'carryWalk' : 'walk';
+  }
   if (pawn.state === 'moving') return pawn.carry ? 'carryWalk' : 'walk';
   if (pawn.state === 'working') {
     var j = pawn.job;
@@ -364,7 +374,7 @@ export function updatePawn(world, pawn, dtMin, ctx) {
     case 'working': {
       var j = pawn.job;
       if (!j) { pawn.state = 'idle'; break; }
-      if (j.type === 'gather' && (!world.objects[j.idx] || !world.designations[j.idx])) {
+      if (j.type === 'gather' && (!world.objects[j.idx] || (!j.manual && !world.designations[j.idx]))) {
         return abandonJob(world, pawn);
       }
       if (j.type === 'build') {
@@ -405,10 +415,83 @@ export function updatePawn(world, pawn, dtMin, ctx) {
     }
 
     case 'idle': {
+      if (pawn.manual) break; // 직접 조종 중엔 AI 미개입
       think(world, pawn, dtMin, ctx);
       break;
     }
   }
+}
+
+// ── 직접 조종: Space 상호작용 ──
+// 주변(3x3)에서 나무 > 금광 > 버섯 > 설계도 순으로 대상 탐색 후 즉시 작업 시작
+export function manualInteract(world, pawn, ctx) {
+  if (pawn.state === 'working') { // 작업 취소
+    pawn.job = null;
+    pawn.state = 'idle';
+    pawn.workLeft = 0;
+    return '작업을 멈췄습니다';
+  }
+  var best = null; // {pri, d, start}
+  function consider(pri, d, start) {
+    if (!best || pri < best.pri || (pri === best.pri && d < best.d)) {
+      best = { pri: pri, d: d, start: start };
+    }
+  }
+  var seenB = {};
+  for (var dy = -1; dy <= 1; dy++) {
+    for (var dx = -1; dx <= 1; dx++) {
+      var tx2 = pawn.x + dx, ty2 = pawn.y + dy;
+      var i = idx(tx2, ty2);
+      var dd = Math.abs(dx) + Math.abs(dy) - (dx === pawn.face && dy === 0 ? 0.5 : 0);
+      var o = world.objects[i];
+      if (o && o.kind === 'tree') {
+        (function (ii) {
+          consider(0, dd, function () {
+            pawn.job = { type: 'gather', idx: ii, manual: true };
+            pawn.state = 'working';
+            pawn.workLeft = NATURE.tree.work;
+            return '🪓 벌목 시작';
+          });
+        })(i);
+      } else if (o && o.kind === 'mushroom') {
+        (function (ii) {
+          consider(2, dd, function () {
+            pawn.job = { type: 'gather', idx: ii, manual: true };
+            pawn.state = 'working';
+            pawn.workLeft = NATURE.mushroom.work;
+            return '🧺 채집 시작';
+          });
+        })(i);
+      }
+      var bid = world.occupancy[i];
+      if (bid !== undefined && !seenB[bid]) {
+        seenB[bid] = 1;
+        var b = world.buildings[bid];
+        if (b && b.kind === 'goldmine' && !b.depleted) {
+          (function (bb) {
+            consider(1, dd, function () {
+              pawn.job = { type: 'mine', bid: bb.id, manual: true };
+              pawn.state = 'working';
+              pawn.workLeft = GOLDMINE.work;
+              return '⛏️ 금 채굴 시작';
+            });
+          })(b);
+        } else if (b && b.stage === 'bp') {
+          (function (bb) {
+            consider(3, dd, function () {
+              if (bpMissing(bb) !== null) return '⚠️ 자재가 아직 부족합니다';
+              pawn.job = { type: 'build', bid: bb.id, manual: true };
+              pawn.state = 'working';
+              pawn.workLeft = Math.max(1, BUILDS[bb.kind].work - bb.work);
+              return '🔨 건설 시작';
+            });
+          })(b);
+        }
+      }
+    }
+  }
+  if (!best) return null;
+  return best.start();
 }
 
 function think(world, pawn, dtMin, ctx) {

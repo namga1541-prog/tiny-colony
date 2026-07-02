@@ -7,7 +7,8 @@ import {
   addBuilding, removeBuilding, buildingDef, addItem, totalRes, dailyRegrowth,
   updateSheep,
 } from './world.js';
-import { createPawn, updatePawn } from './pawns.js';
+import { createPawn, updatePawn, manualInteract } from './pawns.js';
+import { releaseAllOf } from './jobs.js';
 import { createRenderer } from './render.js';
 import { createUI } from './ui.js';
 import { saveGame, loadSaveData, clearSave } from './save.js';
@@ -53,6 +54,30 @@ var R = createRenderer(world);
 var speed = 1;
 var lastSpeed = 1;
 var selectedPawn = null;
+var controlled = null; // 직접 조종 중인 정착민
+
+function enterControl(pawn) {
+  if (pawn.state === 'dead') return;
+  exitControl();
+  releaseAllOf(world, pawn.id);
+  pawn.job = null;
+  pawn.path = null;
+  if (pawn.state !== 'working') pawn.state = 'idle';
+  pawn.manual = true;
+  controlled = pawn;
+  UI.toast('🎮 ' + pawn.name + ' 직접 조종 — WASD 이동 · Space 작업 · ESC 해제');
+}
+
+function exitControl() {
+  if (!controlled) return;
+  controlled.manual = false;
+  controlled.manualMoving = false;
+  if (controlled.state === 'working' && controlled.job && controlled.job.manual) {
+    controlled.job = null;
+    controlled.state = 'idle';
+  }
+  controlled = null;
+}
 
 var UI = createUI({
   onToolChange: function () { R.showDrag(null); },
@@ -262,8 +287,13 @@ canvas.addEventListener('mousedown', function (e) {
       });
       selectedPawn = hit ? hit.p : null;
       R.setSelected(selectedPawn);
-      if (selectedPawn) UI.showPawn(selectedPawn);
-      else UI.hidePawn();
+      if (selectedPawn) {
+        UI.showPawn(selectedPawn);
+        enterControl(selectedPawn); // 클릭 = 빙의
+      } else {
+        UI.hidePawn();
+        exitControl();
+      }
     } else {
       dragStart = t;
     }
@@ -322,7 +352,20 @@ window.addEventListener('keydown', function (e) {
   keys[e.code] = true;
   if (e.code === 'Space') {
     e.preventDefault();
-    setSpeed(speed === 0 ? lastSpeed : 0);
+    if (controlled && controlled.state !== 'dead') {
+      var msg = manualInteract(world, controlled, ctx);
+      if (msg) UI.toast(msg);
+      else UI.toast('🤔 주변에 할 수 있는 일이 없습니다 (나무·금광·버섯·공사장 옆에서 누르세요)');
+    } else {
+      setSpeed(speed === 0 ? lastSpeed : 0);
+    }
+  }
+  if (e.code === 'KeyP') setSpeed(speed === 0 ? lastSpeed : 0);
+  if (e.code === 'Escape') {
+    exitControl();
+    selectedPawn = null;
+    R.setSelected(null);
+    UI.hidePawn();
   }
   if (e.code === 'Digit1') setSpeed(1);
   if (e.code === 'Digit2') setSpeed(2);
@@ -330,18 +373,52 @@ window.addEventListener('keydown', function (e) {
 });
 window.addEventListener('keyup', function (e) { keys[e.code] = false; });
 
+// 직접 조종 이동 (충돌 시 축 분리 슬라이드)
+function manualMove(pawn, gameMin) {
+  var vx = (keys.KeyD ? 1 : 0) - (keys.KeyA ? 1 : 0);
+  var vy = (keys.KeyS ? 1 : 0) - (keys.KeyW ? 1 : 0);
+  if (pawn.state === 'working' && (vx || vy)) {
+    // 이동 입력 시 작업 중단
+    pawn.job = null;
+    pawn.state = 'idle';
+    pawn.workLeft = 0;
+  }
+  if (pawn.state !== 'idle' || (!vx && !vy)) {
+    pawn.manualMoving = false;
+    return;
+  }
+  var spd = gameMin * 1.25; // AI보다 25% 빠르게
+  if (vx && vy) spd *= 0.7071;
+  var nx = pawn.px + vx * spd;
+  var ny = pawn.py + vy * spd;
+  if (vx && isWalkable(world, Math.round(nx), Math.round(pawn.py))) pawn.px = nx;
+  if (vy && isWalkable(world, Math.round(pawn.px), Math.round(ny))) pawn.py = ny;
+  pawn.x = Math.round(pawn.px);
+  pawn.y = Math.round(pawn.py);
+  if (vx) pawn.face = vx > 0 ? 1 : -1;
+  pawn.manualMoving = true;
+}
+
 // ── 게임 루프 ──
 var hudTimer = 0;
 R.app.ticker.add(function () {
   var realSec = R.app.ticker.deltaMS / 1000;
 
   var panSpd = 900 * realSec;
-  if (keys.KeyW || keys.ArrowUp) { R.cam.y += panSpd; R.applyCamera(); }
-  if (keys.KeyS || keys.ArrowDown) { R.cam.y -= panSpd; R.applyCamera(); }
-  if (keys.KeyA || keys.ArrowLeft) { R.cam.x += panSpd; R.applyCamera(); }
-  if (keys.KeyD || keys.ArrowRight) { R.cam.x -= panSpd; R.applyCamera(); }
+  if (!controlled) {
+    if (keys.KeyW || keys.ArrowUp) { R.cam.y += panSpd; R.applyCamera(); }
+    if (keys.KeyS || keys.ArrowDown) { R.cam.y -= panSpd; R.applyCamera(); }
+    if (keys.KeyA || keys.ArrowLeft) { R.cam.x += panSpd; R.applyCamera(); }
+    if (keys.KeyD || keys.ArrowRight) { R.cam.x -= panSpd; R.applyCamera(); }
+  } else {
+    if (keys.ArrowUp) { R.cam.y += panSpd; R.applyCamera(); }
+    if (keys.ArrowDown) { R.cam.y -= panSpd; R.applyCamera(); }
+    if (keys.ArrowLeft) { R.cam.x += panSpd; R.applyCamera(); }
+    if (keys.ArrowRight) { R.cam.x -= panSpd; R.applyCamera(); }
+  }
 
   var gameMin = Math.min(30, realSec * MIN_PER_SEC * SPEED_MULT[speed]);
+  var manualBudget = gameMin;
   var prevDay = world.day;
   while (gameMin > 0) {
     var dt = Math.min(1, gameMin);
@@ -356,6 +433,19 @@ R.app.ticker.add(function () {
     UI.addEvent('🌅 ' + world.day + '일차');
     var regrown = dailyRegrowth(world, mulberry32(world.seed + world.day));
     regrown.forEach(function (i) { R.refreshTile(i); });
+  }
+
+  // 직접 조종 이동 + 카메라 추적
+  if (controlled) {
+    if (controlled.state === 'dead') exitControl();
+    else {
+      manualMove(controlled, manualBudget);
+      var targetX = R.app.screen.width / 2 - (controlled.px + 0.5) * 64 * R.cam.zoom;
+      var targetY = R.app.screen.height / 2 - (controlled.py + 0.5) * 64 * R.cam.zoom;
+      R.cam.x += (targetX - R.cam.x) * Math.min(1, realSec * 5);
+      R.cam.y += (targetY - R.cam.y) * Math.min(1, realSec * 5);
+      R.applyCamera();
+    }
   }
 
   R.tick(realSec);
@@ -380,4 +470,9 @@ if (!saved) {
   }, 600);
 }
 
-window.game = { world: world, pawns: pawns, R: R, applyTool: applyTool, setSpeed: setSpeed };
+window.game = {
+  world: world, pawns: pawns, R: R,
+  applyTool: applyTool, setSpeed: setSpeed,
+  enterControl: enterControl, exitControl: exitControl,
+  keys: keys,
+};
