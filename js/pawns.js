@@ -24,7 +24,7 @@ export function createPawn(id, def, x, y, rng) {
   return {
     id: id,
     name: def.name,
-    look: def.look || { unit: 'pawn', color: def.color || 'Blue' },
+    look: def.look || { human: 'villager' },
     trait: trait,
     skills: def.skills || {},   // {woodcutting, mining, construction, farming, combat} → xp
     equipped: def.equipped || null, // 'sword' | 'bow' | null
@@ -49,8 +49,7 @@ export function equipWeapon(world, pawn, weaponType) {
   var wdef = WEAPONS[weaponType];
   if (!wdef) return null;
   if (consumeGlobal(world, weaponType, 1) < 1) return '⚠️ ' + wdef.name + ' 이(가) 없습니다';
-  pawn.equipped = weaponType;
-  pawn.look = { unit: wdef.equip, color: pawn.look.color };
+  pawn.equipped = weaponType; // 사람은 장착해도 외형 불변 (전투 스탯만 반영, 무기는 아이콘으로)
   return '🗡️ ' + pawn.name + ' 이(가) ' + wdef.name + ' 을(를) 장착했습니다';
 }
 
@@ -88,30 +87,11 @@ export function taskLabel(pawn) {
   return '🚶 ' + (names[j.type] || '작업 중');
 }
 
-// 렌더러용 포즈. 작업 포즈(axe/hammer)는 도구를 든 일꾼 모습으로 렌더 →
-// render.js 가 이 포즈일 때 무기 외형 대신 기본 pawn 외형으로 그린다(칼·활 대신 도구).
+// 렌더러용 포즈 (사람 캐릭터: idle/walk/dead). 작업 표시는 머리 위 도구 아이콘(toolIconOf)이 담당.
 export function poseOf(pawn) {
   if (pawn.state === 'dead') return 'dead';
-  if (pawn.state === 'attacking') return 'attack';
-  if (pawn.manual && pawn.manualMoving && pawn.state !== 'working') {
-    return pawn.carry ? 'carryWalk' : 'walk';
-  }
-  if (pawn.state === 'moving') return pawn.carry ? 'carryWalk' : 'walk';
-  if (pawn.state === 'working') {
-    var j = pawn.job;
-    if (!j) return 'axe';
-    // 건설·제작·채굴 = 망치/곡괭이 스윙 / 벌목·채집·농사 = 도끼 스윙 / 낚시 = 제자리 대기
-    if (j.type === 'build' || j.type === 'craft' || j.type === 'mine') return 'hammer';
-    if (j.type === 'fish') return 'idle';
-    return 'axe';
-  }
-  if (pawn.carry) return 'carryIdle';
-  return 'idle';
-}
-
-// 작업(도구) 포즈 여부 — 이때는 무기 외형을 숨기고 일꾼 도구 모습으로 렌더
-export function isToolPose(pose) {
-  return pose === 'axe' || pose === 'hammer';
+  var moving = pawn.state === 'moving' || (pawn.manual && pawn.manualMoving && pawn.state !== 'working');
+  return moving ? 'walk' : 'idle';
 }
 
 // 작업 중 손에 든 도구 아이콘(작업 종류마다 다르게 표시) — 스프라이트 시트에

@@ -1,13 +1,13 @@
 // v0.3 렌더러 (Tiny Swords): 지형·거품·건물·유닛 애니메이션·조명·색보정
 /* global PIXI */
 import {
-  TILE, MAP_W, MAP_H, TS, BUILDS, UNITS, COLORS,
+  TILE, MAP_W, MAP_H, TS, BUILDS, HUMANS,
   ZOOM_DEFAULT, ZOOM_MIN, ZOOM_MAX,
 } from './config.js';
 import {
   idx, ix, iy, inMap, T_WATER, T_GRASS, T_SAND, buildingDef,
 } from './world.js';
-import { poseOf, isToolPose, toolIconOf } from './pawns.js';
+import { poseOf, toolIconOf } from './pawns.js';
 import { bpMissing } from './jobs.js';
 
 export function createRenderer(world) {
@@ -27,10 +27,6 @@ export function createRenderer(world) {
     'Goblin', 'Bridge_All', 'Food_Grain',
     'Pig', 'Cow', 'Chicken',
     'deco03'];
-  // 외형 시트 (직업 x 색상)
-  for (var uk in UNITS) {
-    for (var ci = 0; ci < COLORS.length; ci++) SHEETS.push(UNITS[uk].sheet + COLORS[ci]);
-  }
   var base = {};
   SHEETS.forEach(function (n) {
     base[n] = PIXI.BaseTexture.from(TS + n + '.png');
@@ -39,6 +35,13 @@ export function createRenderer(world) {
   // 건물 전용: Kenney Tiny Town 타일맵(16px, 12x11) — 건물별 고유 스프라이트 크롭용
   base.TinyTown = PIXI.BaseTexture.from('assets/town/Tilemap/tilemap_packed.png');
   base.TinyTown.scaleMode = PIXI.SCALE_MODES.NEAREST;
+  // 사람 캐릭터 시트 (Ninja Adventure, 16px 4방향) — 사람별 Idle/Walk
+  for (var hk in HUMANS) {
+    base['nj_' + hk + '_idle'] = PIXI.BaseTexture.from('assets/ninja/' + HUMANS[hk].dir + '/Idle.png');
+    base['nj_' + hk + '_walk'] = PIXI.BaseTexture.from('assets/ninja/' + HUMANS[hk].dir + '/Walk.png');
+    base['nj_' + hk + '_idle'].scaleMode = PIXI.SCALE_MODES.NEAREST;
+    base['nj_' + hk + '_walk'].scaleMode = PIXI.SCALE_MODES.NEAREST;
+  }
 
   var texCache = {};
   function tx(n, x, y, w, h) {
@@ -106,9 +109,13 @@ export function createRenderer(world) {
     goblinAtk.push(tx('Goblin', gf * 192, 384, 192, 192));
   }
 
-  function pawnTex(look, rowName, frame) {
-    var u = UNITS[look.unit] || UNITS.pawn;
-    return tx(u.sheet + look.color, frame * 192, u.rows[rowName] * 192, 192, 192);
+  // 사람 스프라이트 크롭. dir: 0정면 1뒤 2좌 3우.
+  // idle: 방향=열(64x16). walk: 방향=행, 프레임=열(64x64). 각 16px.
+  function pawnTex(look, pose, frame, dir) {
+    var hk = (look && look.human && HUMANS[look.human]) ? look.human : 'villager';
+    dir = dir || 0;
+    if (pose === 'walk') return tx('nj_' + hk + '_walk', (frame % 4) * 16, dir * 16, 16, 16);
+    return tx('nj_' + hk + '_idle', dir * 16, 0, 16, 16);
   }
 
   // ── 레이어 ──
@@ -437,8 +444,9 @@ export function createRenderer(world) {
   // ── 정착민 ──
   var pawnSprites = {};
   function addPawn(pawn) {
-    var s = new PIXI.Sprite(pawnTex(pawn.look, 'idle', 0));
-    s.anchor.set(0.5, 0.72);
+    var s = new PIXI.Sprite(pawnTex(pawn.look, 'idle', 0, 0));
+    s.anchor.set(0.5, 0.85);
+    s.scale.set(3.2); // 16px → ~51px (사람 ~0.8타일)
     var name = new PIXI.Text(pawn.name, {
       fontFamily: 'Malgun Gothic', fontSize: 22, fill: 0xffffff, fontWeight: '600',
       stroke: 0x14161c, strokeThickness: 5,
@@ -460,20 +468,25 @@ export function createRenderer(world) {
     var e = pawnSprites[pawn.id];
     if (!e) return;
     var wx = (pawn.px + 0.5) * TILE, wy = (pawn.py + 0.5) * TILE;
-    e.spr.x = wx; e.spr.y = wy + 14;
+    e.spr.x = wx; e.spr.y = wy + 10;
     e.spr.zIndex = wy + TILE * 0.5;
-    e.spr.scale.x = pawn.face < 0 ? -1 : 1;
+
+    // 이동 방향(0정면 1뒤 2좌 3우) — px/py 델타로 추정
+    var dpx = pawn.px - (e.lastPx === undefined ? pawn.px : e.lastPx);
+    var dpy = pawn.py - (e.lastPy === undefined ? pawn.py : e.lastPy);
+    e.lastPx = pawn.px; e.lastPy = pawn.py;
+    if (Math.abs(dpx) + Math.abs(dpy) > 0.002) {
+      e.dir = Math.abs(dpx) > Math.abs(dpy) ? (dpx > 0 ? 3 : 2) : (dpy > 0 ? 0 : 1);
+    } else if (e.dir === undefined) { e.dir = 0; }
 
     var pose = poseOf(pawn);
     if (pose === 'dead') {
-      e.spr.texture = tx('Dead', 768, 0, 128, 256);
-      e.spr.alpha = 0.85;
+      e.spr.texture = pawnTex(pawn.look, 'idle', 0, 0);
+      e.spr.alpha = 0.5; e.spr.tint = 0x888888; e.spr.angle = 90; // 회색·쓰러짐
     } else {
-      e.spr.alpha = 1;
-      var frame = (((animTime / 0.1) | 0) + e.animOff) % 6;
-      // 채집·채굴 등 작업 중에는 무기 대신 도구를 든 일꾼 모습으로 렌더
-      var look = isToolPose(pose) ? { unit: 'pawn', color: pawn.look.color } : pawn.look;
-      e.spr.texture = pawnTex(look, pose, frame);
+      e.spr.alpha = 1; e.spr.tint = 0xffffff; e.spr.angle = 0;
+      var frame = ((animTime / 0.15) | 0) + e.animOff;
+      e.spr.texture = pawnTex(pawn.look, pose === 'walk' ? 'walk' : 'idle', frame, e.dir);
     }
 
     if (e.name.text !== pawn.name) e.name.text = pawn.name;

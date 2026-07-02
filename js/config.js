@@ -275,21 +275,27 @@ export const NEEDS = {
 export const WALK_MIN_PER_TILE = 1;
 export const STACK_MAX = 50;
 
-// 정착민 외형: 직업(실루엣) 3종 x 색상 4종 = 12종
-// rows: 포즈 → 시트 행 (전사·궁수는 작업/운반 포즈가 없어 공격/이동 행으로 대체)
-export const UNITS = {
-  pawn:    { label: '일꾼', sheet: 'Pawn_',    rows: { idle: 0, walk: 1, hammer: 2, axe: 3, carryIdle: 4, carryWalk: 5, attack: 3 } },
-  warrior: { label: '전사', sheet: 'Warrior_', rows: { idle: 0, walk: 1, hammer: 2, axe: 2, carryIdle: 0, carryWalk: 1, attack: 3 } },
-  archer:  { label: '궁수', sheet: 'Archer_',  rows: { idle: 0, walk: 1, hammer: 3, axe: 3, carryIdle: 0, carryWalk: 1, attack: 3 } },
+// 정착민 외형: 사람 캐릭터 8종 (Ninja Adventure, CC0, 16px, 4방향)
+// look = { human: '<id>' }. 시트: assets/ninja/<dir>/Idle.png(64x16=4방향) · Walk.png(64x64=4방향×4프레임)
+// 방향 순서: 0=정면(down) 1=뒤(up) 2=좌 3=우
+export const HUMANS = {
+  villager:  { label: '농부', dir: 'Villager' },
+  villager2: { label: '주민', dir: 'Villager2' },
+  woman:     { label: '여인', dir: 'Woman' },
+  boy:       { label: '청년', dir: 'Boy' },
+  oldman:    { label: '노인', dir: 'OldMan' },
+  princess:  { label: '공주', dir: 'Princess' },
+  cavegirl:  { label: '들녀', dir: 'Cavegirl' },
+  caveman:   { label: '들남', dir: 'Caveman' },
 };
+export const HUMAN_IDS = Object.keys(HUMANS);
 // 고블린(적) 외형 — Goblin.png 7열 5행
 export const ENEMY_UNIT = { sheet: 'Goblin', rows: { idle: 0, walk: 1, attack: 2 } };
-export const COLORS = ['Blue', 'Red', 'Yellow', 'Purple'];
 
 export const PAWN_DEFS = [
-  { name: '단비', look: { unit: 'pawn', color: 'Blue' } },
-  { name: '산',   look: { unit: 'pawn', color: 'Red' } },
-  { name: '호두', look: { unit: 'pawn', color: 'Yellow' } },
+  { name: '단비', look: { human: 'villager' } },
+  { name: '산',   look: { human: 'woman' } },
+  { name: '호두', look: { human: 'boy' } },
 ];
 
 // 카메라 (넓게 보기)

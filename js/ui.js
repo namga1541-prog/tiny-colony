@@ -1,10 +1,7 @@
 // DOM HUD: 도구·시계·자원·정착민 패널·토스트·커스터마이징 모달·연구/제작 모달
 import { taskLabel } from './pawns.js';
-import { UNITS, COLORS, TS, RESEARCH, WEAPONS, SKILL_LABEL, skillLevel, BUILDS, STORAGE, RODS, WAREHOUSE_TIERS } from './config.js';
+import { HUMANS, RESEARCH, WEAPONS, SKILL_LABEL, skillLevel, BUILDS, STORAGE, RODS, WAREHOUSE_TIERS } from './config.js';
 import { totalRes, warehouseTier, warehouseCap } from './world.js';
-
-var SHEET_W = { pawn: 1152, warrior: 1152, archer: 1536 };
-var COLOR_LABEL = { Blue: '파랑', Red: '빨강', Yellow: '노랑', Purple: '보라' };
 
 export function createUI(handlers) {
   var tool = 'select';
@@ -282,7 +279,7 @@ export function createUI(handlers) {
     var picks = [];
 
     pawnList.forEach(function (pawn, n) {
-      var pick = { name: pawn.name, unit: pawn.look.unit, color: pawn.look.color };
+      var pick = { name: pawn.name, human: (pawn.look && pawn.look.human) || 'villager' };
       picks.push(pick);
       var row = document.createElement('div');
       row.className = 'cm-row';
@@ -299,23 +296,23 @@ export function createUI(handlers) {
 
       var grid = document.createElement('div');
       grid.className = 'cm-grid';
-      Object.keys(UNITS).forEach(function (unit) {
-        COLORS.forEach(function (color) {
-          var btn = document.createElement('button');
-          btn.className = 'cm-look';
-          btn.title = UNITS[unit].label + ' · ' + COLOR_LABEL[color];
-          var scale = 58 / 192;
-          btn.style.backgroundImage = 'url(' + TS + UNITS[unit].sheet + color + '.png)';
-          btn.style.backgroundSize = (SHEET_W[unit] * scale) + 'px auto';
-          btn.style.backgroundPosition = '0 0';
-          if (unit === pick.unit && color === pick.color) btn.classList.add('sel');
-          btn.addEventListener('click', function () {
-            pick.unit = unit; pick.color = color;
-            grid.querySelectorAll('.cm-look').forEach(function (b) { b.classList.remove('sel'); });
-            btn.classList.add('sel');
-          });
-          grid.appendChild(btn);
+      Object.keys(HUMANS).forEach(function (hid) {
+        var btn = document.createElement('button');
+        btn.className = 'cm-look';
+        btn.title = HUMANS[hid].label;
+        // Idle.png(64x16, 4방향) 의 정면(0열)만 보이게 확대 표시
+        var scale = 58 / 16;
+        btn.style.backgroundImage = 'url(assets/ninja/' + HUMANS[hid].dir + '/Idle.png)';
+        btn.style.backgroundSize = (64 * scale) + 'px auto';
+        btn.style.backgroundPosition = '0 0';
+        btn.style.imageRendering = 'pixelated';
+        if (hid === pick.human) btn.classList.add('sel');
+        btn.addEventListener('click', function () {
+          pick.human = hid;
+          grid.querySelectorAll('.cm-look').forEach(function (b) { b.classList.remove('sel'); });
+          btn.classList.add('sel');
         });
+        grid.appendChild(btn);
       });
       row.appendChild(grid);
       rowsHost.appendChild(row);
@@ -327,7 +324,7 @@ export function createUI(handlers) {
         var pk = picks[n];
         var nm = (pk.name || '').trim();
         if (nm) pawn.name = nm;
-        pawn.look = { unit: pk.unit, color: pk.color };
+        pawn.look = { human: pk.human };
       });
       overlay.remove();
       if (onDone) onDone();

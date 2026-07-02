@@ -1,7 +1,7 @@
 // v0.3 부팅·게임 루프·입력
 import {
   MAP_W, MAP_H, MIN_PER_SEC, DAY_MIN, SPEED_MULT, BUILDS, PAWN_DEFS,
-  RAID, BRIDGE, TRAITS, COLORS, WAREHOUSE_TIERS,
+  RAID, BRIDGE, TRAITS, HUMAN_IDS, WAREHOUSE_TIERS,
 } from './config.js';
 import {
   createWorld, mulberry32, idx, ix, iy, isWalkable, footprintClear,
@@ -809,9 +809,9 @@ function recruitWanderer(via) {
   }
   if (!spot) return null;
   var nm = WANDERER_NAMES[(ambientRng() * WANDERER_NAMES.length) | 0];
-  var col = COLORS[(ambientRng() * COLORS.length) | 0];
+  var hm = HUMAN_IDS[(ambientRng() * HUMAN_IDS.length) | 0];
   var tr = TRAITS[(ambientRng() * TRAITS.length) | 0];
-  var pw = createPawn(nextPawnId++, { name: nm, look: { unit: 'pawn', color: col }, trait: tr }, spot.x, spot.y);
+  var pw = createPawn(nextPawnId++, { name: nm, look: { human: hm }, trait: tr }, spot.x, spot.y);
   pawns.push(pw);
   R.addPawn(pw);
   if (via === '고용') {
