@@ -1,0 +1,28 @@
+#!/bin/sh
+# 타이니 콜로니 pre-commit 게이트
+# 설치(PC마다 1회): git config core.hooksPath .githooks
+#
+# 실행: FUNCTIONS.md 재생성 → L1 헤드리스 테스트(sim + invariants). 모두 빠름(브라우저 불필요).
+# 브라우저 스모크(L2)는 느리고 서버가 필요해 훅에서 제외 → 수동 `npm run test:browser`.
+
+set -e
+
+# 스테이징된 js/*.js 또는 sim/config 변경이 있을 때만 실행 (문서만 고칠 때 불필요)
+CHANGED=$(git diff --cached --name-only)
+NEEDS_CHECK=$(echo "$CHANGED" | grep -E '^(js/|tests/|tools/|package\.json)' || true)
+
+if [ -z "$NEEDS_CHECK" ]; then
+  exit 0
+fi
+
+echo "[pre-commit] FUNCTIONS.md 재생성..."
+node tools/gen-functions.mjs
+git add FUNCTIONS.md
+
+echo "[pre-commit] L1 시뮬 스모크..."
+node tests/sim-smoke.mjs
+
+echo "[pre-commit] L1 소크 불변식..."
+node tests/invariants.mjs
+
+echo "[pre-commit] ✅ 통과"

@@ -14,6 +14,7 @@ import { createPawn, updatePawn, manualInteract, equipWeapon } from './pawns.js'
 import { RESEARCH, WEAPONS, HIRE, hireCost } from './config.js';
 import { releaseAllOf } from './jobs.js';
 import { GOALS, checkGoals } from './goals.js';
+import { stepWorld } from './sim.js';
 import { createAudio } from './audio.js';
 import { createRenderer } from './render.js';
 import { createUI } from './ui.js';
@@ -59,11 +60,19 @@ if (saved) {
     return pw;
   });
 } else {
-  world = createWorld((Math.random() * 1e9) | 0);
+  // 시드: ?seed=123 URL 파라미터가 있으면 사용(테스트·재현용), 없으면 무작위
+  var urlSeed = null;
+  try {
+    var sp = new URLSearchParams(location.search).get('seed');
+    if (sp !== null && sp !== '' && isFinite(+sp)) urlSeed = (+sp) | 0;
+  } catch (e) { /* location 접근 불가 환경 무시 */ }
+  world = createWorld(urlSeed !== null ? urlSeed : (Math.random() * 1e9) | 0);
   world.nextRaidDay = RAID.firstDay;
   var cx = MAP_W / 2, cy = MAP_H / 2;
+  // 초기 정착민도 시드 기반으로 생성(트레잇·허기 결정론) — ambient 스트림과 분리된 파생 rng
+  var pinit = mulberry32(world.seed ^ 0x9a3c);
   pawns = PAWN_DEFS.map(function (def, n) {
-    return createPawn(n, def, cx - 1 + n, cy + 1);
+    return createPawn(n, def, cx - 1 + n, cy + 1, pinit);
   });
 }
 var nextPawnId = pawns.reduce(function (m, p) { return Math.max(m, p.id); }, -1) + 1;
@@ -272,6 +281,12 @@ var ctx = {
     }
   },
   onSheepChange: function () { /* 렌더는 tick()의 syncSheep 이 처리 */ },
+  // ── stepWorld 오케스트레이션 효과 콜백 ──
+  onTileChange: function (i) { R.refreshTile(i); },
+  onToast: function (msg, warn) { UI.toast(msg, warn); },
+  onSfx: function (name) { Audio2.play(name); },
+  onRecruit: function () { recruitWanderer(); },
+  onSeasonTint: function (tint, a) { R.setSeasonTint(tint, a); },
 };
 
 // ── 도구 적용 ──
@@ -757,8 +772,8 @@ var enemyCbs = {
   },
 };
 
-// 계절 초기 표시
-var prevSeason = seasonIndex(world);
+// 계절 초기 표시 (prevSeason 은 stepWorld 가 world.prevSeason 으로 추적)
+world.prevSeason = seasonIndex(world);
 (function () { var sd = seasonDef(world); R.setSeasonTint(sd.tint, sd.tintA || 0); })();
 
 var WANDERER_NAMES = ['바람', '이슬', '보리', '들풀', '가온', '노을', '솔', '한별', '미르', '아라'];
@@ -808,90 +823,8 @@ R.app.ticker.add(function () {
 
   var gameMin = Math.min(30, realSec * MIN_PER_SEC * SPEED_MULT[speed]);
   var manualBudget = gameMin;
-  var prevDay = world.day;
-  var cropReadyBatch = [];
-  while (gameMin > 0) {
-    var dt = Math.min(1, gameMin);
-    gameMin -= dt;
-    world.timeMin += dt;
-    world.day = 1 + Math.floor(world.timeMin / DAY_MIN);
-    var aliveNow = 0;
-    for (var n = 0; n < pawns.length; n++) {
-      updatePawn(world, pawns[n], dt, ctx);
-      if (pawns[n].state !== 'dead') aliveNow++;
-    }
-    updateSheep(world, dt, ambientRng);
-    tickTowers(world, dt, enemyCbs);
-    updateEnemies(world, pawns, dt, enemyCbs);
-    tickResearch(world, aliveNow, dt);
-    var ready = tickCrops(world, dt);
-    if (ready.length) cropReadyBatch = cropReadyBatch.concat(ready);
-    var rev = tickRanches(world, dt, ambientRng);
-    for (var re = 0; re < rev.length; re++) { if (rev[re].idx !== undefined) R.refreshItem(rev[re].idx); }
-  }
-  cropReadyBatch.forEach(function (i) { R.refreshCrop(i); });
-
-  // 습격 격퇴 판정: 습격 중이었는데 적이 전멸하면
-  if (world.raidActive && world.enemies.length === 0) {
-    world.raidActive = false;
-    world.raidCleared = true;
-    // 전리품 보상 (일수 비례)
-    var mult = Math.max(1, 1 + Math.floor((world.day - RAID.firstDay) * 0.3));
-    var lootAt = idx(MAP_W / 2 | 0, MAP_H / 2 | 0);
-    addItem(world, lootAt, 'gold', RAID.loot.gold * mult);
-    addItem(world, lootAt, 'iron', RAID.loot.iron * mult);
-    R.refreshItem(lootAt);
-    UI.toast('🎉 고블린 습격을 격퇴했습니다! 전리품 획득 (금 ' + (RAID.loot.gold * mult) + ' · 철 ' + (RAID.loot.iron * mult) + ')');
-    UI.addEvent('🎉 습격 격퇴 +전리품');
-    Audio2.play('success');
-  }
-
-  if (world.day !== prevDay) {
-    UI.toast('🌅 ' + world.day + '일차 아침이 밝았습니다');
-    UI.addEvent('🌅 ' + world.day + '일차');
-    var regrown = dailyRegrowth(world, mulberry32(world.seed + world.day));
-    regrown.forEach(function (i) { R.refreshTile(i); });
-    // 광산 매장량 회복
-    var minesRegen = dailyMineRegen(world);
-    minesRegen.forEach(function (id) { if (world.buildings[id]) R.refreshBuilding(world.buildings[id]); });
-    // 영입: 3일마다, 인구 8 미만이면 떠돌이 합류 (습격 없는 낮에만)
-    var aliveCnt = pawns.filter(function (p) { return p.state !== 'dead'; }).length;
-    if (world.day % 3 === 0 && aliveCnt < 8 && !world.raidActive && ambientRng() < 0.7) {
-      recruitWanderer();
-    }
-    // 계절 갱신
-    var sd = seasonDef(world);
-    R.setSeasonTint(sd.tint, sd.tintA || 0);
-    if (prevSeason !== seasonIndex(world)) {
-      prevSeason = seasonIndex(world);
-      UI.addEvent('🍃 계절: ' + sd.name);
-      if (sd.noFarm) UI.toast('❄️ 겨울입니다 — 작물이 자라지 않습니다', true);
-    }
-  }
-
-  // 습격 스케줄: 지정일 밤 spawnHour 에 상륙
-  var curHour = (world.timeMin % DAY_MIN) / 60;
-  if (world.day >= world.nextRaidDay && curHour >= RAID.spawnHour && !world.raidToday) {
-    world.raidToday = true;
-    var cnt = RAID.baseCount + Math.floor((world.day - RAID.firstDay) * RAID.perDayExtra);
-    var got = spawnRaid(world, cnt, ambientRng);
-    if (got > 0) {
-      world.raidActive = true;
-      world.nextRaidDay = world.day + RAID.intervalDays;
-      UI.toast('⚔️ 고블린 습격! 고블린 ' + got + '마리가 상륙했습니다!', true);
-      UI.addEvent('⚔️ 고블린 습격 (' + got + '마리)');
-      Audio2.play('alert');
-    }
-  }
-  if (curHour < RAID.spawnHour) world.raidToday = false;
-
-  // 목표 달성 체크
-  var newGoals = checkGoals(world, pawns);
-  for (var gi = 0; gi < newGoals.length; gi++) {
-    UI.toast('🏆 목표 달성: ' + newGoals[gi].name);
-    UI.addEvent('🏆 ' + newGoals[gi].name);
-    Audio2.play('success');
-  }
+  // 시뮬레이션 전진 — 모든 상태 로직은 sim.js/stepWorld 가 단독 소유(테스트와 동일 코드)
+  stepWorld(world, pawns, gameMin, ambientRng, ctx, enemyCbs);
 
   // 직접 조종 이동 + 카메라 추적 (선택 무리 전체)
   if (controlled.length) {

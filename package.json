@@ -1,0 +1,14 @@
+{
+  "name": "tiny-colony",
+  "version": "0.3.0",
+  "description": "림월드형 브라우저 콜로니 생존 게임 (바닐라 JS + PixiJS, 정적 사이트)",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "test:sim": "node tests/sim-smoke.mjs",
+    "test:invariants": "node tests/invariants.mjs",
+    "test:browser": "node tests/browser-smoke.mjs",
+    "gen:functions": "node tools/gen-functions.mjs",
+    "check": "npm run gen:functions && npm run test:sim && npm run test:invariants && npm run test:browser"
+  }
+}

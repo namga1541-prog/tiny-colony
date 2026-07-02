@@ -16,8 +16,10 @@ import {
 
 var CARRY_MAX = 10;
 
-export function createPawn(id, def, x, y) {
-  var trait = def.trait || TRAITS[(Math.random() * TRAITS.length) | 0];
+export function createPawn(id, def, x, y, rng) {
+  // rng: 결정론용 주입 난수(테스트·재현). 없으면 Math.random 폴백(런타임 동일 동작).
+  var rnd = rng || Math.random;
+  var trait = def.trait || TRAITS[(rnd() * TRAITS.length) | 0];
   return {
     id: id,
     name: def.name,
@@ -28,7 +30,7 @@ export function createPawn(id, def, x, y) {
     face: 1,             // 1 우 / -1 좌
     x: x, y: y,
     px: x, py: y,
-    hunger: 60 + Math.random() * 30,
+    hunger: 60 + rnd() * 30,
     hp: 100,
     mood: 70,
     state: 'idle',       // idle | moving | working | eating | dead
@@ -476,7 +478,7 @@ function finishWork(world, pawn, ctx) {
     if (world.fishDesig[j.idx]) {
       if (storageFull(world)) { ctx.onStorageFull(); }
       else {
-        var fish = catchFish(world.rodTier || 0, Math.random);
+        var fish = catchFish(world.rodTier || 0, ctx.rng || Math.random);
         addItem(world, 0, 'food', fish.food);
         if (fish.gold) addItem(world, 0, 'gold', fish.gold);
         if (fish.rare >= 2) ctx.onEvent('🎣 ' + pawn.name + ' 이(가) 희귀 어종 "' + fish.name + '" 을(를) 낚았습니다!');
