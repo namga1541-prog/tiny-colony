@@ -16,41 +16,52 @@ export const BUILDS = {
     name: '집', cost: { wood: 10 }, work: 60,
     fw: 2, fh: 2, solid: true, light: true,
     img: 'House', imgC: 'House_C', pw: 128, ph: 192,
+    desc: '정착촌의 기본 건물. 이곳에서 대장간 제작이 이루어집니다.',
   },
   warehouse: {
     name: '창고', cost: { wood: 12 }, work: 55,
     fw: 2, fh: 2, solid: true, autoStockRing: true,
     img: 'House', imgC: 'House_C', pw: 128, ph: 192, tint: 0xe0c088,
+    desc: '저장 용량을 늘립니다. 완공 시 주변이 자동으로 비축 구역이 됩니다.',
   },
   tower: {
     name: '망루', cost: { wood: 15, gold: 5 }, work: 80,
     fw: 2, fh: 2, solid: true, light: true,
     img: 'Tower', imgC: 'Tower_C', pw: 128, ph: 256,
+    attack: { power: 10, range: 6, cd: 14 }, // 적 자동 공격
+    desc: '사거리 안의 고블린을 자동으로 공격합니다. 밤을 밝힙니다.',
   },
   outpost: {
     name: '초소', cost: { wood: 8 }, work: 40,
     fw: 2, fh: 2, solid: true,
     img: 'Tower', imgC: 'Tower_C', pw: 128, ph: 256, tint: 0x8fdc9e,
+    attack: { power: 5, range: 4, cd: 20 },
+    desc: '저렴한 방어 초소. 가까운 적을 약하게 공격합니다.',
   },
   castle: {
     name: '성', cost: { wood: 30, gold: 10 }, work: 150,
     fw: 5, fh: 3, solid: true, light: true,
     img: 'Castle', imgC: 'Castle_C', pw: 320, ph: 256,
+    attack: { power: 18, range: 8, cd: 10 },
+    desc: '콜로니의 심장. 넓은 사거리로 강력하게 방어합니다.',
   },
   campfire: {
     name: '모닥불', cost: { wood: 2 }, work: 10,
     fw: 1, fh: 1, solid: false, light: true,
     img: null, pw: 128, ph: 128, // Fire 애니메이션으로 렌더
+    desc: '밤을 밝힙니다.',
   },
   ranch: {
     name: '목장', cost: { wood: 14 }, work: 60,
     fw: 2, fh: 2, solid: true,
     img: 'House', imgC: 'House_C', pw: 128, ph: 192, tint: 0x9be08a,
+    desc: '주기적으로 식량을 생산하고 양을 번식시킵니다.',
   },
   clinic: {
     name: '치료소', cost: { wood: 10, gold: 3 }, work: 60,
     fw: 2, fh: 2, solid: true, light: true,
     img: 'House', imgC: 'House_C', pw: 128, ph: 192, tint: 0xff9ab0,
+    desc: '부상당한 정착민이 찾아와 빠르게 회복합니다.',
   },
 };
 
@@ -76,8 +87,15 @@ export const NATURE = {
   mushroom: { work: 8,  drops: { food: 1 } },
 };
 
-// 금광 (3x2 풋프린트 자연 구조물)
-export const GOLDMINE = { fw: 3, fh: 2, work: 15, dropsPerCycle: 2, charges: 24 };
+// 금광 (3x2 풋프린트 자연 구조물). regenPerDay: 매일 매장량 회복(재생)
+export const GOLDMINE = { fw: 3, fh: 2, work: 15, dropsPerCycle: 2, charges: 24, regenPerDay: 6 };
+
+// ── 자원 재생 (맵 고갈 방지) ──
+export const REGROW = {
+  treeCap: 160,          // 섬 전체 나무 상한
+  stumpToTreeChance: 0.35, // 매일 아침 그루터기가 다시 나무로 자랄 확률
+  newSaplingsPerDay: 4,  // 매일 빈 잔디에 새로 돋는 나무 수
+};
 
 // ── 연구: 정착민 수에 비례해 자동 누적, 포인트로 기술 해금 ──
 export const RESEARCH_RATE_PER_PAWN = 100 / (6 * 60); // 정착민 1명당 6시간에 100점
@@ -121,7 +139,7 @@ export const HIRE = { base: 25, perPawn: 15, maxPop: 12 };
 export function hireCost(alivePop) { return HIRE.base + HIRE.perPawn * alivePop; }
 
 // ── 광물: 금광 일부는 철광 (강철 무기 재료) ──
-export const IRONMINE = { fw: 3, fh: 2, work: 18, dropsPerCycle: 2, charges: 20 };
+export const IRONMINE = { fw: 3, fh: 2, work: 18, dropsPerCycle: 2, charges: 20, regenPerDay: 5 };
 
 // ── 다리 (물 위, 통행 가능) ──
 export const BRIDGE = { name: '다리', cost: { wood: 3 }, work: 12 };

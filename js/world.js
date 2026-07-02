@@ -1,7 +1,7 @@
 // v0.3 월드: 바다 위의 섬 + 다중타일 건물(풋프린트) + 금광 + 양
 import {
   MAP_W, MAP_H, NATURE, STACK_MAX, BUILDS, GOLDMINE, IRONMINE, BRIDGE,
-  RESEARCH_RATE_PER_PAWN, ENEMY, RAID, SEASON_DAYS, SEASONS, STORAGE, RANCH,
+  RESEARCH_RATE_PER_PAWN, ENEMY, RAID, SEASON_DAYS, SEASONS, STORAGE, RANCH, REGROW,
   T_WATER, T_GRASS, T_SAND,
 } from './config.js';
 
@@ -183,7 +183,7 @@ export function addBuilding(world, kind, x, y, opts) {
     delivered: {}, work: 0,
   };
   if (opts && opts.natural) b.natural = true;
-  if (opts && opts.charges !== undefined) b.charges = opts.charges;
+  if (opts && opts.charges !== undefined) { b.charges = opts.charges; b.maxCharges = opts.charges; }
   world.buildings[b.id] = b;
   for (var dy = 0; dy < def.fh; dy++) {
     for (var dx = 0; dx < def.fw; dx++) {
@@ -348,24 +348,74 @@ export function seasonIndex(world) {
 }
 export function seasonDef(world) { return SEASONS[seasonIndex(world)]; }
 
-// 매일 아침: 버섯 재생
+// 매일 아침: 버섯·나무 재생 (맵 고갈 방지)
 export function dailyRegrowth(world, rng) {
-  var count = 0;
-  for (var i in world.objects) if (world.objects[i].kind === 'mushroom') count++;
   var spawned = [];
-  var tries = 0;
-  while (count < 18 && tries < 400) {
-    tries++;
-    var x = (rng() * MAP_W) | 0, y = (rng() * MAP_H) | 0;
-    var i2 = idx(x, y);
-    if (world.terrain[i2] !== T_GRASS) continue;
-    if (world.objects[i2] || world.occupancy[i2] !== undefined ||
-        world.stockpile[i2] || world.items[i2]) continue;
-    world.objects[i2] = { kind: 'mushroom' };
-    spawned.push(i2);
-    count++;
+  var i, x, y, i2;
+
+  // 빈 잔디 타일에 놓을 수 있는지
+  function freeGrass(ii) {
+    return world.terrain[ii] === T_GRASS && !world.objects[ii] &&
+      world.occupancy[ii] === undefined && !world.stockpile[ii] && !world.items[ii] && !world.farmZone[ii];
   }
+
+  // 버섯 (식량원) 목표치까지 보충
+  var mush = 0, trees = 0;
+  for (i in world.objects) {
+    if (world.objects[i].kind === 'mushroom') mush++;
+    else if (world.objects[i].kind === 'tree') trees++;
+  }
+  var tries = 0;
+  while (mush < 18 && tries < 400) {
+    tries++;
+    x = (rng() * MAP_W) | 0; y = (rng() * MAP_H) | 0; i2 = idx(x, y);
+    if (!freeGrass(i2)) continue;
+    world.objects[i2] = { kind: 'mushroom' }; spawned.push(i2); mush++;
+  }
+
+  // 그루터기 → 나무로 다시 성장
+  for (i in world.objects) {
+    if (world.objects[i].kind !== 'stump') continue;
+    if (trees >= REGROW.treeCap) break;
+    if (rng() < REGROW.stumpToTreeChance) {
+      world.objects[i] = { kind: 'tree', phase: (rng() * 4) | 0 };
+      spawned.push(+i); trees++;
+    }
+  }
+
+  // 빈 잔디에 새 묘목이 돋음 (숲이 서서히 확장·복구)
+  var planted = 0; tries = 0;
+  while (planted < REGROW.newSaplingsPerDay && trees < REGROW.treeCap && tries < 300) {
+    tries++;
+    x = (rng() * MAP_W) | 0; y = (rng() * MAP_H) | 0; i2 = idx(x, y);
+    if (!freeGrass(i2)) continue;
+    // 기존 나무 근처에 우선적으로 (숲답게)
+    var nearTree = false, dx, dy;
+    for (dy = -1; dy <= 1 && !nearTree; dy++) for (dx = -1; dx <= 1; dx++) {
+      var ni = idx(x + dx, y + dy);
+      if (inMap(x + dx, y + dy) && world.objects[ni] && world.objects[ni].kind === 'tree') { nearTree = true; break; }
+    }
+    if (!nearTree && rng() < 0.7) continue; // 대부분 숲 근처에만
+    world.objects[i2] = { kind: 'tree', phase: (rng() * 4) | 0 };
+    spawned.push(i2); trees++; planted++;
+  }
+
   return spawned;
+}
+
+// 매일 아침: 광산 매장량 회복 (재생 자원화). 변경된 광산 id 배열 반환
+export function dailyMineRegen(world) {
+  var changed = [];
+  for (var id in world.buildings) {
+    var b = world.buildings[id];
+    if (!isMine(b.kind)) continue;
+    var max = b.maxCharges || (b.kind === 'ironmine' ? IRONMINE.charges : GOLDMINE.charges);
+    var regen = b.kind === 'ironmine' ? IRONMINE.regenPerDay : GOLDMINE.regenPerDay;
+    if ((b.charges || 0) >= max) continue;
+    b.charges = Math.min(max, (b.charges || 0) + regen);
+    if (b.charges > 0 && b.depleted) { b.depleted = false; changed.push(+id); }
+  }
+  return changed;
 }
 
 // 여러 타일에 흩어진 자원을 목표 수량만큼 전역에서 차감 (사전에 totalRes로 충분한지 확인 후 호출)
@@ -510,6 +560,25 @@ export function updateEnemies(world, pawns, dtMin, cb) {
     alive.push(e);
   }
   world.enemies = alive;
+}
+
+// 방어 건물(망루·초소·성) 자동 공격: 사거리 내 최근접 적 타격
+export function tickTowers(world, dtMin, cb) {
+  if (world.enemies.length === 0) return;
+  for (var id in world.buildings) {
+    var b = world.buildings[id];
+    if (b.stage !== 'built') continue;
+    var def = BUILDS[b.kind];
+    if (!def || !def.attack) continue;
+    b.atkCd = (b.atkCd || 0) - dtMin;
+    if (b.atkCd > 0) continue;
+    var cx = b.x + def.fw / 2, cy = b.y + def.fh / 2;
+    var near = nearestEnemy(world, cx, cy, def.attack.range);
+    if (!near) continue;
+    b.atkCd = def.attack.cd;
+    near.enemy.hp -= def.attack.power;
+    if (cb && cb.onTowerFire) cb.onTowerFire(b, near.enemy);
+  }
 }
 
 // 양 배회

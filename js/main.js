@@ -8,7 +8,7 @@ import {
   addBuilding, removeBuilding, buildingDef, addItem, totalRes, dailyRegrowth,
   updateSheep, tickResearch, tickCrops, updateEnemies, spawnRaid,
   canPlaceBridge, consumeGlobal, seasonDef, seasonIndex,
-  tickRanches, storageCap, totalStored,
+  tickRanches, storageCap, totalStored, dailyMineRegen, tickTowers,
 } from './world.js';
 import { createPawn, updatePawn, manualInteract, equipWeapon } from './pawns.js';
 import { RESEARCH, WEAPONS, HIRE, hireCost } from './config.js';
@@ -93,6 +93,7 @@ function selectPawns(list) {
   });
   R.setSelected(controlled);
   if (controlled.length) {
+    UI.hideBuilding();
     UI.showPawn(controlled[0]);
     UI.toast(controlled.length === 1
       ? '🎮 ' + controlled[0].name + ' 선택 — WASD 이동 · Space 작업 · ESC 해제'
@@ -105,11 +106,17 @@ function selectPawns(list) {
 // 하위 호환: 단일 조종 진입
 function enterControl(pawn) { selectPawns(pawn ? [pawn] : []); }
 
+function buildingAtTile(x, y) {
+  var bid = world.occupancy[idx(x, y)];
+  return bid !== undefined ? world.buildings[bid] : null;
+}
+
 // 진행 중인 모든 것 취소: 도구→선택, 정착민 선택 해제, 드래그 박스 제거
 function cancelToSelect() {
   if (UI.getTool() !== 'select') UI.setTool('select');
   exitControl();
   UI.hidePawn();
+  UI.hideBuilding();
   dragStart = null;
   selDrag = null;
   R.showDrag(null);
@@ -514,14 +521,19 @@ window.addEventListener('mouseup', function (e) {
       });
       selectPawns(inBox);
     } else {
-      // 단일 클릭: 커서 근처 정착민 선택 (없으면 해제)
+      // 단일 클릭: 정착민 우선, 없으면 건물 정보, 그것도 없으면 해제
       var hit = null;
       pawns.forEach(function (p) {
         if (p.state === 'dead') return;
         var d = Math.hypot(p.px - t2.x, p.py - t2.y);
         if (d < 1.1 && (!hit || d < hit.d)) hit = { p: p, d: d };
       });
-      selectPawns(hit ? [hit.p] : []);
+      if (hit) { selectPawns([hit.p]); UI.hideBuilding(); }
+      else {
+        var bAt = buildingAtTile(t2.x, t2.y);
+        if (bAt) { selectPawns([]); UI.showBuilding(bAt); }
+        else { selectPawns([]); UI.hideBuilding(); }
+      }
     }
     selDrag = null;
     R.showDrag(null);
@@ -682,6 +694,7 @@ R.app.ticker.add(function () {
       if (pawns[n].state !== 'dead') aliveNow++;
     }
     updateSheep(world, dt, ambientRng);
+    tickTowers(world, dt, enemyCbs);
     updateEnemies(world, pawns, dt, enemyCbs);
     tickResearch(world, aliveNow, dt);
     var ready = tickCrops(world, dt);
@@ -711,6 +724,9 @@ R.app.ticker.add(function () {
     UI.addEvent('🌅 ' + world.day + '일차');
     var regrown = dailyRegrowth(world, mulberry32(world.seed + world.day));
     regrown.forEach(function (i) { R.refreshTile(i); });
+    // 광산 매장량 회복
+    var minesRegen = dailyMineRegen(world);
+    minesRegen.forEach(function (id) { if (world.buildings[id]) R.refreshBuilding(world.buildings[id]); });
     // 영입: 3일마다, 인구 8 미만이면 떠돌이 합류 (습격 없는 낮에만)
     var aliveCnt = pawns.filter(function (p) { return p.state !== 'dead'; }).length;
     if (world.day % 3 === 0 && aliveCnt < 8 && !world.raidActive && ambientRng() < 0.7) {

@@ -1,6 +1,6 @@
 // DOM HUD: 도구·시계·자원·정착민 패널·토스트·커스터마이징 모달·연구/제작 모달
 import { taskLabel } from './pawns.js';
-import { UNITS, COLORS, TS, RESEARCH, WEAPONS, SKILL_LABEL, skillLevel } from './config.js';
+import { UNITS, COLORS, TS, RESEARCH, WEAPONS, SKILL_LABEL, skillLevel, BUILDS, STORAGE } from './config.js';
 import { totalRes } from './world.js';
 
 var SHEET_W = { pawn: 1152, warrior: 1152, archer: 1536 };
@@ -185,6 +185,42 @@ export function createUI(handlers) {
       }
     }
   }
+
+  // ── 건물 정보 패널 ──
+  var buildPanel = document.getElementById('buildPanel');
+  var bpName = document.getElementById('bpName');
+  var bpDesc = document.getElementById('bpDesc');
+  var bpStats = document.getElementById('bpStats');
+  function showBuilding(b) {
+    var def = BUILDS[b.kind];
+    var isMineB = b.kind === 'goldmine' || b.kind === 'ironmine';
+    bpName.textContent = (def ? def.name : (b.kind === 'goldmine' ? '금광' : b.kind === 'ironmine' ? '철광' : b.kind))
+      + (b.stage === 'bp' ? ' (공사 중)' : '');
+    bpDesc.textContent = def && def.desc ? def.desc
+      : isMineB ? '채굴하면 ' + (b.kind === 'ironmine' ? '철' : '금') + '을 얻습니다. 매일 매장량이 조금씩 회복됩니다.'
+      : (b.kind === 'bridge' ? '물 위를 건널 수 있습니다.' : '');
+    var lines = [];
+    if (def && def.attack) {
+      lines.push('⚔️ 공격력 <b>' + def.attack.power + '</b>');
+      lines.push('🎯 사거리 <b>' + def.attack.range + '</b>');
+    }
+    if (def && def.autoStockRing) lines.push('📦 저장 용량 <b>+' + STORAGE.perWarehouse + '</b>');
+    if (isMineB) {
+      var max = b.maxCharges || 0;
+      lines.push(b.depleted ? '⛏️ <b>고갈</b> (회복 중)' : '⛏️ 남은 매장량 <b>' + Math.round(b.charges || 0) + (max ? '/' + max : '') + '</b>');
+    }
+    if (b.kind === 'ranch') lines.push('🌾 식량·양 자동 생산');
+    if (b.kind === 'clinic') lines.push('🏥 부상자 회복소');
+    if (def && def.cost) {
+      var cs = Object.keys(def.cost).map(function (t) {
+        return ({ wood: '목재', gold: '금', iron: '철' }[t] || t) + ' ' + def.cost[t];
+      }).join(', ');
+      lines.push('🔨 건설 비용: ' + cs);
+    }
+    bpStats.innerHTML = lines.join('<br>');
+    buildPanel.classList.remove('hidden');
+  }
+  function hideBuilding() { buildPanel.classList.add('hidden'); }
 
   // 토스트
   var toastHost = document.getElementById('toastHost');
@@ -385,6 +421,8 @@ export function createUI(handlers) {
     updateRoster: updateRoster,
     showPawn: showPawn,
     hidePawn: hidePawn,
+    showBuilding: showBuilding,
+    hideBuilding: hideBuilding,
     updatePawnPanel: updatePawnPanel,
     toast: toast,
   };
