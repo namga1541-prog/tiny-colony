@@ -544,10 +544,10 @@ export function updateEnemies(world, pawns, dtMin, cb) {
       if (cb.onEnemyDown) cb.onEnemyDown(e);
       continue;
     }
-    // 목표: 가장 가까운 서 있는 정착민 (사망·쓰러진 정착민은 제외)
+    // 목표: 가장 가까운 살아있는 정착민
     var tgt = null, tgtD = Infinity;
     for (var p = 0; p < pawns.length; p++) {
-      if (pawns[p].state === 'dead' || pawns[p].state === 'downed') continue;
+      if (pawns[p].state === 'dead') continue;
       var d = Math.abs(pawns[p].px - e.px) + Math.abs(pawns[p].py - e.py);
       if (d < tgtD) { tgtD = d; tgt = pawns[p]; }
     }
@@ -560,10 +560,10 @@ export function updateEnemies(world, pawns, dtMin, cb) {
           e.cd = ENEMY.attackCd;
           tgt.hp = Math.max(0, tgt.hp - ENEMY.power);
           if (cb.onHit) cb.onHit(tgt, ENEMY.power);
-          if (tgt.hp <= 0 && tgt.state !== 'dead' && tgt.state !== 'downed') {
-            // 즉사 대신 쓰러짐(downed) — 전투 후 회복 가능
-            tgt.state = 'downed'; tgt.job = null; tgt.downedT = 0; tgt.downCause = 'combat';
-            if (cb.onPawnDown) cb.onPawnDown(tgt);
+          if (tgt.hp <= 0 && tgt.state !== 'dead') {
+            tgt.state = 'dead';
+            tgt.job = null;
+            if (cb.onPawnDeath) cb.onPawnDeath(tgt);
           }
         }
       } else {

@@ -96,18 +96,6 @@ export const RANCH = { interval: 200, food: 4, breedChance: 0.2, maxSheep: 12 };
 // ── 치료소 (6): 부상 정착민이 와서 빠르게 회복 ──
 export const CLINIC = { hurtAt: 55, healedAt: 92, restRegen: 100 / 200 };
 
-// ── 정착민 심화 (RimWorld): 다운(쓰러짐) + 멘탈 붕괴 ──
-// hp 0 = 즉사 아님 → downed. 안전+식량 있으면 회복, 방치 시 사망.
-export const DOWNED = {
-  reviveHp: 30,               // 이 hp 이상 회복하면 다시 일어남
-  regen: 100 / 1200,          // 안전 시 분당 회복
-  clinicRegen: 100 / 300,     // 치료소 있으면 더 빠름
-  starveGraceMin: 300,        // 굶주린 채 이만큼 다운되면 사망
-  combatGraceMin: 180,        // 전투 지속 중 이만큼 방치되면 출혈사
-};
-// 기분이 임계 미만으로 지속되면 멘탈 붕괴(일 놓고 정지) → 회복
-export const BREAK = { moodAt: 18, sustainMin: 120, durationMin: 240, recoverMood: 42 };
-
 // ── 정착민 스킬 (4): 활동으로 숙련도 상승 → 작업 속도↑ ──
 export const SKILL_LABEL = {
   woodcutting: '벌목', mining: '채광', construction: '건축', farming: '농사', combat: '전투', fishing: '낚시',

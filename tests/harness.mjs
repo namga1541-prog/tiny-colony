@@ -43,7 +43,7 @@ export function bootSim(seed) {
   };
   var enemyCbs = {
     onHit: function () {},
-    onPawnDown: function () { counters.pawnKill++; },
+    onPawnDeath: function () { counters.pawnKill++; },
     onEnemyDown: function () { counters.enemyDown++; },
     onTowerFire: function () { counters.towerFire++; },
   };

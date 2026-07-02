@@ -289,10 +289,7 @@ var ctx = {
     }
   },
   onDeath: function (pawn) {
-    releaseAllOf(world, pawn.id);
-    var ci0 = controlled.indexOf(pawn);
-    if (ci0 >= 0) { controlled.splice(ci0, 1); R.setSelected(controlled); if (!controlled.length) UI.hidePawn(); }
-    UI.toast('💀 ' + pawn.name + ' 이(가) 사망했습니다...', true);
+    UI.toast('💀 ' + pawn.name + ' 이(가) 굶주림으로 사망했습니다...', true);
     UI.addEvent('💀 ' + pawn.name + ' 사망');
     R.updatePawnSprite(pawn);
   },
@@ -779,14 +776,12 @@ function manualMove(pawn, gameMin) {
 // ── 전투 콜백 (적→정착민) ──
 var enemyCbs = {
   onHit: function (pawn) { /* 데미지는 world 에서 처리 */ },
-  onPawnDown: function (pawn) {
-    // 고블린에게 쓰러짐(즉사 아님) — 조종 무리에서 빼고 예약 해제, 전투 후 회복 가능
+  onPawnDeath: function (pawn) {
     releaseAllOf(world, pawn.id);
     var ci = controlled.indexOf(pawn);
     if (ci >= 0) { controlled.splice(ci, 1); R.setSelected(controlled); if (!controlled.length) UI.hidePawn(); }
-    UI.toast('🩸 ' + pawn.name + ' 이(가) 고블린에게 쓰러졌습니다 — 전투가 끝나면 회복합니다', true);
-    UI.addEvent('🩸 ' + pawn.name + ' 부상(다운)');
-    Audio2.play('alert');
+    UI.toast('💀 ' + pawn.name + ' 이(가) 고블린에게 쓰러졌습니다...', true);
+    UI.addEvent('💀 ' + pawn.name + ' 전사');
     R.updatePawnSprite(pawn);
   },
   onEnemyDown: function (e) { R.refreshItem(idx(e.x, e.y)); Audio2.play('coin'); },

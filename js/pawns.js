@@ -2,7 +2,6 @@
 import {
   NEEDS, NATURE, BUILDS, WALK_MIN_PER_TILE, TRAITS, CROP, WEAPONS,
   COMBAT, COOK, HUNT, CLINIC, ANIMALS, FISHING, FISH, catchFish, skillMult,
-  DOWNED, BREAK,
 } from './config.js';
 import {
   idx, ix, iy, isWalkable, addItem, removeItem, natureDef, stackRoom,
@@ -56,8 +55,6 @@ export function equipWeapon(world, pawn, weaponType) {
 
 export function taskLabel(pawn) {
   if (pawn.state === 'dead') return '💀 사망';
-  if (pawn.state === 'downed') return '🩸 쓰러짐 (회복 중)';
-  if (pawn.state === 'break') return '😡 멘탈붕괴';
   if (pawn.manual) {
     if (pawn.state === 'working' && pawn.job) {
       var mw = { gather: '작업', mine: '금 채굴', build: '건설' };
@@ -93,7 +90,6 @@ export function taskLabel(pawn) {
 // 렌더러용 포즈 (사람 캐릭터: idle/walk/dead). 작업 표시는 머리 위 도구 아이콘(toolIconOf)이 담당.
 export function poseOf(pawn) {
   if (pawn.state === 'dead') return 'dead';
-  if (pawn.state === 'downed') return 'downed';
   var moving = pawn.state === 'moving' || (pawn.manual && pawn.manualMoving && pawn.state !== 'working');
   return moving ? 'walk' : 'idle';
 }
@@ -101,8 +97,6 @@ export function poseOf(pawn) {
 // 작업 중 손에 든 도구 아이콘(작업 종류마다 다르게 표시) — 스프라이트 시트에
 // 동작별 애니메이션이 없어(도끼/망치 스윙 2종뿐) 아이콘으로 작업 종류를 구분한다.
 export function toolIconOf(world, pawn) {
-  if (pawn.state === 'downed') return '🩸';
-  if (pawn.state === 'break') return '😡';
   if (pawn.state === 'resting') return '❤️';
   if (pawn.state !== 'working' || !pawn.job) return null;
   switch (pawn.job.type) {
@@ -645,85 +639,21 @@ function handleCombat(world, pawn, dtMin, ctx) {
   return true;
 }
 
-// hp 가 0 이 되면 즉사 대신 '쓰러짐(downed)' — 회복 가능, 방치 시 사망
-function downPawn(world, pawn, ctx, cause) {
-  abandonJob(world, pawn);
-  pawn.state = 'downed';
-  pawn.hp = 0;
-  pawn.downedT = 0;
-  pawn.downCause = cause;
-  if (ctx.onEvent) ctx.onEvent('🩸 ' + pawn.name + ' 쓰러짐');
-  if (ctx.onToast) ctx.onToast('🩸 ' + pawn.name + ' 이(가) 쓰러졌습니다 — 안전·식량이 있으면 회복합니다', true);
-}
-
-function updateDowned(world, pawn, dtMin, ctx) {
-  pawn.downedT = (pawn.downedT || 0) + dtMin;
-  var safe = world.enemies.length === 0;
-  // 누워도 배고픔은 진행(절반 속도)
-  pawn.hunger = Math.max(0, pawn.hunger - NEEDS.hungerDecay * (pawn.trait.hungerMult || 1) * dtMin * 0.5);
-  if (safe && pawn.hunger > 5) {
-    var rate = clinicExists(world) ? DOWNED.clinicRegen : DOWNED.regen;
-    pawn.hp = Math.min(100, pawn.hp + rate * dtMin);
-    pawn.downedT = 0; // 회복 중이면 사망 타이머 리셋
-    if (pawn.hp >= DOWNED.reviveHp) {
-      pawn.state = 'idle';
-      pawn.mood = Math.max(pawn.mood, 25);
-      if (ctx.onEvent) ctx.onEvent('❤️ ' + pawn.name + ' 이(가) 다시 일어났습니다');
-      if (ctx.onToast) ctx.onToast('❤️ ' + pawn.name + ' 회복', false);
-    }
-    return;
-  }
-  // 방치 사망: 전투 지속 중 출혈사 / 굶주린 채 장기 방치
-  if ((!safe && pawn.downedT >= DOWNED.combatGraceMin) ||
-      (pawn.hunger <= 0 && pawn.downedT >= DOWNED.starveGraceMin)) {
-    pawn.state = 'dead';
-    if (ctx.onDeath) ctx.onDeath(pawn);
-  }
-}
-
-// 기분이 오래 낮으면 멘탈 붕괴 → 일정 시간 일 놓음
-function updateMentalBreak(world, pawn, dtMin, ctx) {
-  if (pawn.mood < BREAK.moodAt) {
-    pawn.lowMoodT = (pawn.lowMoodT || 0) + dtMin;
-    if (pawn.lowMoodT >= BREAK.sustainMin) {
-      abandonJob(world, pawn);
-      pawn.state = 'break';
-      pawn.breakT = BREAK.durationMin;
-      pawn.lowMoodT = 0;
-      if (ctx.onEvent) ctx.onEvent('😡 ' + pawn.name + ' 멘탈 붕괴');
-      if (ctx.onToast) ctx.onToast('😡 ' + pawn.name + ' 이(가) 멘탈붕괴 — 잠시 일을 놓습니다', true);
-      return true;
-    }
-  } else {
-    pawn.lowMoodT = 0;
-  }
-  return false;
-}
-
 // ── 매 틱 ──
 export function updatePawn(world, pawn, dtMin, ctx) {
   if (pawn.state === 'dead') return;
   pawn.ctxItemChange = ctx.onItemChange;
 
-  // 쓰러진 정착민: 행동 불가, 회복/사망 판정만
-  if (pawn.state === 'downed') { updateDowned(world, pawn, dtMin, ctx); return; }
-
-  // 멘탈 붕괴 중: 일·이동 없이 대기, 시간 지나면 회복
-  if (pawn.state === 'break') {
-    pawn.breakT = (pawn.breakT || 0) - dtMin;
-    if (pawn.breakT <= 0) {
-      pawn.state = 'idle';
-      pawn.mood = Math.max(pawn.mood, BREAK.recoverMood);
-      if (ctx.onEvent) ctx.onEvent('😌 ' + pawn.name + ' 이(가) 진정했습니다');
-    }
-    return;
-  }
-
   var trait = pawn.trait;
   pawn.hunger = Math.max(0, pawn.hunger - NEEDS.hungerDecay * (trait.hungerMult || 1) * dtMin);
   if (pawn.hunger <= 0) {
     pawn.hp = Math.max(0, pawn.hp - NEEDS.starveHpDecay * dtMin);
-    if (pawn.hp <= 0) { downPawn(world, pawn, ctx, 'starve'); return; } // 즉사 → 쓰러짐
+    if (pawn.hp <= 0) {
+      abandonJob(world, pawn);
+      pawn.state = 'dead';
+      ctx.onDeath(pawn);
+      return;
+    }
   } else if (pawn.hunger > 60 && pawn.hp < 100) {
     pawn.hp = Math.min(100, pawn.hp + NEEDS.hpRegen * (trait.hpRegenMult || 1) * dtMin);
   }
@@ -734,9 +664,6 @@ export function updatePawn(world, pawn, dtMin, ctx) {
   var moodRate = 0.006 * (trait.moodMult || 1);
   pawn.mood += (moodTarget - pawn.mood) * Math.min(1, moodRate * dtMin);
   pawn.mood = Math.max(0, Math.min(100, pawn.mood));
-
-  // 멘탈 붕괴 판정 (직접 조종 중이 아닐 때만)
-  if (!pawn.manual && updateMentalBreak(world, pawn, dtMin, ctx)) return;
 
   // 전투: 적이 있으면 AI가 자동 대응 (직접 조종 중이면 플레이어가 Space로)
   if (!pawn.manual && world.enemies.length > 0) {
