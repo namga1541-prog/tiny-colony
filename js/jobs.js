@@ -105,15 +105,15 @@ export function findWorkJob(world, pawn) {
     var order = world.craftQueue[0];
     var wdef = WEAPONS[order.type];
     if (wdef && canAfford(world, wdef.cost) && world.reserved['craft'] === undefined) {
-      var houseFront = null;
+      var smithyFront = null;
       for (id in world.buildings) {
         b = world.buildings[id];
-        if (b.kind === 'house' && b.stage === 'built') {
+        if (b.stage === 'built' && BUILDS[b.kind] && BUILDS[b.kind].craftHere) {
           var fr = buildingFront(world, b);
-          if (fr) { houseFront = fr; break; }
+          if (fr) { smithyFront = fr; break; }
         }
       }
-      if (houseFront) cands.push({ type: 'craft', x: houseFront.x, y: houseFront.y, order: order, _d: distB(pawn, houseFront) });
+      if (smithyFront) cands.push({ type: 'craft', x: smithyFront.x, y: smithyFront.y, order: order, _d: distB(pawn, smithyFront) });
     }
   }
 

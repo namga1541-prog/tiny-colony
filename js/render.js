@@ -162,7 +162,14 @@ export function createRenderer(world) {
   var objSprites = {};    // idx -> sprite (tree/mushroom)
   var stumpSprites = {};  // idx -> sprite
   var bSprites = {};      // buildingId -> sprite
+  var bBadges = {};       // buildingId -> 기능 배지(이모지) 텍스트
   var treeList = [];      // 흔들림 애니용
+
+  // 건물 기능 배지 — 외형이 비슷한 건물을 기능으로 구분 (스프라이트가 3종뿐이라 이모지로 보강)
+  var BUILDING_BADGE = {
+    house: '🏠', smithy: '⚒️', warehouse: '📦', clinic: '🏥', ranch: '🐑',
+    tower: '🏹', outpost: '🛡️', castle: '👑',
+  };
 
   function refreshTile(i) {
     var o = world.objects[i];
@@ -240,10 +247,32 @@ export function createRenderer(world) {
     return tx(def.img, 0, 0, def.pw, def.ph);
   }
 
+  function updateBuildingBadge(b, def) {
+    // 완공된 건물에만 기능 배지 표시 (설계도·모닥불·다리·광산 제외)
+    var want = (b.stage === 'built') ? BUILDING_BADGE[b.kind] : null;
+    var badge = bBadges[b.id];
+    if (!want) {
+      if (badge) { objLayer.removeChild(badge); badge.destroy(); delete bBadges[b.id]; }
+      return;
+    }
+    if (!badge) {
+      badge = new PIXI.Text(want, { fontSize: 30 });
+      badge.anchor.set(0.5, 1);
+      objLayer.addChild(badge);
+      bBadges[b.id] = badge;
+    }
+    if (badge.text !== want) badge.text = want;
+    badge.x = (b.x + def.fw / 2) * TILE;
+    badge.y = b.y * TILE - 2; // 건물 풋프린트 바로 위
+    badge.zIndex = 1000000;   // 항상 건물 위
+  }
+
   function refreshBuilding(b) {
     var e = bSprites[b.id];
     if (!b || !world.buildings[b.id]) {
       if (e) { objLayer.removeChild(e); e.destroy(); delete bSprites[b.id]; }
+      var bg = bBadges[b.id];
+      if (bg) { objLayer.removeChild(bg); bg.destroy(); delete bBadges[b.id]; }
       return;
     }
     var def = buildingDef(b.kind);
@@ -284,12 +313,15 @@ export function createRenderer(world) {
     } else if (e.scale.x !== 1 || e.scale.y !== 1) {
       e.scale.set(1);
     }
+    updateBuildingBadge(b, def);
     rebuildLights();
   }
 
   function removeBuildingSprite(bid) {
     var e = bSprites[bid];
     if (e) { objLayer.removeChild(e); e.destroy(); delete bSprites[bid]; }
+    var bg = bBadges[bid];
+    if (bg) { objLayer.removeChild(bg); bg.destroy(); delete bBadges[bid]; }
     rebuildLights();
   }
 

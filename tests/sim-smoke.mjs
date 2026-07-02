@@ -80,8 +80,8 @@ console.log('[sim-smoke] 6) 제작 우선순위 — 다른 일(벌목)이 많아
   // 회귀: 제작이 최하위 우선순위라 활발한 콜로니에서 영원히 굶주리던 버그(2026-07-03).
   var sim = bootSim(4242);
   var w = sim.world;
-  var house = addBuilding(w, 'house', 51, 48, { stage: 'built' });
-  house.work = 999;
+  var smithy = addBuilding(w, 'smithy', 51, 48, { stage: 'built' }); // 제작은 대장간에서
+  smithy.work = 999;
   give(sim, { wood: 500, gold: 500 });
   w.research.unlocked.blacksmith = true;
   w.craftQueue.push({ type: 'sword' });

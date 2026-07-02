@@ -430,6 +430,18 @@ export function createUI(handlers) {
         lock.textContent = '🔒 "대장간 기술" 연구가 필요합니다';
         rows.appendChild(lock);
       } else {
+        // 대장간(craftHere) 건물이 완공돼 있는지 — 없으면 주문해도 제작 안 됨
+        var hasSmithy = false;
+        for (var bid in world.buildings) {
+          var bb = world.buildings[bid];
+          if (bb.stage === 'built' && BUILDS[bb.kind] && BUILDS[bb.kind].craftHere) { hasSmithy = true; break; }
+        }
+        if (!hasSmithy) {
+          var warn = document.createElement('p');
+          warn.style.cssText = 'font-size:12px;color:#ff9a5c;margin:0 0 6px;';
+          warn.textContent = '⚠️ 대장간을 먼저 지으세요 — 대장간이 없으면 주문해도 제작되지 않습니다.';
+          rows.appendChild(warn);
+        }
         Object.keys(WEAPONS).forEach(function (type) {
           var wdef = WEAPONS[type];
           if (wdef.iron && !world.research.unlocked.steel) return;

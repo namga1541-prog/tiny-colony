@@ -16,7 +16,14 @@ export const BUILDS = {
     name: '집', cost: { wood: 10 }, work: 60,
     fw: 2, fh: 2, solid: true, light: true,
     img: 'House', imgC: 'House_C', pw: 128, ph: 192,
-    desc: '정착촌의 기본 건물. 이곳에서 대장간 제작이 이루어집니다.',
+    desc: '정착촌의 기본 건물입니다.',
+  },
+  smithy: {
+    name: '대장간', cost: { wood: 12, gold: 4 }, work: 70,
+    fw: 2, fh: 2, solid: true, light: true,
+    img: 'House', imgC: 'House_C', pw: 128, ph: 192, tint: 0x8a90a0,
+    craftHere: true, // 이 건물에서 무기 제작
+    desc: '검·활 등 무기를 제작하는 곳입니다. 제작 주문은 대장간에서 처리됩니다.',
   },
   warehouse: {
     name: '창고', cost: { wood: 12 }, work: 55,
