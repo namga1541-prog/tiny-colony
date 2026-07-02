@@ -1,7 +1,7 @@
 // v0.3 부팅·게임 루프·입력
 import {
   MAP_W, MAP_H, MIN_PER_SEC, DAY_MIN, SPEED_MULT, BUILDS, PAWN_DEFS,
-  RAID, BRIDGE, TRAITS, COLORS,
+  RAID, BRIDGE, TRAITS, COLORS, WAREHOUSE_TIERS,
 } from './config.js';
 import {
   createWorld, mulberry32, idx, ix, iy, isWalkable, footprintClear,
@@ -95,6 +95,7 @@ function selectPawns(list) {
     p.manual = true;
   });
   R.setSelected(controlled);
+  document.body.classList.toggle('has-control', controlled.length > 0);
   if (controlled.length) {
     UI.hideBuilding();
     UI.showPawn(controlled[0]);
@@ -172,6 +173,18 @@ var UI = createUI({
     if (msg) UI.toast(msg);
     R.updatePawnSprite(pawn);
     UI.updatePawnPanel(pawn);
+  },
+  onUpgradeWarehouse: function (b) {
+    var curTier = b.tier || 1;
+    var next = WAREHOUSE_TIERS[curTier]; // 0-based: 다음 단계 정의
+    if (!next) return; // 이미 최대 단계
+    if (!canAfford(world, next.cost)) { UI.toast('⚠️ 자재가 부족합니다', true); return; }
+    for (var t in next.cost) consumeGlobal(world, t, next.cost[t]);
+    b.tier = curTier + 1;
+    R.refreshBuilding(b);
+    UI.showBuilding(b);
+    UI.toast('🔼 창고를 ' + b.tier + '단계로 업그레이드했습니다!');
+    UI.addEvent('🔼 창고 업그레이드 (' + b.tier + '단계)');
   },
   onShowGoals: function () { UI.showGoals(GOALS, world); },
   onHire: function () {
@@ -460,63 +473,62 @@ var selDrag = null; // 선택 박스 드래그 상태
 
 canvas.addEventListener('contextmenu', function (e) { e.preventDefault(); });
 
-canvas.addEventListener('mousedown', function (e) {
-  if (e.button === 2 || e.button === 1) {
+// 마우스·터치(단일 손가락) 공용 입력 처리
+function pointerDown(x, y, button) {
+  if (button === 2 || button === 1) {
     panning = true;
-    panStart = { mx: e.clientX, my: e.clientY, cx: R.cam.x, cy: R.cam.y, moved: false };
+    panStart = { mx: x, my: y, cx: R.cam.x, cy: R.cam.y, moved: false };
     return;
   }
-  if (e.button === 0) {
-    var t = R.screenToTile(e.clientX, e.clientY);
-    var tool = UI.getTool();
-    if (tool === 'select') {
-      // 선택 도구: 클릭=단일 선택 / 드래그=박스 다중 선택 (mouseup 에서 판정)
-      selDrag = { sx: e.clientX, sy: e.clientY, tile: t };
-    } else {
-      dragStart = t;
-    }
+  var t = R.screenToTile(x, y);
+  var tool = UI.getTool();
+  if (tool === 'select') {
+    // 선택 도구: 클릭=단일 선택 / 드래그=박스 다중 선택 (pointerUp 에서 판정)
+    selDrag = { sx: x, sy: y, tile: t };
+  } else {
+    dragStart = t;
   }
-});
+}
 
-window.addEventListener('mousemove', function (e) {
+function pointerMove(x, y) {
   if (panning && panStart) {
-    if (Math.abs(e.clientX - panStart.mx) + Math.abs(e.clientY - panStart.my) > 4) panStart.moved = true;
-    R.cam.x = panStart.cx + (e.clientX - panStart.mx);
-    R.cam.y = panStart.cy + (e.clientY - panStart.my);
+    if (Math.abs(x - panStart.mx) + Math.abs(y - panStart.my) > 4) panStart.moved = true;
+    R.cam.x = panStart.cx + (x - panStart.mx);
+    R.cam.y = panStart.cy + (y - panStart.my);
     R.applyCamera();
     return;
   }
   var tool = UI.getTool();
   if (selDrag) {
     // 선택 박스 (일정 거리 이상 끌었을 때만 표시)
-    if (Math.abs(e.clientX - selDrag.sx) + Math.abs(e.clientY - selDrag.sy) > 6) {
-      var st = R.screenToTile(e.clientX, e.clientY);
+    if (Math.abs(x - selDrag.sx) + Math.abs(y - selDrag.sy) > 6) {
+      var st = R.screenToTile(x, y);
       R.showDrag(selDrag.tile.x, selDrag.tile.y, st.x, st.y, 0x7dffb0);
     }
   } else if (dragStart) {
-    var t = R.screenToTile(e.clientX, e.clientY);
+    var t = R.screenToTile(x, y);
     R.showDrag(dragStart.x, dragStart.y, t.x, t.y, 0x8ab6ff);
   } else if (BUILDS[tool]) {
     // 건설 도구: 풋프린트 미리보기
-    var t2 = R.screenToTile(e.clientX, e.clientY);
+    var t2 = R.screenToTile(x, y);
     var def = BUILDS[tool];
     var ok = footprintClear(world, t2.x, t2.y, def.fw, def.fh, false);
     R.showDrag(t2.x, t2.y, t2.x + def.fw - 1, t2.y + def.fh - 1, ok ? 0x7dffb0 : 0xff6b81);
   }
-});
+}
 
-window.addEventListener('mouseup', function (e) {
-  if (panning && (e.button === 2 || e.button === 1)) {
+function pointerUp(x, y, button) {
+  if (panning && (button === 2 || button === 1)) {
     var didMove = panStart && panStart.moved;
     panning = false;
     panStart = null;
     // 우클릭을 끌지 않고 그냥 눌렀다 떼면 = 취소 (도구→선택, 선택 무리 해제)
-    if (e.button === 2 && !didMove) cancelToSelect();
+    if (button === 2 && !didMove) cancelToSelect();
     return;
   }
-  if (e.button === 0 && selDrag) {
-    var t2 = R.screenToTile(e.clientX, e.clientY);
-    var moved = Math.abs(e.clientX - selDrag.sx) + Math.abs(e.clientY - selDrag.sy) > 6;
+  if (button === 0 && selDrag) {
+    var t2 = R.screenToTile(x, y);
+    var moved = Math.abs(x - selDrag.sx) + Math.abs(y - selDrag.sy) > 6;
     if (moved) {
       // 박스 안의 살아있는 정착민 다중 선택
       var x0 = Math.min(selDrag.tile.x, t2.x), x1 = Math.max(selDrag.tile.x, t2.x);
@@ -544,13 +556,17 @@ window.addEventListener('mouseup', function (e) {
     R.showDrag(null);
     return;
   }
-  if (e.button === 0 && dragStart) {
-    var t = R.screenToTile(e.clientX, e.clientY);
+  if (button === 0 && dragStart) {
+    var t = R.screenToTile(x, y);
     applyTool(UI.getTool(), dragStart, t);
     dragStart = null;
     R.showDrag(null);
   }
-});
+}
+
+canvas.addEventListener('mousedown', function (e) { pointerDown(e.clientX, e.clientY, e.button); });
+window.addEventListener('mousemove', function (e) { pointerMove(e.clientX, e.clientY); });
+window.addEventListener('mouseup', function (e) { pointerUp(e.clientX, e.clientY, e.button); });
 
 canvas.addEventListener('wheel', function (e) {
   e.preventDefault();
@@ -564,25 +580,124 @@ canvas.addEventListener('wheel', function (e) {
   R.applyCamera();
 }, { passive: false });
 
+// ── 터치 입력 (안드로이드 등 — 한 손가락: 선택·도구 사용 / 두 손가락: 화면 이동·확대) ──
+var isTouch = window.matchMedia('(pointer: coarse)').matches;
+if (isTouch) document.body.classList.add('touch');
+
+var pinch = null; // { dist, zoom, camX, camY, mx, my }
+function touchXY(t) { return { x: t.clientX, y: t.clientY }; }
+
+canvas.addEventListener('touchstart', function (e) {
+  e.preventDefault();
+  Audio2.startBgm();
+  if (e.touches.length === 1) {
+    var p0 = touchXY(e.touches[0]);
+    pointerDown(p0.x, p0.y, 0);
+  } else if (e.touches.length === 2) {
+    dragStart = null; selDrag = null; R.showDrag(null); // 한 손가락 제스처 취소 후 핀치로 전환
+    var a = touchXY(e.touches[0]), b = touchXY(e.touches[1]);
+    pinch = {
+      dist: Math.hypot(a.x - b.x, a.y - b.y), zoom: R.cam.zoom,
+      camX: R.cam.x, camY: R.cam.y,
+      mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2,
+    };
+  }
+}, { passive: false });
+
+canvas.addEventListener('touchmove', function (e) {
+  e.preventDefault();
+  if (e.touches.length === 1 && !pinch) {
+    var p0 = touchXY(e.touches[0]);
+    pointerMove(p0.x, p0.y);
+  } else if (e.touches.length === 2 && pinch) {
+    var a = touchXY(e.touches[0]), b = touchXY(e.touches[1]);
+    var dist = Math.hypot(a.x - b.x, a.y - b.y);
+    var mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+    R.cam.zoom = pinch.zoom * (dist / pinch.dist);
+    R.cam.x = pinch.camX + (mx - pinch.mx);
+    R.cam.y = pinch.camY + (my - pinch.my);
+    R.applyCamera();
+  }
+}, { passive: false });
+
+canvas.addEventListener('touchend', function (e) {
+  e.preventDefault();
+  if (pinch) {
+    if (e.touches.length < 2) pinch = null;
+    return;
+  }
+  if (e.touches.length === 0 && e.changedTouches.length) {
+    var ct = touchXY(e.changedTouches[0]);
+    pointerUp(ct.x, ct.y, 0);
+  }
+}, { passive: false });
+canvas.addEventListener('touchcancel', function (e) {
+  e.preventDefault();
+  pinch = null; dragStart = null; selDrag = null; R.showDrag(null);
+}, { passive: false });
+
+// 가상 조이스틱 (정착민 직접 조종 이동)
+var joyVec = { x: 0, y: 0 };
+(function setupJoystick() {
+  var pad = document.getElementById('vJoyPad');
+  var knob = document.getElementById('vJoyKnob');
+  if (!pad) return;
+  var activeId = null, ocx = 0, ocy = 0;
+  var RADIUS = 40;
+  pad.addEventListener('pointerdown', function (e) {
+    if (activeId !== null) return;
+    activeId = e.pointerId;
+    pad.setPointerCapture(activeId);
+    var r = pad.getBoundingClientRect();
+    ocx = r.left + r.width / 2; ocy = r.top + r.height / 2;
+    Audio2.startBgm();
+  });
+  pad.addEventListener('pointermove', function (e) {
+    if (e.pointerId !== activeId) return;
+    var dx = e.clientX - ocx, dy = e.clientY - ocy;
+    var d = Math.hypot(dx, dy) || 1;
+    var cl = Math.min(d, RADIUS);
+    var nx = dx / d * cl, ny = dy / d * cl;
+    knob.style.transform = 'translate(' + nx + 'px,' + ny + 'px)';
+    joyVec.x = nx / RADIUS; joyVec.y = ny / RADIUS;
+  });
+  function release(e) {
+    if (e.pointerId !== activeId) return;
+    activeId = null; joyVec.x = 0; joyVec.y = 0;
+    knob.style.transform = 'translate(0,0)';
+  }
+  pad.addEventListener('pointerup', release);
+  pad.addEventListener('pointercancel', release);
+})();
+
+var btnActionTouch = document.getElementById('btnActionTouch');
+if (btnActionTouch) btnActionTouch.addEventListener('click', function () { doInteract(); });
+var btnCancelTouch = document.getElementById('btnCancelTouch');
+if (btnCancelTouch) btnCancelTouch.addEventListener('click', function () { cancelToSelect(); });
+
 // ── 키보드 ──
 var keys = {};
 function isTyping(e) {
   return e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA');
 }
+function doInteract() {
+  var live = controlled.filter(function (p) { return p.state !== 'dead'; });
+  if (live.length) {
+    var did = 0, lastMsg = null;
+    live.forEach(function (p) { var m = manualInteract(world, p, ctx); if (m) { did++; lastMsg = m; } });
+    if (did) UI.toast(live.length > 1 ? '🎬 ' + did + '명이 작업 시작' : lastMsg);
+    else UI.toast('🤔 주변에 할 수 있는 일이 없습니다 (나무·금광·버섯·공사장 옆에서 누르세요)');
+  } else {
+    setSpeed(speed === 0 ? lastSpeed : 0);
+  }
+}
+
 window.addEventListener('keydown', function (e) {
   if (isTyping(e)) return;
   keys[e.code] = true;
   if (e.code === 'Space') {
     e.preventDefault();
-    var live = controlled.filter(function (p) { return p.state !== 'dead'; });
-    if (live.length) {
-      var did = 0, lastMsg = null;
-      live.forEach(function (p) { var m = manualInteract(world, p, ctx); if (m) { did++; lastMsg = m; } });
-      if (did) UI.toast(live.length > 1 ? '🎬 ' + did + '명이 작업 시작' : lastMsg);
-      else UI.toast('🤔 주변에 할 수 있는 일이 없습니다 (나무·금광·버섯·공사장 옆에서 누르세요)');
-    } else {
-      setSpeed(speed === 0 ? lastSpeed : 0);
-    }
+    doInteract();
   }
   if (e.code === 'KeyP') setSpeed(speed === 0 ? lastSpeed : 0);
   if (e.code === 'Escape') cancelToSelect();
@@ -595,10 +710,11 @@ window.addEventListener('keyup', function (e) {
   keys[e.code] = false;
 });
 
-// 직접 조종 이동 (충돌 시 축 분리 슬라이드)
+// 직접 조종 이동 (충돌 시 축 분리 슬라이드) — 키보드(WASD) 또는 가상 조이스틱(joyVec)
 function manualMove(pawn, gameMin) {
   var vx = (keys.KeyD ? 1 : 0) - (keys.KeyA ? 1 : 0);
   var vy = (keys.KeyS ? 1 : 0) - (keys.KeyW ? 1 : 0);
+  if (!vx && !vy && (joyVec.x || joyVec.y)) { vx = joyVec.x; vy = joyVec.y; }
   if (pawn.state === 'working' && (vx || vy)) {
     // 이동 입력 시 작업 중단
     pawn.job = null;
@@ -609,8 +725,9 @@ function manualMove(pawn, gameMin) {
     pawn.manualMoving = false;
     return;
   }
-  var spd = gameMin * 1.25; // AI보다 25% 빠르게
-  if (vx && vy) spd *= 0.7071;
+  var mag = Math.hypot(vx, vy);
+  if (mag > 1) { vx /= mag; vy /= mag; mag = 1; } // 대각선(키보드) 또는 조이스틱 과대입력 정규화
+  var spd = gameMin * 1.25 * mag; // AI보다 25% 빠르게, 조이스틱은 기울인 만큼 아날로그 속도
   var nx = pawn.px + vx * spd;
   var ny = pawn.py + vy * spd;
   if (vx && isWalkable(world, Math.round(nx), Math.round(pawn.py))) pawn.px = nx;
@@ -633,6 +750,11 @@ var enemyCbs = {
     R.updatePawnSprite(pawn);
   },
   onEnemyDown: function (e) { R.refreshItem(idx(e.x, e.y)); Audio2.play('coin'); },
+  onTowerFire: function (b, e) {
+    var def = BUILDS[b.kind];
+    R.spawnAttackFx(b.x + (def.fw || 1) / 2, b.y + (def.fh || 1) / 2, e.x, e.y);
+    Audio2.play('attack');
+  },
 };
 
 // 계절 초기 표시
@@ -773,7 +895,7 @@ R.app.ticker.add(function () {
 
   // 직접 조종 이동 + 카메라 추적 (선택 무리 전체)
   if (controlled.length) {
-    var moveKey = keys.KeyW || keys.KeyA || keys.KeyS || keys.KeyD;
+    var moveKey = keys.KeyW || keys.KeyA || keys.KeyS || keys.KeyD || joyVec.x || joyVec.y;
     var sumX = 0, sumY = 0;
     for (var c = 0; c < controlled.length; c++) {
       manualMove(controlled[c], manualBudget);

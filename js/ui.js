@@ -1,7 +1,7 @@
 // DOM HUD: 도구·시계·자원·정착민 패널·토스트·커스터마이징 모달·연구/제작 모달
 import { taskLabel } from './pawns.js';
-import { UNITS, COLORS, TS, RESEARCH, WEAPONS, SKILL_LABEL, skillLevel, BUILDS, STORAGE, RODS } from './config.js';
-import { totalRes } from './world.js';
+import { UNITS, COLORS, TS, RESEARCH, WEAPONS, SKILL_LABEL, skillLevel, BUILDS, STORAGE, RODS, WAREHOUSE_TIERS } from './config.js';
+import { totalRes, warehouseTier, warehouseCap } from './world.js';
 
 var SHEET_W = { pawn: 1152, warrior: 1152, archer: 1536 };
 var COLOR_LABEL = { Blue: '파랑', Red: '빨강', Yellow: '노랑', Purple: '보라' };
@@ -204,7 +204,9 @@ export function createUI(handlers) {
       lines.push('⚔️ 공격력 <b>' + def.attack.power + '</b>');
       lines.push('🎯 사거리 <b>' + def.attack.range + '</b>');
     }
-    if (def && def.autoStockRing) lines.push('📦 저장 용량 <b>+' + STORAGE.perWarehouse + '</b>');
+    if (b.kind === 'warehouse' && b.stage === 'built') {
+      lines.push('📦 저장 용량 <b>+' + warehouseCap(b) + '</b> (' + warehouseTier(b) + '단계)');
+    }
     if (isMineB) {
       var max = b.maxCharges || 0;
       lines.push(b.depleted ? '⛏️ <b>고갈</b> (회복 중)' : '⛏️ 남은 매장량 <b>' + Math.round(b.charges || 0) + (max ? '/' + max : '') + '</b>');
@@ -218,6 +220,31 @@ export function createUI(handlers) {
       lines.push('🔨 건설 비용: ' + cs);
     }
     bpStats.innerHTML = lines.join('<br>');
+
+    // 창고 업그레이드 버튼 (완공된 창고만)
+    var oldUp = bpStats.parentNode.querySelector('.bp-upgrade');
+    if (oldUp) oldUp.remove();
+    if (b.kind === 'warehouse' && b.stage === 'built') {
+      var curTier = warehouseTier(b);
+      var next = WAREHOUSE_TIERS[curTier]; // 0-based: 다음 단계
+      var upWrap = document.createElement('div');
+      upWrap.className = 'bp-upgrade';
+      upWrap.style.marginTop = '8px';
+      if (!next) {
+        upWrap.innerHTML = '<span style="font-size:12px;color:#8d94a8">최대 단계</span>';
+      } else {
+        var costStr2 = Object.keys(next.cost).map(function (t) {
+          return ({ wood: '목재', gold: '금', iron: '철' }[t] || t) + ' ' + next.cost[t];
+        }).join(', ');
+        var btn = document.createElement('button');
+        btn.textContent = '🔼 업그레이드 (' + costStr2 + ')';
+        btn.addEventListener('click', function () {
+          if (handlers.onUpgradeWarehouse) handlers.onUpgradeWarehouse(b);
+        });
+        upWrap.appendChild(btn);
+      }
+      bpStats.parentNode.appendChild(upWrap);
+    }
     buildPanel.classList.remove('hidden');
   }
   function hideBuilding() { buildPanel.classList.add('hidden'); }

@@ -7,7 +7,7 @@ import {
 import {
   idx, ix, iy, inMap, T_WATER, T_GRASS, T_SAND, buildingDef,
 } from './world.js';
-import { poseOf, isToolPose } from './pawns.js';
+import { poseOf, isToolPose, toolIconOf } from './pawns.js';
 import { bpMissing } from './jobs.js';
 
 export function createRenderer(world) {
@@ -122,7 +122,8 @@ export function createRenderer(world) {
   objLayer.sortableChildren = true;
   var selGfx = new PIXI.Graphics();
   var dragGfx = new PIXI.Graphics();
-  camera.addChild(waterLayer, foamLayer, landLayer, groundDecor, zoneGfx, itemLayer, objLayer, selGfx, dragGfx);
+  var fxLayer = new PIXI.Graphics(); // 방어건물 공격 이펙트(투사체 궤적·타격 섬광)
+  camera.addChild(waterLayer, foamLayer, landLayer, groundDecor, zoneGfx, itemLayer, objLayer, fxLayer, selGfx, dragGfx);
 
   var seasonOverlay = new PIXI.Graphics(); // 계절 색보정 (밤보다 아래)
   app.stage.addChild(seasonOverlay);
@@ -276,6 +277,13 @@ export function createRenderer(world) {
       e.alpha = 1;
       e.tint = b.kind === 'ironmine' ? 0xaab4c2 : (def.tint || 0xffffff);
     }
+    // 창고 업그레이드 단계: 단계가 오를수록 조금씩 커 보이게 (앵커가 바닥이라 자연스럽게 위로 자람)
+    if (b.kind === 'warehouse') {
+      var wScale = 1 + ((b.tier || 1) - 1) * 0.08;
+      e.scale.set(wScale);
+    } else if (e.scale.x !== 1 || e.scale.y !== 1) {
+      e.scale.set(1);
+    }
     rebuildLights();
   }
 
@@ -396,8 +404,11 @@ export function createRenderer(world) {
     name.scale.set(0.62);
     var carry = new PIXI.Sprite();
     carry.visible = false;
-    pawnSprites[pawn.id] = { spr: s, name: name, carry: carry, animOff: pawn.id * 2 };
-    objLayer.addChild(s); objLayer.addChild(name); objLayer.addChild(carry);
+    var tool = new PIXI.Text('', { fontSize: 22 });
+    tool.anchor.set(0.5, 0.5);
+    tool.visible = false;
+    pawnSprites[pawn.id] = { spr: s, name: name, carry: carry, tool: tool, animOff: pawn.id * 2 };
+    objLayer.addChild(s); objLayer.addChild(name); objLayer.addChild(carry); objLayer.addChild(tool);
     updatePawnSprite(pawn);
   }
 
@@ -434,6 +445,17 @@ export function createRenderer(world) {
       e.carry.zIndex = 999999;
     } else {
       e.carry.visible = false;
+    }
+
+    var icon = toolIconOf(world, pawn);
+    if (icon) {
+      e.tool.text = icon;
+      e.tool.visible = true;
+      e.tool.x = wx + (pawn.face < 0 ? -18 : 18);
+      e.tool.y = wy - 6;
+      e.tool.zIndex = 999999;
+    } else {
+      e.tool.visible = false;
     }
   }
 
@@ -683,9 +705,36 @@ export function createRenderer(world) {
     };
   }
 
+  // ── 방어건물 공격 이펙트 ──
+  var atkFxList = []; // { x1, y1, x2, y2, life }
+  function spawnAttackFx(tx1, ty1, tx2, ty2) {
+    atkFxList.push({
+      x1: (tx1 + 0.5) * TILE, y1: (ty1 + 0.5) * TILE,
+      x2: (tx2 + 0.5) * TILE, y2: (ty2 + 0.5) * TILE,
+      life: 0.25,
+    });
+  }
+  function tickAttackFx(dtSec) {
+    fxLayer.clear();
+    for (var i = atkFxList.length - 1; i >= 0; i--) {
+      var fx = atkFxList[i];
+      fx.life -= dtSec;
+      if (fx.life <= 0) { atkFxList.splice(i, 1); continue; }
+      var a = Math.max(0, fx.life / 0.25);
+      fxLayer.lineStyle(3, 0xfff27a, a);
+      fxLayer.moveTo(fx.x1, fx.y1);
+      fxLayer.lineTo(fx.x2, fx.y2);
+      fxLayer.lineStyle(0);
+      fxLayer.beginFill(0xff8a4a, a);
+      fxLayer.drawCircle(fx.x2, fx.y2, 6 + 8 * a);
+      fxLayer.endFill();
+    }
+  }
+
   // ── 애니메이션 틱 ──
   function tick(dtSec) {
     animTime += dtSec;
+    tickAttackFx(dtSec);
     var foamF = (animTime / 0.15) | 0;
     for (var n = 0; n < foamSprites.length; n++) {
       var fs = foamSprites[n];
@@ -736,5 +785,6 @@ export function createRenderer(world) {
     drawMinimap: drawMinimap,
     invalidateMinimapTerrain: function () { miniLandCache = null; },
     tick: tick,
+    spawnAttackFx: spawnAttackFx,
   };
 }

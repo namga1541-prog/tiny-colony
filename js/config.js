@@ -68,6 +68,13 @@ export const BUILDS = {
 // ── 저장고 용량 (2): 기본 + 창고당 증가. 초과분은 저장 불가(폐기) ──
 export const STORAGE = { base: 120, perWarehouse: 180 };
 
+// ── 창고 업그레이드 단계: 인덱스 0 = 1단계(건설 시 기본), cap 은 STORAGE.perWarehouse 대신 사용 ──
+export const WAREHOUSE_TIERS = [
+  { cap: 180, cost: null },                          // 1단계: 건설 비용에 포함, 추가 비용 없음
+  { cap: 320, cost: { wood: 20, gold: 8 } },          // 2단계
+  { cap: 500, cost: { wood: 35, gold: 18 } },         // 3단계
+];
+
 // ── 목장 (5): 지어두면 주기적으로 식량 산출 + 양 번식 ──
 export const RANCH = { interval: 200, food: 4, breedChance: 0.2, maxSheep: 12 };
 

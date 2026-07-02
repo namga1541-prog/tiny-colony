@@ -97,8 +97,9 @@ export function poseOf(pawn) {
   if (pawn.state === 'working') {
     var j = pawn.job;
     if (!j) return 'axe';
-    // 건설·제작·채굴 = 망치/곡괭이 스윙 / 벌목·채집·농사 = 도끼 스윙
+    // 건설·제작·채굴 = 망치/곡괭이 스윙 / 벌목·채집·농사 = 도끼 스윙 / 낚시 = 제자리 대기
     if (j.type === 'build' || j.type === 'craft' || j.type === 'mine') return 'hammer';
+    if (j.type === 'fish') return 'idle';
     return 'axe';
   }
   if (pawn.carry) return 'carryIdle';
@@ -108,6 +109,29 @@ export function poseOf(pawn) {
 // 작업(도구) 포즈 여부 — 이때는 무기 외형을 숨기고 일꾼 도구 모습으로 렌더
 export function isToolPose(pose) {
   return pose === 'axe' || pose === 'hammer';
+}
+
+// 작업 중 손에 든 도구 아이콘(작업 종류마다 다르게 표시) — 스프라이트 시트에
+// 동작별 애니메이션이 없어(도끼/망치 스윙 2종뿐) 아이콘으로 작업 종류를 구분한다.
+export function toolIconOf(world, pawn) {
+  if (pawn.state === 'resting') return '❤️';
+  if (pawn.state !== 'working' || !pawn.job) return null;
+  switch (pawn.job.type) {
+    case 'gather': {
+      var o = world.objects[pawn.job.idx];
+      return (o && o.kind === 'mushroom') ? '🧺' : '🪓';
+    }
+    case 'mine': return '⛏️';
+    case 'build': return '🔨';
+    case 'craft': return '⚒️';
+    case 'cook': return '🍳';
+    case 'hunt': return '🏹';
+    case 'fish': return '🎣';
+    case 'plant': return '🌱';
+    case 'harvestCrop': return '🌾';
+    case 'eatShroom': return '🍄';
+    default: return null;
+  }
 }
 
 // 건설(우선순위 높음)에 밀려 중단 가능한 저순위 작업들
@@ -716,7 +740,12 @@ export function updatePawn(world, pawn, dtMin, ctx) {
 
     case 'resting': {
       pawn.hp = Math.min(100, pawn.hp + CLINIC.restRegen * dtMin);
-      if (pawn.hp >= CLINIC.healedAt || world.enemies.length > 0) {
+      if (pawn.hp >= CLINIC.healedAt) {
+        releaseAllOf(world, pawn.id);
+        pawn.job = null;
+        pawn.state = 'idle';
+        if (ctx.onEvent) ctx.onEvent('❤️ ' + pawn.name + ' 완쾌');
+      } else if (world.enemies.length > 0) {
         releaseAllOf(world, pawn.id);
         pawn.job = null;
         pawn.state = 'idle';
@@ -860,7 +889,10 @@ function think(world, pawn, dtMin, ctx) {
       if (cf) {
         pawn.job = { type: 'rest', x: cf.x, y: cf.y };
         if (!goTo(world, pawn, cf.x, cf.y, false)) { pawn.job = null; }
-        else return;
+        else {
+          if (ctx.onEvent) ctx.onEvent('🏥 ' + pawn.name + ' 이(가) 치료소로 향합니다');
+          return;
+        }
       }
     }
   }

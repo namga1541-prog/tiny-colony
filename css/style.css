@@ -3,6 +3,7 @@
 html, body {
   width: 100%; height: 100%;
   overflow: hidden;
+  overscroll-behavior: none;
   background: #171a21;
   font-family: 'Segoe UI', 'Malgun Gothic', sans-serif;
   color: #e8eaf0;
@@ -10,7 +11,11 @@ html, body {
 }
 
 #stage { position: fixed; inset: 0; }
-#stage canvas { display: block; }
+#stage canvas { display: block; touch-action: none; }
+
+/* 모바일(터치) 전용 요소 — 기본 숨김, body.touch 에서만 노출 */
+.touch-only { display: none; }
+body.touch .touch-only { display: inline-block; }
 
 /* ── 공통 HUD ───────────────────────────── */
 .hud {
@@ -91,7 +96,7 @@ html, body {
 
 /* ── 정착민 패널 ───────────────────────── */
 #pawnPanel {
-  right: 12px; top: 64px;
+  right: 12px; top: 244px; /* 미니맵(top:64px, 높이~172px) 아래로 배치해 겹침 방지 */
   width: 210px;
   padding: 12px 14px;
 }
@@ -324,4 +329,55 @@ html, body {
 @media (max-width: 760px) {
   #hint { display: none; }
   .tool { font-size: 12px; padding: 6px 8px; }
+}
+
+@media (max-width: 480px) {
+  #topbar { gap: 6px; padding: 6px 8px; max-width: calc(100vw - 12px); }
+  #clockBox { font-size: 12px; }
+  .res { font-size: 11px; gap: 3px; }
+  .res img { width: 14px; height: 14px; }
+  .res b { min-width: 16px; }
+  #minimapBox { display: none; } /* 좁은 화면에서는 미니맵 대신 화면 공간 확보 */
+  #pawnPanel { top: 64px; width: 168px; padding: 10px 12px; }
+  #buildPanel { width: 168px; }
+  #roster { max-height: 34vh; }
+}
+
+/* ── 터치 모드(모바일) 전용 레이아웃 ───── */
+body.touch #toolbar {
+  left: 0; right: 0; bottom: 0; transform: none;
+  width: 100%; max-width: 100%;
+  border-radius: 0; border-width: 1px 0 0 0;
+  flex-wrap: nowrap; justify-content: flex-start;
+  overflow-x: auto; -webkit-overflow-scrolling: touch;
+  padding: 6px 10px;
+}
+body.touch #toolbar .tool-section { flex-wrap: nowrap; }
+body.touch #toolbar .tool,
+body.touch #toolbar .tool-action { flex: 0 0 auto; padding: 8px 10px; }
+body.touch #toolbar .tool-sep { flex: 0 0 auto; }
+body.touch #hint { display: none; }
+
+#vJoyPad, #btnActionTouch { display: none; }
+body.touch.has-control #vJoyPad {
+  display: block;
+  position: fixed; left: 22px; bottom: 74px;
+  width: 104px; height: 104px; border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  z-index: 20; touch-action: none;
+}
+#vJoyKnob {
+  position: absolute; left: 32px; top: 32px;
+  width: 40px; height: 40px; border-radius: 50%;
+  background: rgba(255, 255, 255, 0.4);
+  pointer-events: none;
+}
+body.touch.has-control #btnActionTouch {
+  display: flex; align-items: center; justify-content: center;
+  position: fixed; right: 22px; bottom: 78px;
+  width: 66px; height: 66px; border-radius: 50%;
+  background: rgba(74, 125, 255, 0.35);
+  border: 2px solid rgba(109, 151, 255, 0.75);
+  color: #fff; font-size: 22px; z-index: 20; touch-action: none;
 }

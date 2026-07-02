@@ -2,7 +2,7 @@
 import {
   MAP_W, MAP_H, NATURE, STACK_MAX, BUILDS, GOLDMINE, IRONMINE, BRIDGE,
   RESEARCH_RATE_PER_PAWN, ENEMY, RAID, SEASON_DAYS, SEASONS, STORAGE, RANCH, REGROW,
-  ANIMAL_TYPES,
+  ANIMAL_TYPES, WAREHOUSE_TIERS,
   T_WATER, T_GRASS, T_SAND,
 } from './config.js';
 
@@ -202,6 +202,7 @@ export function addBuilding(world, kind, x, y, opts) {
   };
   if (opts && opts.natural) b.natural = true;
   if (opts && opts.charges !== undefined) { b.charges = opts.charges; b.maxCharges = opts.charges; }
+  if (kind === 'warehouse') b.tier = 1;
   world.buildings[b.id] = b;
   for (var dy = 0; dy < def.fh; dy++) {
     for (var dx = 0; dx < def.fw; dx++) {
@@ -303,14 +304,24 @@ export function totalRes(world) {
   };
 }
 
-// ── 저장고 용량 (창고 수에 비례) ──
+// ── 창고 업그레이드: 옛 저장본 호환용 기본 단계 ──
+export function warehouseTier(b) { return b.tier || 1; }
+
+// 창고 1개가 기여하는 저장 용량 (단계별)
+export function warehouseCap(b) {
+  var t = warehouseTier(b);
+  var def = WAREHOUSE_TIERS[t - 1];
+  return def ? def.cap : STORAGE.perWarehouse;
+}
+
+// ── 저장고 용량 (창고 수 + 단계에 비례) ──
 export function storageCap(world) {
   var n = 0;
   for (var id in world.buildings) {
     var b = world.buildings[id];
-    if (b.kind === 'warehouse' && b.stage === 'built') n++;
+    if (b.kind === 'warehouse' && b.stage === 'built') n += warehouseCap(b);
   }
-  return STORAGE.base + n * STORAGE.perWarehouse;
+  return STORAGE.base + n;
 }
 export function totalStored(world) {
   var s = world.stock || {};

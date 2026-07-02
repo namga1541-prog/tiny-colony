@@ -2,7 +2,9 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#171a21">
+<meta name="mobile-web-app-capable" content="yes">
 <title>타이니 콜로니 — 작은 개척지</title>
 <link rel="stylesheet" href="css/style.css">
 </head>
@@ -33,6 +35,7 @@
     <button id="btnSave" title="저장">💾</button>
     <button id="btnLoad" title="불러오기">📂</button>
     <button id="btnNew" title="새 게임">🆕</button>
+    <button id="btnCancelTouch" class="touch-only" title="선택·도구 취소">✕</button>
   </div>
 </div>
 
@@ -110,6 +113,10 @@
 
 <div id="toastHost"></div>
 <div id="hint" class="hud">정착민 클릭·드래그: 선택 (WASD 이동 · Space 작업) · 우클릭(짧게)/ESC: 취소 · 우클릭 드래그·화살표: 화면 이동 · 휠: 줌 · P: 일시정지</div>
+
+<!-- 터치 컨트롤 (모바일 — 정착민 조종 중에만 표시) -->
+<div id="vJoyPad"><div id="vJoyKnob"></div></div>
+<button id="btnActionTouch" title="상호작용 (Space)">▶</button>
 
 <script src="vendor/pixi.min.js"></script>
 <script type="module" src="js/main.js"></script>
