@@ -99,6 +99,24 @@ export function findWorkJob(world, pawn) {
     }
   }
 
+  // 2.5) 대장간 제작 주문 — 플레이어가 직접 주문한 것이므로 자동 채집·채굴보다 우선.
+  //       단 'craft' 예약락으로 한 번에 한 명만 제작(나머지는 계속 채집).
+  if (cands.length === 0 && world.research.unlocked.blacksmith && world.craftQueue.length > 0) {
+    var order = world.craftQueue[0];
+    var wdef = WEAPONS[order.type];
+    if (wdef && canAfford(world, wdef.cost) && world.reserved['craft'] === undefined) {
+      var houseFront = null;
+      for (id in world.buildings) {
+        b = world.buildings[id];
+        if (b.kind === 'house' && b.stage === 'built') {
+          var fr = buildingFront(world, b);
+          if (fr) { houseFront = fr; break; }
+        }
+      }
+      if (houseFront) cands.push({ type: 'craft', x: houseFront.x, y: houseFront.y, order: order, _d: distB(pawn, houseFront) });
+    }
+  }
+
   // 3) 벌목·채집 지정
   if (cands.length === 0) {
     for (i in world.designations) {
@@ -133,23 +151,6 @@ export function findWorkJob(world, pawn) {
         if (world.reserved['crop:' + ii] !== undefined || !reachable(world, ii)) continue;
         cands.push({ type: 'plant', idx: ii, _d: dist(pawn, ii) });
       }
-    }
-  }
-
-  // 4.7) 대장간 제작 주문
-  if (cands.length === 0 && world.research.unlocked.blacksmith && world.craftQueue.length > 0) {
-    var order = world.craftQueue[0];
-    var wdef = WEAPONS[order.type];
-    if (wdef && canAfford(world, wdef.cost) && world.reserved['craft'] === undefined) {
-      var houseFront = null;
-      for (id in world.buildings) {
-        b = world.buildings[id];
-        if (b.kind === 'house' && b.stage === 'built') {
-          var fr = buildingFront(world, b);
-          if (fr) { houseFront = fr; break; }
-        }
-      }
-      if (houseFront) cands.push({ type: 'craft', x: houseFront.x, y: houseFront.y, order: order, _d: distB(pawn, houseFront) });
     }
   }
 

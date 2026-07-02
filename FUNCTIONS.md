@@ -15,7 +15,7 @@
 | `applyCamera` | js/render.js:686 |
 | `applyTool` | js/main.js:301 |
 | `at` | js/world.js:33 |
-| `bpMissing` | js/jobs.js:226 |
+| `bpMissing` | js/jobs.js:227 |
 | `buildingAtTile` | js/main.js:122 |
 | `buildingDef` | js/world.js:169 |
 | `buildingFront` | js/world.js:228 |
@@ -49,9 +49,9 @@
 | `equipWeapon` | js/pawns.js:47 |
 | `exitControl` | js/main.js:138 |
 | `findFoodJob` | js/jobs.js:48 |
-| `findItemSource` | js/jobs.js:235 |
+| `findItemSource` | js/jobs.js:236 |
 | `findPath` | js/path.js:45 |
-| `findStockpileFor` | js/jobs.js:256 |
+| `findStockpileFor` | js/jobs.js:257 |
 | `findWorkJob` | js/jobs.js:76 |
 | `finishWork` | js/pawns.js:415 |
 | `footprintClear` | js/world.js:181 |
@@ -64,7 +64,7 @@
 | `groundTex` | js/render.js:50 |
 | `handleCombat` | js/pawns.js:625 |
 | `hasSave` | js/save.js:62 |
-| `hasStockpileSpace` | js/jobs.js:246 |
+| `hasStockpileSpace` | js/jobs.js:247 |
 | `heapPop` | js/path.js:23 |
 | `heapPush` | js/path.js:12 |
 | `hideBuilding` | js/ui.js:250 |

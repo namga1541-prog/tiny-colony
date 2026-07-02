@@ -1,5 +1,6 @@
 // L1 시나리오 스모크 — 시드 고정, 헤드리스. stepWorld 추출이 올바른지 + 결정론 확인.
 import { bootSim, run, runDays, designateChop, give, snapshot } from './harness.mjs';
+import { addBuilding } from '../js/world.js';
 
 var fails = 0;
 function ok(cond, msg) {
@@ -72,6 +73,23 @@ console.log('[sim-smoke] 5) chunk 크기 무관 결정론 (1분 vs 5분 스텝)'
   // 주: 습격 스케줄 타이밍이 chunk 에 따라 미세하게 달라질 수 있어 완전 일치가 아닐 수 있음 → 경고만
   if (one === five) console.log('  ✓ 1분/5분 스텝 결과 동일 (완전 재현)');
   else console.log('  ⚠ 1분/5분 스텝 미세 차이(습격 타이밍) — 각 chunk 내 결정론은 유지됨');
+})();
+
+console.log('[sim-smoke] 6) 제작 우선순위 — 다른 일(벌목)이 많아도 주문한 무기가 제작됨 (회귀가드)');
+(function () {
+  // 회귀: 제작이 최하위 우선순위라 활발한 콜로니에서 영원히 굶주리던 버그(2026-07-03).
+  var sim = bootSim(4242);
+  var w = sim.world;
+  var house = addBuilding(w, 'house', 51, 48, { stage: 'built' });
+  house.work = 999;
+  give(sim, { wood: 500, gold: 500 });
+  w.research.unlocked.blacksmith = true;
+  w.craftQueue.push({ type: 'sword' });
+  var chops = designateChop(sim, 40);
+  run(sim, 150); // 짧게 — 벌목이 아직 많이 남은 시점
+  var remain = Object.keys(w.designations).length;
+  ok((w.stock.sword || 0) >= 1, '벌목 ' + chops + '건 지시 중에도 검 제작 완료 (남은 벌목 ' + remain + ')');
+  ok(remain > 0, '동시에 벌목도 진행 중 (제작이 벌목을 완전히 막지 않음)');
 })();
 
 console.log('');
