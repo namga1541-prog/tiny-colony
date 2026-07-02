@@ -25,6 +25,7 @@ export function createRenderer(world) {
     'GoldMine_Active', 'GoldMine_Destroyed',
     'W_Idle', 'G_Idle', 'M_Idle',
     'Goblin', 'Bridge_All', 'Food_Grain',
+    'Pig', 'Cow', 'Chicken',
     'deco03'];
   // 외형 시트 (직업 x 색상)
   for (var uk in UNITS) {
@@ -61,6 +62,12 @@ export function createRenderer(world) {
   var stumpTex = tx('Tree', 0, 384, 192, 192);
   for (var fi = 0; fi < 7; fi++) fireFrames.push(tx('Fire', fi * 128, 0, 128, 128));
   for (var sf = 0; sf < 8; sf++) sheepFrames.push(tx('Sheep_Idle', sf * 128, 0, 128, 128));
+  // 소형 동물(돼지·소·닭): 16px, 2프레임
+  var animalFrames = {
+    pig: [tx('Pig', 0, 0, 16, 16), tx('Pig', 16, 0, 16, 16)],
+    cow: [tx('Cow', 0, 0, 16, 16), tx('Cow', 16, 0, 16, 16)],
+    chicken: [tx('Chicken', 0, 0, 16, 16), tx('Chicken', 16, 0, 16, 16)],
+  };
   var mushroomTex = PIXI.Texture.from(TS + 'deco03.png');
 
   // 작물 스프라이트 (v0.2 때 받아둔 Kenney RPG 시트 재사용 — 새 에셋 불필요)
@@ -439,8 +446,17 @@ export function createRenderer(world) {
       sp.x = (sh.px + 0.5) * TILE;
       sp.y = (sh.py + 0.5) * TILE + 10;
       sp.zIndex = sp.y;
-      sp.scale.x = sh.dir < 0 ? -1 : 1;
-      sp.texture = sheepFrames[(((animTime / 0.18) | 0) + sh.phase) % 8];
+      var type = sh.type || 'sheep';
+      if (type === 'sheep') {
+        sp.texture = sheepFrames[(((animTime / 0.18) | 0) + sh.phase) % 8];
+        sp.scale.set(sh.dir < 0 ? -1 : 1, 1);
+      } else {
+        var af = animalFrames[type] || animalFrames.pig;
+        sp.texture = af[(((animTime / 0.25) | 0) + sh.phase) % 2];
+        // 16px 원본 → 약 3배로 표시 (좌우 반전 유지)
+        var sc = 3;
+        sp.scale.set(sh.dir < 0 ? -sc : sc, sc);
+      }
       sp.tint = sh.hunt ? 0xffb0b0 : 0xffffff; // 사냥 지정 시 붉게
     }
     // 초과 스프라이트 제거 (사냥으로 양이 줄었을 때)

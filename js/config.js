@@ -55,7 +55,7 @@ export const BUILDS = {
     name: '목장', cost: { wood: 14 }, work: 60,
     fw: 2, fh: 2, solid: true,
     img: 'House', imgC: 'House_C', pw: 128, ph: 192, tint: 0x9be08a,
-    desc: '주기적으로 식량을 생산하고 양을 번식시킵니다.',
+    desc: '주기적으로 식량을 생산하고 가축(양·돼지·소·닭)을 번식시킵니다.',
   },
   clinic: {
     name: '치료소', cost: { wood: 10, gold: 3 }, work: 60,
@@ -131,8 +131,15 @@ export const RAID = { firstDay: 4, intervalDays: 3, baseCount: 2, perDayExtra: 0
 // ── 요리 (모닥불에서) ──
 export const COOK = { work: 15, foodPerMeal: 2, mealEatAmount: 95 };
 
-// ── 사냥 (양) ──
-export const HUNT = { work: 14, drops: { food: 4 } };
+// ── 사냥 (동물) ── 종류별 식량 산출
+export const HUNT = { work: 14 };
+export const ANIMALS = {
+  sheep:   { label: '양',   food: 4, sheet: 'Sheep_Idle', big: true },
+  pig:     { label: '돼지', food: 6, sheet: 'Pig',        big: false },
+  cow:     { label: '소',   food: 9, sheet: 'Cow',        big: false },
+  chicken: { label: '닭',   food: 2, sheet: 'Chicken',    big: false },
+};
+export const ANIMAL_TYPES = ['sheep', 'pig', 'cow', 'chicken'];
 
 // ── 고용: 식량을 지불하고 새 정착민 영입 (인원 늘수록 비용↑) ──
 export const HIRE = { base: 25, perPawn: 15, maxPop: 12 };
@@ -141,8 +148,8 @@ export function hireCost(alivePop) { return HIRE.base + HIRE.perPawn * alivePop;
 // ── 광물: 금광 일부는 철광 (강철 무기 재료) ──
 export const IRONMINE = { fw: 3, fh: 2, work: 18, dropsPerCycle: 2, charges: 20, regenPerDay: 5 };
 
-// ── 다리 (물 위, 통행 가능) ──
-export const BRIDGE = { name: '다리', cost: { wood: 3 }, work: 12 };
+// ── 뗏목/배 (물 위에 띄워 다른 대륙으로 건너감) ──
+export const BRIDGE = { name: '뗏목', cost: { wood: 2 }, work: 8 };
 
 // ── 계절 (6일 = 1계절, 24일 = 1년) ──
 export const SEASON_DAYS = 6;

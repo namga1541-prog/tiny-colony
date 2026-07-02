@@ -1,7 +1,7 @@
 // 정착민 AI (v0.3): 욕구 → 상태기계 → 작업 수행
 import {
   NEEDS, NATURE, BUILDS, WALK_MIN_PER_TILE, TRAITS, CROP, WEAPONS,
-  COMBAT, COOK, HUNT, CLINIC, skillMult,
+  COMBAT, COOK, HUNT, CLINIC, ANIMALS, skillMult,
 } from './config.js';
 import {
   idx, ix, iy, isWalkable, addItem, removeItem, natureDef, stackRoom,
@@ -440,7 +440,8 @@ function finishWork(world, pawn, ctx) {
   if (j.type === 'hunt') {
     var shp = sheepById(world, j.sheepId);
     if (shp) {
-      if (!storageFull(world)) { for (var t in HUNT.drops) addItem(world, idx(shp.x, shp.y), t, HUNT.drops[t]); ctx.onItemChange(idx(shp.x, shp.y)); }
+      var adef = ANIMALS[shp.type || 'sheep'] || ANIMALS.sheep;
+      if (!storageFull(world)) { addItem(world, 0, 'food', adef.food); }
       else ctx.onStorageFull();
       var si2 = world.sheep.indexOf(shp);
       if (si2 >= 0) world.sheep.splice(si2, 1);
@@ -722,16 +723,15 @@ export function manualInteract(world, pawn, ctx) {
     pawn.workLeft = 0;
     return '작업을 멈췄습니다';
   }
-  // 인접 양 사냥
+  // 인접 동물 사냥
   for (var s = 0; s < world.sheep.length; s++) {
     var shp = world.sheep[s];
     if (Math.abs(shp.x - pawn.x) <= 1 && Math.abs(shp.y - pawn.y) <= 1) {
-      var t;
-      for (t in HUNT.drops) addItem(world, idx(shp.x, shp.y), t, HUNT.drops[t]);
-      if (ctx.onItemChange) ctx.onItemChange(idx(shp.x, shp.y));
+      var adef = ANIMALS[shp.type || 'sheep'] || ANIMALS.sheep;
+      addItem(world, 0, 'food', adef.food);
       world.sheep.splice(s, 1);
       if (ctx.onSheepChange) ctx.onSheepChange();
-      return '🥩 사냥 성공';
+      return '🥩 ' + adef.label + ' 사냥 성공 (+식량 ' + adef.food + ')';
     }
   }
   var best = null; // {pri, d, start}

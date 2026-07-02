@@ -2,8 +2,18 @@
 import {
   MAP_W, MAP_H, NATURE, STACK_MAX, BUILDS, GOLDMINE, IRONMINE, BRIDGE,
   RESEARCH_RATE_PER_PAWN, ENEMY, RAID, SEASON_DAYS, SEASONS, STORAGE, RANCH, REGROW,
+  ANIMAL_TYPES,
   T_WATER, T_GRASS, T_SAND,
 } from './config.js';
+
+function pickAnimalType(rng) {
+  // 양이 가장 흔함
+  var r = rng();
+  if (r < 0.45) return 'sheep';
+  if (r < 0.68) return 'pig';
+  if (r < 0.85) return 'chicken';
+  return 'cow';
+}
 
 export { T_WATER, T_GRASS, T_SAND };
 
@@ -69,15 +79,20 @@ export function createWorld(seed) {
 
   var coast = makeNoise(rng, 8);
   var forest = makeNoise(rng, 16);
-  var cx = MAP_W / 2, cy = MAP_H / 2;
+  var cx = MAP_W / 2, cy = MAP_H / 2; // 본섬(시작 대륙) 중심
 
-  // 섬: 중심 타원 + 해안 노이즈
+  // 2개 대륙: 본섬(좌하) + 바다 건너 두 번째 대륙(우상). 사이에 바다.
+  var m1x = MAP_W * 0.36, m1y = MAP_H * 0.55;
+  var s2x = MAP_W * 0.86, s2y = MAP_H * 0.24;
   for (var y = 0; y < MAP_H; y++) {
     for (var x = 0; x < MAP_W; x++) {
-      var nx = (x - cx) / (MAP_W * 0.5), ny = (y - cy) / (MAP_H * 0.49);
-      var d = Math.sqrt(nx * nx + ny * ny);
-      var edge = 0.9 + (coast(x / 10, y / 10) - 0.5) * 0.38;
-      world.terrain[idx(x, y)] = d < edge ? T_GRASS : T_WATER;
+      var mnx = (x - m1x) / (MAP_W * 0.30), mny = (y - m1y) / (MAP_H * 0.32);
+      var dMain = Math.sqrt(mnx * mnx + mny * mny);
+      var snx = (x - s2x) / (MAP_W * 0.17), sny = (y - s2y) / (MAP_H * 0.18);
+      var dSec = Math.sqrt(snx * snx + sny * sny);
+      var edge = 0.84 + (coast(x / 11, y / 11) - 0.5) * 0.28;
+      var land = dMain < edge || dSec < edge;
+      world.terrain[idx(x, y)] = land ? T_GRASS : T_WATER;
     }
   }
 
@@ -136,7 +151,7 @@ export function createWorld(seed) {
   while (sheepN > 0 && tries++ < 200) {
     var sx = (rng() * MAP_W) | 0, sy = (rng() * MAP_H) | 0;
     if (!isWalkable(world, sx, sy)) continue;
-    world.sheep.push({ id: world.nextSid++, x: sx, y: sy, px: sx, py: sy, dir: 1, cd: rng() * 30, phase: (rng() * 8) | 0 });
+    world.sheep.push({ id: world.nextSid++, type: pickAnimalType(rng), x: sx, y: sy, px: sx, py: sy, dir: 1, cd: rng() * 30, phase: (rng() * 8) | 0 });
     sheepN--;
   }
 
@@ -319,7 +334,7 @@ export function tickRanches(world, dtMin, rng) {
       if (world.sheep.length < RANCH.maxSheep && rng() < RANCH.breedChance) {
         var sx = b.x + ((rng() * 4) | 0) - 1, sy = b.y + 2 + ((rng() * 2) | 0);
         if (isWalkable(world, sx, sy)) {
-          world.sheep.push({ id: world.nextSid++, x: sx, y: sy, px: sx, py: sy, dir: 1, cd: rng() * 30, phase: (rng() * 8) | 0 });
+          world.sheep.push({ id: world.nextSid++, type: pickAnimalType(rng), x: sx, y: sy, px: sx, py: sy, dir: 1, cd: rng() * 30, phase: (rng() * 8) | 0 });
           events.push({ type: 'sheep' });
         }
       }
