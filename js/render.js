@@ -24,7 +24,7 @@ export function createRenderer(world) {
     'House', 'House_C', 'Tower', 'Tower_C', 'Castle', 'Castle_C',
     'GoldMine_Active', 'GoldMine_Destroyed',
     'W_Idle', 'G_Idle', 'M_Idle',
-    'Goblin', 'Bridge_All',
+    'Goblin', 'Bridge_All', 'Food_Grain',
     'deco03'];
   // 외형 시트 (직업 x 색상)
   for (var uk in UNITS) {
@@ -76,8 +76,8 @@ export function createRenderer(world) {
   var ITEM_TEX = {
     wood: function () { return tx('W_Idle', 0, 0, 128, 128); },
     gold: function () { return tx('G_Idle', 0, 0, 128, 128); },
-    food: function () { return tx('M_Idle', 0, 0, 128, 128); },
-    // 철·요리는 전용 아이콘이 없어 금/식량 아이콘을 색조로 구분
+    food: function () { return tx('Food_Grain', 0, 0, 48, 48); }, // 농산물(곡물·열매)
+    // 철은 금 아이콘 색조로 구분, 요리(meal)는 고기(조리된 음식) 아이콘
     iron: function () { return tx('G_Idle', 0, 0, 128, 128); },
     meal: function () { return tx('M_Idle', 0, 0, 128, 128); },
     // 검·활 아이템은 별도 아이콘 에셋이 없어 해당 유닛 스프라이트(파랑) 아이들 프레임을 재사용

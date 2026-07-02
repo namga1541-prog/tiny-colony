@@ -89,6 +89,10 @@ export const COOK = { work: 15, foodPerMeal: 2, mealEatAmount: 95 };
 // ── 사냥 (양) ──
 export const HUNT = { work: 14, drops: { food: 4 } };
 
+// ── 고용: 식량을 지불하고 새 정착민 영입 (인원 늘수록 비용↑) ──
+export const HIRE = { base: 25, perPawn: 15, maxPop: 12 };
+export function hireCost(alivePop) { return HIRE.base + HIRE.perPawn * alivePop; }
+
 // ── 광물: 금광 일부는 철광 (강철 무기 재료) ──
 export const IRONMINE = { fw: 3, fh: 2, work: 18, dropsPerCycle: 2, charges: 20 };
 

@@ -49,6 +49,14 @@ export function createUI(handlers) {
   document.getElementById('btnGoals').addEventListener('click', function () {
     if (handlers.onShowGoals) handlers.onShowGoals();
   });
+  var btnHire = document.getElementById('btnHire');
+  btnHire.addEventListener('click', function () {
+    if (handlers.onHire) handlers.onHire();
+  });
+  function setHireInfo(label, disabled) {
+    btnHire.textContent = label;
+    btnHire.style.opacity = disabled ? '0.5' : '1';
+  }
 
   // 시계·자원
   var dayLabel = document.getElementById('dayLabel');
@@ -324,6 +332,7 @@ export function createUI(handlers) {
     showGoals: showGoals,
     getTool: function () { return tool; },
     setTool: setTool,
+    setHireInfo: setHireInfo,
     setSpeedUI: setSpeedUI,
     updateClock: updateClock,
     updateRes: updateRes,

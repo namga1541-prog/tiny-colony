@@ -10,7 +10,7 @@ import {
   canPlaceBridge, consumeGlobal, seasonDef, seasonIndex,
 } from './world.js';
 import { createPawn, updatePawn, manualInteract, equipWeapon } from './pawns.js';
-import { RESEARCH, WEAPONS } from './config.js';
+import { RESEARCH, WEAPONS, HIRE, hireCost } from './config.js';
 import { releaseAllOf } from './jobs.js';
 import { GOALS, checkGoals } from './goals.js';
 import { createRenderer } from './render.js';
@@ -153,6 +153,15 @@ var UI = createUI({
     UI.updatePawnPanel(pawn);
   },
   onShowGoals: function () { UI.showGoals(GOALS, world); },
+  onHire: function () {
+    var alive = pawns.filter(function (p) { return p.state !== 'dead'; }).length;
+    if (alive >= HIRE.maxPop) { UI.toast('⚠️ 인구 상한(' + HIRE.maxPop + '명)에 도달했습니다', true); return; }
+    var cost = hireCost(alive);
+    if (totalRes(world).food < cost) { UI.toast('⚠️ 식량이 부족합니다 (고용 비용 ' + cost + ')', true); return; }
+    consumeGlobal(world, 'food', cost);
+    var pw = recruitWanderer('고용');
+    if (pw) UI.toast('🧑‍🌾 새 정착민 "' + pw.name + '" 을(를) 고용했습니다 (식량 ' + cost + ' 소비)');
+  },
   onSave: function () {
     UI.toast(saveGame(world, pawns) ? '💾 저장되었습니다' : '⚠️ 저장 실패', false);
   },
@@ -585,25 +594,30 @@ var prevSeason = seasonIndex(world);
 (function () { var sd = seasonDef(world); R.setSeasonTint(sd.tint, sd.tintA || 0); })();
 
 var WANDERER_NAMES = ['바람', '이슬', '보리', '들풀', '가온', '노을', '솔', '한별', '미르', '아라'];
-function recruitWanderer() {
+function recruitWanderer(via) {
   var cx0 = MAP_W / 2, cy0 = MAP_H / 2;
   var spot = null;
-  for (var r = 0; r < 8 && !spot; r++) {
+  for (var r = 0; r < 10 && !spot; r++) {
     for (var dy = -r; dy <= r && !spot; dy++) {
       for (var dx = -r; dx <= r && !spot; dx++) {
         if (isWalkable(world, cx0 + dx, cy0 + dy)) spot = { x: cx0 + dx, y: cy0 + dy };
       }
     }
   }
-  if (!spot) return;
+  if (!spot) return null;
   var nm = WANDERER_NAMES[(ambientRng() * WANDERER_NAMES.length) | 0];
   var col = COLORS[(ambientRng() * COLORS.length) | 0];
   var tr = TRAITS[(ambientRng() * TRAITS.length) | 0];
   var pw = createPawn(nextPawnId++, { name: nm, look: { unit: 'pawn', color: col }, trait: tr }, spot.x, spot.y);
   pawns.push(pw);
   R.addPawn(pw);
-  UI.toast('🧳 떠돌이 "' + nm + '" 이(가) 합류했습니다!');
-  UI.addEvent('🧳 ' + nm + ' 합류');
+  if (via === '고용') {
+    UI.addEvent('🧑‍🌾 ' + nm + ' 고용');
+  } else {
+    UI.toast('🧳 떠돌이 "' + nm + '" 이(가) 합류했습니다!');
+    UI.addEvent('🧳 ' + nm + ' 합류');
+  }
+  return pw;
 }
 
 // ── 게임 루프 ──
@@ -725,7 +739,14 @@ R.app.ticker.add(function () {
     hudTimer = 0;
     UI.updateClock(world.day, world.timeMin);
     var alive = pawns.filter(function (p) { return p.state !== 'dead'; }).length;
-    UI.updateRes(totalRes(world), alive);
+    var res = totalRes(world);
+    UI.updateRes(res, alive);
+    // 고용 버튼: 현재 비용·가능 여부 표시
+    if (alive >= HIRE.maxPop) UI.setHireInfo('🧑‍🌾 인구 최대', true);
+    else {
+      var hc = hireCost(alive);
+      UI.setHireInfo('🧑‍🌾 고용 (🍖' + hc + ')', (res.food || 0) < hc);
+    }
     var pp = panelPawn();
     if (pp) UI.updatePawnPanel(pp);
   }
