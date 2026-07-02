@@ -1,7 +1,7 @@
 // 작업 탐색·예약 시스템 (v0.3 — 건물 id 기반)
-import { BUILDS, WEAPONS } from './config.js';
+import { BUILDS, WEAPONS, COOK } from './config.js';
 import {
-  ix, iy, idx, isWalkable, stackRoom, buildingDef, buildingFront, canAfford,
+  ix, iy, idx, isWalkable, stackRoom, buildingDef, buildingFront, canAfford, totalRes,
 } from './world.js';
 
 export function reserve(world, key, pawnId) {
@@ -44,27 +44,32 @@ function nearest(pawn, cands, distFn) {
   return best;
 }
 
-// ── 식사 ──
+// ── 식사 ── 요리(meal) > 식량(food) > 야생 버섯
 export function findFoodJob(world, pawn) {
-  var cands = [];
-  for (var i in world.items) {
-    var ii = +i;
-    if (world.items[i].food > 0 && world.reserved['eat:' + ii] === undefined && reachable(world, ii)) {
-      cands.push({ type: 'eat', idx: ii });
-    }
-  }
-  if (cands.length === 0) {
-    for (var j in world.objects) {
-      var jj = +j;
-      if (world.objects[j].kind === 'mushroom' &&
-          world.reserved['eat:' + jj] === undefined && reachable(world, jj)) {
-        cands.push({ type: 'eatShroom', idx: jj });
+  var order = ['meal', 'food'];
+  for (var oi = 0; oi < order.length; oi++) {
+    var rt = order[oi];
+    var cands = [];
+    for (var i in world.items) {
+      var ii = +i;
+      if ((world.items[i][rt] || 0) > 0 && world.reserved['eat:' + ii] === undefined && reachable(world, ii)) {
+        cands.push({ type: 'eat', idx: ii, resType: rt });
       }
     }
+    var job = nearest(pawn, cands, function (c) { return dist(pawn, c.idx); });
+    if (job) { reserve(world, 'eat:' + job.idx, pawn.id); return job; }
   }
-  var job = nearest(pawn, cands, function (c) { return dist(pawn, c.idx); });
-  if (job) reserve(world, 'eat:' + job.idx, pawn.id);
-  return job;
+  var mc = [];
+  for (var j in world.objects) {
+    var jj = +j;
+    if (world.objects[j].kind === 'mushroom' &&
+        world.reserved['eat:' + jj] === undefined && reachable(world, jj)) {
+      mc.push({ type: 'eatShroom', idx: jj });
+    }
+  }
+  var mjob = nearest(pawn, mc, function (c) { return dist(pawn, c.idx); });
+  if (mjob) reserve(world, 'eat:' + mjob.idx, pawn.id);
+  return mjob;
 }
 
 // ── 일: 건설 > 자재 운반 > 벌목/채집 > 금 채굴 > 비축 운반 ──
@@ -148,6 +153,32 @@ export function findWorkJob(world, pawn) {
     }
   }
 
+  // 4.8) 요리 (모닥불에서 식량 → 요리). 요리 재고가 적을 때만
+  if (cands.length === 0) {
+    var res = totalRes(world);
+    if (res.meal < 6 && res.food >= COOK.foodPerMeal && world.reserved['cook'] === undefined) {
+      var fire = null;
+      for (id in world.buildings) {
+        b = world.buildings[id];
+        if (b.kind === 'campfire' && b.stage === 'built') {
+          var ff = buildingFront(world, b);
+          if (ff) { fire = ff; break; }
+        }
+      }
+      if (fire) cands.push({ type: 'cook', x: fire.x, y: fire.y, _d: distB(pawn, fire) });
+    }
+  }
+
+  // 4.9) 사냥 (지정된 양)
+  if (cands.length === 0) {
+    for (var si = 0; si < world.sheep.length; si++) {
+      var sh = world.sheep[si];
+      if (!sh.hunt) continue;
+      if (world.reserved['hunt:' + sh.id] !== undefined) continue;
+      cands.push({ type: 'hunt', sheepId: sh.id, x: sh.x, y: sh.y, _d: Math.abs(pawn.x - sh.x) + Math.abs(pawn.y - sh.y) });
+    }
+  }
+
   // 5) 비축 운반
   if (cands.length === 0 && hasStockpileSpace(world)) {
     for (i in world.items) {
@@ -176,6 +207,8 @@ export function findWorkJob(world, pawn) {
   else if (job.type === 'haul') reserve(world, 'haul:' + job.idx, pawn.id);
   else if (job.type === 'plant' || job.type === 'harvestCrop') reserve(world, 'crop:' + job.idx, pawn.id);
   else if (job.type === 'craft') reserve(world, 'craft', pawn.id);
+  else if (job.type === 'cook') reserve(world, 'cook', pawn.id);
+  else if (job.type === 'hunt') reserve(world, 'hunt:' + job.sheepId, pawn.id);
   return job;
 }
 

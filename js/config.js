@@ -58,16 +58,51 @@ export const RESEARCH_RATE_PER_PAWN = 100 / (6 * 60); // 정착민 1명당 6시�
 export const RESEARCH = {
   farming:    { name: '농업', cost: 60,  desc: '농사 구역을 지정해 밀을 재배할 수 있습니다' },
   blacksmith: { name: '대장간 기술', cost: 90, desc: '검·활을 제작할 수 있습니다' },
+  steel:      { name: '제철 기술', cost: 160, desc: '철광을 채굴하고 강철검·강철활을 제작할 수 있습니다' },
 };
 
 // ── 농사 ──
 export const CROP = { plantWork: 12, growTime: 380, harvestWork: 10, yield: 3 };
 
 // ── 대장간 (건물 불필요 — 지은 집에서 제작) ──
+// power=공격력, range=사거리(타일). iron 계열은 강철 연구 후 해금
 export const WEAPONS = {
-  sword: { name: '검', cost: { wood: 4, gold: 3 }, work: 40, equip: 'warrior' },
-  bow:   { name: '활', cost: { wood: 3, gold: 4 }, work: 40, equip: 'archer' },
+  sword:     { name: '검',     cost: { wood: 4, gold: 3 },  work: 40, equip: 'warrior', power: 10, range: 1 },
+  bow:       { name: '활',     cost: { wood: 3, gold: 4 },  work: 40, equip: 'archer',  power: 8,  range: 5 },
+  ironSword: { name: '강철검', cost: { wood: 3, iron: 4 },  work: 60, equip: 'warrior', power: 20, range: 1, iron: true },
+  ironBow:   { name: '강철활', cost: { wood: 3, iron: 4 },  work: 60, equip: 'archer',  power: 16, range: 6, iron: true },
 };
+
+// ── 전투 ──
+export const COMBAT = {
+  unarmedPower: 3,     // 맨손 공격력
+  attackCd: 12,        // 공격 쿨다운(게임분)
+  pawnHp: 100,
+};
+// 고블린 습격
+export const ENEMY = { hp: 45, power: 8, attackCd: 14, moveMinPerTile: 1.4, dropGold: 2 };
+export const RAID = { firstDay: 4, intervalDays: 3, baseCount: 2, perDayExtra: 0.4, spawnHour: 20 };
+
+// ── 요리 (모닥불에서) ──
+export const COOK = { work: 15, foodPerMeal: 2, mealEatAmount: 95 };
+
+// ── 사냥 (양) ──
+export const HUNT = { work: 14, drops: { food: 4 } };
+
+// ── 광물: 금광 일부는 철광 (강철 무기 재료) ──
+export const IRONMINE = { fw: 3, fh: 2, work: 18, dropsPerCycle: 2, charges: 20 };
+
+// ── 다리 (물 위, 통행 가능) ──
+export const BRIDGE = { name: '다리', cost: { wood: 3 }, work: 12 };
+
+// ── 계절 (6일 = 1계절, 24일 = 1년) ──
+export const SEASON_DAYS = 6;
+export const SEASONS = [
+  { name: '봄', tint: null },
+  { name: '여름', tint: null },
+  { name: '가을', tint: 0xffcc66, tintA: 0.06 },
+  { name: '겨울', tint: 0x88aadd, tintA: 0.14, noFarm: true },
+];
 
 // ── 정착민 특성 (생성 시 1개 무작위 배정) ──
 export const TRAITS = [
@@ -99,10 +134,12 @@ export const STACK_MAX = 50;
 // 정착민 외형: 직업(실루엣) 3종 x 색상 4종 = 12종
 // rows: 포즈 → 시트 행 (전사·궁수는 작업/운반 포즈가 없어 공격/이동 행으로 대체)
 export const UNITS = {
-  pawn:    { label: '일꾼', sheet: 'Pawn_',    rows: { idle: 0, walk: 1, hammer: 2, axe: 3, carryIdle: 4, carryWalk: 5 } },
-  warrior: { label: '전사', sheet: 'Warrior_', rows: { idle: 0, walk: 1, hammer: 2, axe: 2, carryIdle: 0, carryWalk: 1 } },
-  archer:  { label: '궁수', sheet: 'Archer_',  rows: { idle: 0, walk: 1, hammer: 3, axe: 3, carryIdle: 0, carryWalk: 1 } },
+  pawn:    { label: '일꾼', sheet: 'Pawn_',    rows: { idle: 0, walk: 1, hammer: 2, axe: 3, carryIdle: 4, carryWalk: 5, attack: 3 } },
+  warrior: { label: '전사', sheet: 'Warrior_', rows: { idle: 0, walk: 1, hammer: 2, axe: 2, carryIdle: 0, carryWalk: 1, attack: 3 } },
+  archer:  { label: '궁수', sheet: 'Archer_',  rows: { idle: 0, walk: 1, hammer: 3, axe: 3, carryIdle: 0, carryWalk: 1, attack: 3 } },
 };
+// 고블린(적) 외형 — Goblin.png 7열 5행
+export const ENEMY_UNIT = { sheet: 'Goblin', rows: { idle: 0, walk: 1, attack: 2 } };
 export const COLORS = ['Blue', 'Red', 'Yellow', 'Purple'];
 
 export const PAWN_DEFS = [

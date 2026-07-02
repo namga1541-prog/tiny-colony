@@ -1,7 +1,7 @@
 // v0.3 월드: 바다 위의 섬 + 다중타일 건물(풋프린트) + 금광 + 양
 import {
-  MAP_W, MAP_H, NATURE, STACK_MAX, BUILDS, GOLDMINE,
-  RESEARCH_RATE_PER_PAWN,
+  MAP_W, MAP_H, NATURE, STACK_MAX, BUILDS, GOLDMINE, IRONMINE, BRIDGE,
+  RESEARCH_RATE_PER_PAWN, ENEMY, SEASON_DAYS, SEASONS,
   T_WATER, T_GRASS, T_SAND,
 } from './config.js';
 
@@ -51,7 +51,8 @@ export function createWorld(seed) {
     stockpile: {},
     designations: {},   // idx -> 'chop'|'forage'  |  'mine:'+bid 는 mineDesig 에
     mineDesig: {},      // buildingId -> true
-    sheep: [],          // {x,y,px,py,dir,cd,phase}
+    sheep: [],          // {id,x,y,px,py,dir,cd,phase,hunt}
+    nextSid: 1,
     reserved: {},
     timeMin: 8 * 60,
     day: 1,
@@ -59,6 +60,10 @@ export function createWorld(seed) {
     farmZone: {},       // idx -> true
     crops: {},          // idx -> {stage:'empty'|'growing'|'ready', timer}
     craftQueue: [],      // [{type:'sword'|'bow'}]
+    enemies: [],        // {id,x,y,px,py,hp,cd,dir,phase,anim}
+    nextEid: 1,
+    nextRaidDay: 0,     // main.js 에서 설정
+    goals: {},          // goalId -> true (달성)
   };
 
   var coast = makeNoise(rng, 8);
@@ -106,16 +111,22 @@ export function createWorld(seed) {
     }
   }
 
-  // 금광 2~3개 (탁 트인 잔디에)
+  // 금광 2~3개 + 철광 1~2개 (탁 트인 잔디에)
   var mines = 2 + ((rng() * 2) | 0);
+  var ironMines = 1 + ((rng() * 2) | 0);
   var tries = 0;
-  while (mines > 0 && tries++ < 300) {
+  while ((mines > 0 || ironMines > 0) && tries++ < 400) {
     var mx = 4 + ((rng() * (MAP_W - 8)) | 0);
     var my = 4 + ((rng() * (MAP_H - 8)) | 0);
     if (Math.hypot(mx - cx, my - cy) < 10) continue;
     if (!footprintClear(world, mx, my, GOLDMINE.fw, GOLDMINE.fh, true)) continue;
-    addBuilding(world, 'goldmine', mx, my, { natural: true, stage: 'built', charges: GOLDMINE.charges });
-    mines--;
+    if (mines > 0) {
+      addBuilding(world, 'goldmine', mx, my, { natural: true, stage: 'built', charges: GOLDMINE.charges });
+      mines--;
+    } else {
+      addBuilding(world, 'ironmine', mx, my, { natural: true, stage: 'built', charges: IRONMINE.charges });
+      ironMines--;
+    }
   }
 
   // 양 4~6마리
@@ -124,7 +135,7 @@ export function createWorld(seed) {
   while (sheepN > 0 && tries++ < 200) {
     var sx = (rng() * MAP_W) | 0, sy = (rng() * MAP_H) | 0;
     if (!isWalkable(world, sx, sy)) continue;
-    world.sheep.push({ x: sx, y: sy, px: sx, py: sy, dir: 1, cd: rng() * 30, phase: (rng() * 8) | 0 });
+    world.sheep.push({ id: world.nextSid++, x: sx, y: sy, px: sx, py: sy, dir: 1, cd: rng() * 30, phase: (rng() * 8) | 0 });
     sheepN--;
   }
 
@@ -139,8 +150,15 @@ export function createWorld(seed) {
 // ── 건물 유틸 ──
 export function buildingDef(kind) {
   if (kind === 'goldmine') return { name: '금광', fw: GOLDMINE.fw, fh: GOLDMINE.fh, solid: true };
+  if (kind === 'ironmine') return { name: '철광', fw: IRONMINE.fw, fh: IRONMINE.fh, solid: true };
+  if (kind === 'bridge') return { name: BRIDGE.name, fw: 1, fh: 1, solid: false, onWater: true };
   return BUILDS[kind];
 }
+
+export function isMine(kind) { return kind === 'goldmine' || kind === 'ironmine'; }
+export function mineResource(kind) { return kind === 'ironmine' ? 'iron' : 'gold'; }
+export function mineWork(kind) { return kind === 'ironmine' ? IRONMINE.work : GOLDMINE.work; }
+export function mineDrops(kind) { return kind === 'ironmine' ? IRONMINE.dropsPerCycle : GOLDMINE.dropsPerCycle; }
 
 export function footprintClear(world, x, y, fw, fh, needGrass) {
   for (var dy = 0; dy < fh; dy++) {
@@ -208,18 +226,40 @@ export function natureDef(objKind) {
   return NATURE[objKind];
 }
 
+export function sheepById(world, id) {
+  for (var n = 0; n < world.sheep.length; n++) if (world.sheep[n].id === id) return world.sheep[n];
+  return null;
+}
+
 export function isWalkable(world, x, y) {
   if (!inMap(x, y)) return false;
   var i = idx(x, y);
-  if (world.terrain[i] === T_WATER) return false;
+  var bid = world.occupancy[i];
+  if (world.terrain[i] === T_WATER) {
+    // 완성된 다리가 놓인 물만 통행 가능
+    if (bid !== undefined) {
+      var wb = world.buildings[bid];
+      if (wb && wb.kind === 'bridge' && wb.stage === 'built') return true;
+    }
+    return false;
+  }
   var o = world.objects[i];
   if (o && o.kind === 'tree') return false;
-  var bid = world.occupancy[i];
   if (bid !== undefined) {
     var b = world.buildings[bid];
     if (b && b.stage === 'built' && buildingDef(b.kind).solid) return false;
   }
   return true;
+}
+
+// 다리 설치 가능한 물 타일인가 (인접에 통행 가능 지점이 있어야 접근 가능)
+export function canPlaceBridge(world, x, y) {
+  if (!inMap(x, y)) return false;
+  var i = idx(x, y);
+  if (world.terrain[i] !== T_WATER) return false;
+  if (world.occupancy[i] !== undefined) return false;
+  return isWalkable(world, x + 1, y) || isWalkable(world, x - 1, y) ||
+         isWalkable(world, x, y + 1) || isWalkable(world, x, y - 1);
 }
 
 // ── 아이템 ──
@@ -252,13 +292,19 @@ export function stackRoom(world, i, type) {
 }
 
 export function totalRes(world) {
-  var sum = { wood: 0, gold: 0, food: 0 };
+  var sum = { wood: 0, gold: 0, food: 0, iron: 0, meal: 0 };
   for (var i in world.items) {
     var slot = world.items[i];
     for (var k in slot) sum[k] = (sum[k] || 0) + slot[k];
   }
   return sum;
 }
+
+// ── 계절 ──
+export function seasonIndex(world) {
+  return Math.floor((world.day - 1) / SEASON_DAYS) % SEASONS.length;
+}
+export function seasonDef(world) { return SEASONS[seasonIndex(world)]; }
 
 // 매일 아침: 버섯 재생
 export function dailyRegrowth(world, rng) {
@@ -309,8 +355,9 @@ export function researchProgress(world, key, def) {
   return Math.min(1, world.research.points / def.cost);
 }
 
-// 작물 성장 (매 틱) — 성숙하면 stage 'ready' 전환만, 수확은 pawn job
+// 작물 성장 (매 틱) — 성숙하면 stage 'ready' 전환만, 수확은 pawn job. 겨울엔 성장 정지.
 export function tickCrops(world, dtMin) {
+  if (seasonDef(world).noFarm) return [];
   var readyNow = [];
   for (var i in world.crops) {
     var c = world.crops[i];
@@ -322,6 +369,103 @@ export function tickCrops(world, dtMin) {
     }
   }
   return readyNow;
+}
+
+// ── 습격: 해안 물 근처(육지 가장자리)에서 고블린 스폰 ──
+export function spawnRaid(world, count, rng) {
+  var edges = [];
+  for (var y = 1; y < MAP_H - 1; y++) {
+    for (var x = 1; x < MAP_W - 1; x++) {
+      if (world.terrain[idx(x, y)] === T_WATER) continue;
+      // 육지지만 물과 접한 가장자리
+      if (world.terrain[idx(x + 1, y)] === T_WATER || world.terrain[idx(x - 1, y)] === T_WATER ||
+          world.terrain[idx(x, y + 1)] === T_WATER || world.terrain[idx(x, y - 1)] === T_WATER) {
+        if (isWalkable(world, x, y)) edges.push({ x: x, y: y });
+      }
+    }
+  }
+  if (edges.length === 0) return 0;
+  var spawned = 0;
+  // 한 지점 근처에 무리로 상륙
+  var base = edges[(rng() * edges.length) | 0];
+  for (var n = 0; n < count; n++) {
+    var sx = base.x + ((rng() * 5) | 0) - 2;
+    var sy = base.y + ((rng() * 5) | 0) - 2;
+    if (!isWalkable(world, sx, sy)) { sx = base.x; sy = base.y; }
+    world.enemies.push({
+      id: world.nextEid++, x: sx, y: sy, px: sx, py: sy,
+      hp: ENEMY.hp, cd: 0, dir: 1, anim: (rng() * 6) | 0,
+    });
+    spawned++;
+  }
+  return spawned;
+}
+
+// 가장 가까운 살아있는 적 (사거리 내). {enemy, dist} 또는 null
+export function nearestEnemy(world, x, y, maxDist) {
+  var best = null, bestD = Infinity;
+  for (var n = 0; n < world.enemies.length; n++) {
+    var e = world.enemies[n];
+    var d = Math.abs(e.px - x) + Math.abs(e.py - y);
+    if (d <= maxDist && d < bestD) { bestD = d; best = e; }
+  }
+  return best ? { enemy: best, dist: bestD } : null;
+}
+
+// 적 이동·공격 (정착민 공격은 pawns.js 에서). cb: {onHit(pawn,dmg), onPawnDeath(pawn), onEnemyGone}
+export function updateEnemies(world, pawns, dtMin, cb) {
+  var alive = [];
+  for (var n = 0; n < world.enemies.length; n++) {
+    var e = world.enemies[n];
+    if (e.hp <= 0) {
+      // 처치 → 금 드랍
+      addItem(world, idx(e.x, e.y), 'gold', ENEMY.dropGold);
+      if (cb.onEnemyDown) cb.onEnemyDown(e);
+      continue;
+    }
+    // 목표: 가장 가까운 살아있는 정착민
+    var tgt = null, tgtD = Infinity;
+    for (var p = 0; p < pawns.length; p++) {
+      if (pawns[p].state === 'dead') continue;
+      var d = Math.abs(pawns[p].px - e.px) + Math.abs(pawns[p].py - e.py);
+      if (d < tgtD) { tgtD = d; tgt = pawns[p]; }
+    }
+    if (tgt) {
+      if (tgtD <= 1.05) {
+        // 인접 → 공격
+        e.cd -= dtMin;
+        e.moving = false;
+        if (e.cd <= 0) {
+          e.cd = ENEMY.attackCd;
+          tgt.hp = Math.max(0, tgt.hp - ENEMY.power);
+          if (cb.onHit) cb.onHit(tgt, ENEMY.power);
+          if (tgt.hp <= 0 && tgt.state !== 'dead') {
+            tgt.state = 'dead';
+            tgt.job = null;
+            if (cb.onPawnDeath) cb.onPawnDeath(tgt);
+          }
+        }
+      } else {
+        // 접근 (그리디 1스텝, 물/벽 회피)
+        e.moving = true;
+        var step = dtMin / ENEMY.moveMinPerTile;
+        var vx = Math.sign(tgt.px - e.px), vy = Math.sign(tgt.py - e.py);
+        if (vx !== 0) e.dir = vx;
+        // 우선 큰 축 이동
+        var movedAxis = false;
+        if (Math.abs(tgt.px - e.px) >= Math.abs(tgt.py - e.py)) {
+          if (vx !== 0 && isWalkable(world, Math.round(e.px + vx), Math.round(e.py))) { e.px += vx * step; movedAxis = true; }
+          else if (vy !== 0 && isWalkable(world, Math.round(e.px), Math.round(e.py + vy))) { e.py += vy * step; movedAxis = true; }
+        } else {
+          if (vy !== 0 && isWalkable(world, Math.round(e.px), Math.round(e.py + vy))) { e.py += vy * step; movedAxis = true; }
+          else if (vx !== 0 && isWalkable(world, Math.round(e.px + vx), Math.round(e.py))) { e.px += vx * step; movedAxis = true; }
+        }
+        if (movedAxis) { e.x = Math.round(e.px); e.y = Math.round(e.py); }
+      }
+    }
+    alive.push(e);
+  }
+  world.enemies = alive;
 }
 
 // 양 배회

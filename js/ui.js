@@ -42,6 +42,9 @@ export function createUI(handlers) {
   });
   document.getElementById('btnResearch').addEventListener('click', showResearch);
   document.getElementById('btnCraft').addEventListener('click', showCraft);
+  document.getElementById('btnGoals').addEventListener('click', function () {
+    if (handlers.onShowGoals) handlers.onShowGoals();
+  });
 
   // 시계·자원
   var dayLabel = document.getElementById('dayLabel');
@@ -106,18 +109,23 @@ export function createUI(handlers) {
       ? '✦ ' + pawn.trait.name + ' — ' + pawn.trait.desc : '';
     pawnEquip.innerHTML = '';
     if (pawn.state !== 'dead') {
-      ['sword', 'bow'].forEach(function (wt) {
-        var res = totalRes(world);
+      var res = totalRes(world);
+      var wlabels = { sword: '🗡️검', bow: '🏹활', ironSword: '⚔️강철검', ironBow: '🎯강철활' };
+      var list = ['sword', 'bow'];
+      if (world.research.unlocked.steel) list.push('ironSword', 'ironBow');
+      list.forEach(function (wt) {
+        if ((res[wt] || 0) <= 0 && pawn.equipped !== wt) return; // 보유/장착한 것만 표시
         var btn = document.createElement('button');
-        var label = wt === 'sword' ? '🗡️ 검' : '🏹 활';
-        btn.textContent = label + ' (보유 ' + (res[wt] || 0) + ')';
+        btn.textContent = wlabels[wt] + ' (' + (res[wt] || 0) + ')';
         if (pawn.equipped === wt) btn.classList.add('eq-active');
-        btn.disabled = (res[wt] || 0) <= 0 && pawn.equipped !== wt;
         btn.addEventListener('click', function () {
           if (handlers.onEquip) handlers.onEquip(pawn, wt);
         });
         pawnEquip.appendChild(btn);
       });
+      if (!pawnEquip.children.length) {
+        pawnEquip.innerHTML = '<span style="font-size:11px;color:#8d94a8">무기 없음 (⚒️ 제작에서 검·활 제작)</span>';
+      }
     }
   }
 
@@ -267,15 +275,18 @@ export function createUI(handlers) {
       rows.innerHTML = '';
       Object.keys(WEAPONS).forEach(function (type) {
         var wdef = WEAPONS[type];
+        // 강철 무기는 제철 연구 후에만
+        if (wdef.iron && !world.research.unlocked.steel) return;
         var res = totalRes(world);
         var costStr = Object.keys(wdef.cost).map(function (t) {
-          var nm = { wood: '목재', gold: '금' }[t] || t;
+          var nm = { wood: '목재', gold: '금', iron: '철' }[t] || t;
           return nm + ' ' + wdef.cost[t] + ' (보유 ' + (res[t] || 0) + ')';
         }).join(', ');
         var queued = world.craftQueue.filter(function (o) { return o.type === type; }).length;
         var item = document.createElement('div');
         item.className = 'cr-item';
-        item.innerHTML = '<h3>' + wdef.name + '</h3><p>' + costStr + '</p>' +
+        item.innerHTML = '<h3>' + wdef.name + ' <span style="font-size:11px;color:#9aa3b5">공격력 ' + wdef.power +
+          (wdef.range > 1 ? ' · 원거리' : '') + '</span></h3><p>' + costStr + '</p>' +
           '<button class="cr-order">제작 주문</button>' +
           (queued ? '<div class="cr-queue">대기 중인 주문: ' + queued + '개</div>' : '');
         rows.appendChild(item);
@@ -289,11 +300,24 @@ export function createUI(handlers) {
     overlay.querySelector('.cr-close').addEventListener('click', function () { overlay.remove(); });
   }
 
+  // ── 목표 모달 ──
+  function showGoals(goals, w) {
+    var rowsHtml = goals.map(function (g) {
+      var done = !!w.goals[g.id];
+      return '<div class="rs-item"><h3>' + (done ? '✅ ' : '⬜ ') + g.name + '</h3>' +
+        '<p>' + g.desc + '</p></div>';
+    }).join('');
+    var overlay = openModal('<h2>🏆 목표</h2>' + rowsHtml +
+      '<div class="cm-actions"><button class="cm-ok gl-close">닫기</button></div>');
+    overlay.querySelector('.gl-close').addEventListener('click', function () { overlay.remove(); });
+  }
+
   return {
     addEvent: addEvent,
     showCustomize: showCustomize,
     showResearch: showResearch,
     showCraft: showCraft,
+    showGoals: showGoals,
     getTool: function () { return tool; },
     setSpeedUI: setSpeedUI,
     updateClock: updateClock,

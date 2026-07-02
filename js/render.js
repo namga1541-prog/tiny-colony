@@ -7,7 +7,7 @@ import {
 import {
   idx, ix, iy, inMap, T_WATER, T_GRASS, T_SAND, buildingDef,
 } from './world.js';
-import { poseOf } from './pawns.js';
+import { poseOf, isToolPose } from './pawns.js';
 import { bpMissing } from './jobs.js';
 
 export function createRenderer(world) {
@@ -24,6 +24,7 @@ export function createRenderer(world) {
     'House', 'House_C', 'Tower', 'Tower_C', 'Castle', 'Castle_C',
     'GoldMine_Active', 'GoldMine_Destroyed',
     'W_Idle', 'G_Idle', 'M_Idle',
+    'Goblin', 'Bridge_All',
     'deco03'];
   // 외형 시트 (직업 x 색상)
   for (var uk in UNITS) {
@@ -76,10 +77,24 @@ export function createRenderer(world) {
     wood: function () { return tx('W_Idle', 0, 0, 128, 128); },
     gold: function () { return tx('G_Idle', 0, 0, 128, 128); },
     food: function () { return tx('M_Idle', 0, 0, 128, 128); },
+    // 철·요리는 전용 아이콘이 없어 금/식량 아이콘을 색조로 구분
+    iron: function () { return tx('G_Idle', 0, 0, 128, 128); },
+    meal: function () { return tx('M_Idle', 0, 0, 128, 128); },
     // 검·활 아이템은 별도 아이콘 에셋이 없어 해당 유닛 스프라이트(파랑) 아이들 프레임을 재사용
     sword: function () { return tx('Warrior_Blue', 0, 0, 192, 192); },
     bow: function () { return tx('Archer_Blue', 0, 0, 192, 192); },
+    ironSword: function () { return tx('Warrior_Blue', 0, 0, 192, 192); },
+    ironBow: function () { return tx('Archer_Blue', 0, 0, 192, 192); },
   };
+  var ITEM_TINT = { iron: 0xb8c0cc, meal: 0xffcf87, ironSword: 0xc8d0dc, ironBow: 0xc8d0dc };
+
+  // 고블린(적) 프레임: 7열 시트, row0 idle / row1 walk / row2 attack
+  var goblinIdle = [], goblinWalk = [], goblinAtk = [];
+  for (var gf = 0; gf < 6; gf++) {
+    goblinIdle.push(tx('Goblin', gf * 192, 0, 192, 192));
+    goblinWalk.push(tx('Goblin', gf * 192, 192, 192, 192));
+    goblinAtk.push(tx('Goblin', gf * 192, 384, 192, 192));
+  }
 
   function pawnTex(look, rowName, frame) {
     var u = UNITS[look.unit] || UNITS.pawn;
@@ -102,6 +117,8 @@ export function createRenderer(world) {
   var dragGfx = new PIXI.Graphics();
   camera.addChild(waterLayer, foamLayer, landLayer, groundDecor, zoneGfx, itemLayer, objLayer, selGfx, dragGfx);
 
+  var seasonOverlay = new PIXI.Graphics(); // 계절 색보정 (밤보다 아래)
+  app.stage.addChild(seasonOverlay);
   var tintOverlay = new PIXI.Graphics(); // 시간대 색보정
   app.stage.addChild(tintOverlay);
   var lightLayer = new PIXI.Container(); // 광원 (스크린 좌표)
@@ -203,9 +220,10 @@ export function createRenderer(world) {
   }
 
   function buildingTexture(b) {
-    if (b.kind === 'goldmine') {
+    if (b.kind === 'goldmine' || b.kind === 'ironmine') {
       return b.depleted ? tx('GoldMine_Destroyed', 0, 0, 192, 128) : tx('GoldMine_Active', 0, 0, 192, 128);
     }
+    if (b.kind === 'bridge') return tx('Bridge_All', 0, 0, 192, 64);
     if (b.kind === 'campfire') return fireFrames[0];
     var def = BUILDS[b.kind];
     if (b.stage === 'bp' && bpMissing(b) === null) {
@@ -233,15 +251,23 @@ export function createRenderer(world) {
         e.firePhase = ((b.x + b.y) % 7);
         e.anchor.set(0.5, 0.8);
       }
+      if (b.kind === 'bridge') { // 1타일 다리: 판자 슬라이스를 타일 크기로
+        e.anchor.set(0.5, 0.5);
+        e.width = TILE; e.height = TILE;
+        e.x = (b.x + 0.5) * TILE; e.y = (b.y + 0.5) * TILE;
+        e.zIndex = 0; // 지면 위, 유닛 아래
+      }
     } else {
       e.texture = buildingTexture(b);
     }
+    if (b.kind === 'bridge') { rebuildLights(); return; }
     if (b.stage === 'bp') {
       var ready = bpMissing(b) === null;
       e.alpha = ready ? 0.95 : 0.45;
       e.tint = ready ? 0xffffff : 0x9ec7ff;
     } else {
-      e.alpha = 1; e.tint = def.tint || 0xffffff;
+      e.alpha = 1;
+      e.tint = b.kind === 'ironmine' ? 0xaab4c2 : (def.tint || 0xffffff);
     }
     rebuildLights();
   }
@@ -264,6 +290,7 @@ export function createRenderer(world) {
     if (type) {
       if (!entry) {
         var spr = new PIXI.Sprite(ITEM_TEX[type]());
+        spr.tint = ITEM_TINT[type] || 0xffffff;
         spr.anchor.set(0.5, 0.6);
         var label = new PIXI.Text('', {
           fontFamily: 'Malgun Gothic', fontSize: 26, fill: 0xffffff,
@@ -277,6 +304,7 @@ export function createRenderer(world) {
       }
       if (entry.type !== type) {
         entry.spr.texture = ITEM_TEX[type]();
+        entry.spr.tint = ITEM_TINT[type] || 0xffffff;
         entry.type = type;
       }
       entry.spr.x = ix(i) * TILE + 32; entry.spr.y = iy(i) * TILE + 36;
@@ -375,8 +403,11 @@ export function createRenderer(world) {
       e.spr.texture = tx('Dead', 768, 0, 128, 256);
       e.spr.alpha = 0.85;
     } else {
+      e.spr.alpha = 1;
       var frame = (((animTime / 0.1) | 0) + e.animOff) % 6;
-      e.spr.texture = pawnTex(pawn.look, pose, frame);
+      // 채집·채굴 등 작업 중에는 무기 대신 도구를 든 일꾼 모습으로 렌더
+      var look = isToolPose(pose) ? { unit: 'pawn', color: pawn.look.color } : pawn.look;
+      e.spr.texture = pawnTex(look, pose, frame);
     }
 
     if (e.name.text !== pawn.name) e.name.text = pawn.name;
@@ -410,6 +441,38 @@ export function createRenderer(world) {
       sp.zIndex = sp.y;
       sp.scale.x = sh.dir < 0 ? -1 : 1;
       sp.texture = sheepFrames[(((animTime / 0.18) | 0) + sh.phase) % 8];
+      sp.tint = sh.hunt ? 0xffb0b0 : 0xffffff; // 사냥 지정 시 붉게
+    }
+    // 초과 스프라이트 제거 (사냥으로 양이 줄었을 때)
+    while (sheepSprites.length > world.sheep.length) {
+      var extra = sheepSprites.pop();
+      objLayer.removeChild(extra); extra.destroy();
+    }
+  }
+
+  // ── 적(고블린) ──
+  var enemySprites = {};
+  function syncEnemies() {
+    var live = {};
+    for (var n = 0; n < world.enemies.length; n++) {
+      var en = world.enemies[n];
+      live[en.id] = 1;
+      var sp = enemySprites[en.id];
+      if (!sp) {
+        sp = new PIXI.Sprite(goblinIdle[0]);
+        sp.anchor.set(0.5, 0.72);
+        objLayer.addChild(sp);
+        enemySprites[en.id] = sp;
+      }
+      sp.x = (en.px + 0.5) * TILE;
+      sp.y = (en.py + 0.5) * TILE + 14;
+      sp.zIndex = sp.y;
+      sp.scale.x = en.dir < 0 ? -1 : 1;
+      var frames = en.moving ? goblinWalk : goblinIdle;
+      sp.texture = frames[(((animTime / 0.12) | 0) + en.anim) % 6];
+    }
+    for (var id in enemySprites) {
+      if (!live[id]) { objLayer.removeChild(enemySprites[id]); enemySprites[id].destroy(); delete enemySprites[id]; }
     }
   }
 
@@ -512,6 +575,15 @@ export function createRenderer(world) {
     }
   }
 
+  function setSeasonTint(color, alpha) {
+    seasonOverlay.clear();
+    if (color && alpha > 0.01) {
+      seasonOverlay.beginFill(color, alpha);
+      seasonOverlay.drawRect(0, 0, app.screen.width, app.screen.height);
+      seasonOverlay.endFill();
+    }
+  }
+
   // ── 카메라 ──
   var cam = { x: 0, y: 0, zoom: ZOOM_DEFAULT };
   function applyCamera() {
@@ -557,6 +629,7 @@ export function createRenderer(world) {
       }
     }
     syncSheep();
+    syncEnemies();
   }
 
   refreshAll();
@@ -583,6 +656,8 @@ export function createRenderer(world) {
     tickSelection: tickSelection,
     showDrag: showDrag,
     setTimeOfDay: setTimeOfDay,
+    setSeasonTint: setSeasonTint,
+    syncEnemies: syncEnemies,
     tick: tick,
   };
 }

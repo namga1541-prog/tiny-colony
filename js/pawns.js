@@ -1,10 +1,12 @@
 // 정착민 AI (v0.3): 욕구 → 상태기계 → 작업 수행
 import {
-  NEEDS, NATURE, BUILDS, GOLDMINE, WALK_MIN_PER_TILE, TRAITS, CROP, WEAPONS,
+  NEEDS, NATURE, BUILDS, WALK_MIN_PER_TILE, TRAITS, CROP, WEAPONS,
+  COMBAT, COOK, HUNT,
 } from './config.js';
 import {
   idx, ix, iy, isWalkable, addItem, removeItem, natureDef, stackRoom,
-  buildingDef, buildingFront, consumeGlobal, canAfford,
+  buildingDef, buildingFront, consumeGlobal, canAfford, totalRes,
+  mineResource, mineWork, mineDrops, nearestEnemy, sheepById,
 } from './world.js';
 import { findPath } from './path.js';
 import {
@@ -78,20 +80,29 @@ export function taskLabel(pawn) {
   return '🚶 ' + (names[j.type] || '작업 중');
 }
 
-// 렌더러용 포즈
+// 렌더러용 포즈. 작업 포즈(axe/hammer)는 도구를 든 일꾼 모습으로 렌더 →
+// render.js 가 이 포즈일 때 무기 외형 대신 기본 pawn 외형으로 그린다(칼·활 대신 도구).
 export function poseOf(pawn) {
   if (pawn.state === 'dead') return 'dead';
+  if (pawn.state === 'attacking') return 'attack';
   if (pawn.manual && pawn.manualMoving && pawn.state !== 'working') {
     return pawn.carry ? 'carryWalk' : 'walk';
   }
   if (pawn.state === 'moving') return pawn.carry ? 'carryWalk' : 'walk';
   if (pawn.state === 'working') {
     var j = pawn.job;
-    if (j && (j.type === 'build' || j.type === 'craft')) return 'hammer';
-    return 'axe'; // 벌목·채굴·채집·농사
+    if (!j) return 'axe';
+    // 건설·제작·채굴 = 망치/곡괭이 스윙 / 벌목·채집·농사 = 도끼 스윙
+    if (j.type === 'build' || j.type === 'craft' || j.type === 'mine') return 'hammer';
+    return 'axe';
   }
   if (pawn.carry) return 'carryIdle';
   return 'idle';
+}
+
+// 작업(도구) 포즈 여부 — 이때는 무기 외형을 숨기고 일꾼 도구 모습으로 렌더
+export function isToolPose(pose) {
+  return pose === 'axe' || pose === 'hammer';
 }
 
 function abandonJob(world, pawn) {
@@ -122,8 +133,10 @@ function jobTarget(world, j) {
       return { x: ix(j.idx), y: iy(j.idx), adj: j.type === 'gather' };
     case 'plant': case 'harvestCrop':
       return { x: ix(j.idx), y: iy(j.idx), adj: true };
-    case 'craft':
+    case 'craft': case 'cook':
       return { x: j.x, y: j.y, adj: false };
+    case 'hunt':
+      return { x: j.x, y: j.y, adj: true };
     case 'build': case 'deliver': {
       var b = world.buildings[j.bid];
       if (!b) return null;
@@ -178,7 +191,8 @@ function onArrive(world, pawn, ctx) {
 
   switch (j.type) {
     case 'eat': {
-      if (!world.items[j.idx] || !(world.items[j.idx].food > 0)) return abandonJob(world, pawn);
+      var rt = j.resType || 'food';
+      if (!world.items[j.idx] || !(world.items[j.idx][rt] > 0)) return abandonJob(world, pawn);
       pawn.state = 'eating';
       pawn.workLeft = 6;
       break;
@@ -201,7 +215,21 @@ function onArrive(world, pawn, ctx) {
       var mb = world.buildings[j.bid];
       if (!mb || (mb.charges || 0) <= 0 || !world.mineDesig[j.bid]) return abandonJob(world, pawn);
       pawn.state = 'working';
-      pawn.workLeft = GOLDMINE.work;
+      pawn.workLeft = mineWork(mb.kind);
+      break;
+    }
+    case 'cook': {
+      if (totalRes(world).food < COOK.foodPerMeal) return abandonJob(world, pawn);
+      pawn.state = 'working';
+      pawn.workLeft = COOK.work;
+      break;
+    }
+    case 'hunt': {
+      var sh = sheepById(world, j.sheepId);
+      if (!sh || !sh.hunt) return abandonJob(world, pawn);
+      pawn.state = 'working';
+      pawn.workLeft = HUNT.work;
+      pawn.face = sh.x > pawn.x ? 1 : -1;
       break;
     }
     case 'plant': {
@@ -342,14 +370,42 @@ function finishWork(world, pawn, ctx) {
     var mb = world.buildings[j.bid];
     if (mb && (mb.charges || 0) > 0) {
       mb.charges--;
-      addItem(world, idx(pawn.x, pawn.y), 'gold', GOLDMINE.dropsPerCycle);
+      addItem(world, idx(pawn.x, pawn.y), mineResource(mb.kind), mineDrops(mb.kind));
       ctx.onItemChange(idx(pawn.x, pawn.y));
       if (mb.charges <= 0) {
         mb.depleted = true;
         delete world.mineDesig[j.bid];
         ctx.onBuildingChange(mb);
-        ctx.onEvent('금광이 고갈되었습니다');
+        ctx.onEvent((mb.kind === 'ironmine' ? '철광' : '금광') + '이 고갈되었습니다');
       }
+    }
+    releaseAllOf(world, pawn.id);
+    pawn.job = null;
+    pawn.state = 'idle';
+    return;
+  }
+
+  if (j.type === 'cook') {
+    if (consumeGlobal(world, 'food', COOK.foodPerMeal) >= COOK.foodPerMeal) {
+      addItem(world, idx(pawn.x, pawn.y), 'meal', 1);
+      ctx.onItemChange(idx(pawn.x, pawn.y));
+      ctx.onEvent(pawn.name + '이(가) 요리를 완성했습니다');
+    }
+    releaseAllOf(world, pawn.id);
+    pawn.job = null;
+    pawn.state = 'idle';
+    return;
+  }
+
+  if (j.type === 'hunt') {
+    var shp = sheepById(world, j.sheepId);
+    if (shp) {
+      for (var t in HUNT.drops) addItem(world, idx(shp.x, shp.y), t, HUNT.drops[t]);
+      ctx.onItemChange(idx(shp.x, shp.y));
+      var si2 = world.sheep.indexOf(shp);
+      if (si2 >= 0) world.sheep.splice(si2, 1);
+      ctx.onSheepChange();
+      ctx.onEvent(pawn.name + '이(가) 사냥에 성공했습니다');
     }
     releaseAllOf(world, pawn.id);
     pawn.job = null;
@@ -420,6 +476,66 @@ function finishWork(world, pawn, ctx) {
   pawn.state = 'idle';
 }
 
+// ── 전투 유틸 ──
+export function pawnPower(pawn) {
+  if (pawn.equipped && WEAPONS[pawn.equipped]) return WEAPONS[pawn.equipped].power;
+  return COMBAT.unarmedPower;
+}
+export function pawnRange(pawn) {
+  if (pawn.equipped && WEAPONS[pawn.equipped]) return WEAPONS[pawn.equipped].range;
+  return 1;
+}
+
+function greedyStep(world, pawn, tx, ty, dtMin, spd) {
+  var step = (dtMin / WALK_MIN_PER_TILE) * (spd || 1);
+  var vx = Math.sign(tx - pawn.px), vy = Math.sign(ty - pawn.py);
+  if (vx) pawn.face = vx;
+  if (Math.abs(tx - pawn.px) >= Math.abs(ty - pawn.py)) {
+    if (vx && isWalkable(world, Math.round(pawn.px + vx), Math.round(pawn.py))) pawn.px += vx * step;
+    else if (vy && isWalkable(world, Math.round(pawn.px), Math.round(pawn.py + vy))) pawn.py += vy * step;
+  } else {
+    if (vy && isWalkable(world, Math.round(pawn.px), Math.round(pawn.py + vy))) pawn.py += vy * step;
+    else if (vx && isWalkable(world, Math.round(pawn.px + vx), Math.round(pawn.py))) pawn.px += vx * step;
+  }
+  pawn.x = Math.round(pawn.px); pawn.y = Math.round(pawn.py);
+}
+
+// 적 대응. 교전/도주하면 true(이번 틱 작업 스킵)
+function handleCombat(world, pawn, dtMin, ctx) {
+  var armed = !!pawn.equipped;
+  var range = pawnRange(pawn);
+  var senseR = armed ? range + 4 : 2;
+  var near = nearestEnemy(world, pawn.px, pawn.py, senseR);
+  if (!near) {
+    if (pawn.combat) { pawn.combat = false; if (pawn.state === 'attacking') pawn.state = 'idle'; }
+    return false;
+  }
+  // 기존 작업 취소하고 전투 개입
+  if (pawn.job) { releaseAllOf(world, pawn.id); pawn.job = null; pawn.path = null; }
+  pawn.combat = true;
+  var e = near.enemy;
+  if (armed) {
+    if (near.dist <= range) {
+      pawn.state = 'attacking';
+      pawn.face = e.px > pawn.px ? 1 : -1;
+      pawn.atkCd = (pawn.atkCd || 0) - dtMin;
+      if (pawn.atkCd <= 0) {
+        pawn.atkCd = COMBAT.attackCd;
+        e.hp -= pawnPower(pawn);
+      }
+    } else {
+      pawn.state = 'moving';
+      greedyStep(world, pawn, e.px, e.py, dtMin, 1);
+    }
+  } else {
+    // 맨손 → 도주
+    pawn.state = 'moving';
+    greedyStep(world, pawn, pawn.px + (Math.sign(pawn.px - e.px) || 1) * 3,
+      pawn.py + (Math.sign(pawn.py - e.py) || 1) * 3, dtMin, 1.1);
+  }
+  return true;
+}
+
 // ── 매 틱 ──
 export function updatePawn(world, pawn, dtMin, ctx) {
   if (pawn.state === 'dead') return;
@@ -445,6 +561,11 @@ export function updatePawn(world, pawn, dtMin, ctx) {
   var moodRate = 0.006 * (trait.moodMult || 1);
   pawn.mood += (moodTarget - pawn.mood) * Math.min(1, moodRate * dtMin);
   pawn.mood = Math.max(0, Math.min(100, pawn.mood));
+
+  // 전투: 적이 있으면 AI가 자동 대응 (직접 조종 중이면 플레이어가 Space로)
+  if (!pawn.manual && world.enemies.length > 0) {
+    if (handleCombat(world, pawn, dtMin, ctx)) return;
+  }
 
   switch (pawn.state) {
     case 'moving':
@@ -474,9 +595,11 @@ export function updatePawn(world, pawn, dtMin, ctx) {
     case 'eating': {
       pawn.workLeft -= dtMin;
       if (pawn.workLeft <= 0) {
-        var got = removeItem(world, idx(pawn.x, pawn.y), 'food', 1);
+        var ert = (pawn.job && pawn.job.resType) || 'food';
+        var got = removeItem(world, idx(pawn.x, pawn.y), ert, 1);
         if (got > 0) {
-          pawn.hunger = Math.min(100, pawn.hunger + NEEDS.eatAmount);
+          var amt = ert === 'meal' ? COOK.mealEatAmount : NEEDS.eatAmount;
+          pawn.hunger = Math.min(100, pawn.hunger + amt);
           ctx.onItemChange(idx(pawn.x, pawn.y));
         }
         releaseAllOf(world, pawn.id);
@@ -497,12 +620,35 @@ export function updatePawn(world, pawn, dtMin, ctx) {
 // ── 직접 조종: Space 상호작용 ──
 // 주변(3x3)에서 나무 > 금광 > 버섯 > 설계도 순으로 대상 탐색 후 즉시 작업 시작
 export function manualInteract(world, pawn, ctx) {
+  // 1순위: 사거리 내 적 공격 (무장 시)
+  var near = nearestEnemy(world, pawn.px, pawn.py, pawnRange(pawn));
+  if (near) {
+    var e = near.enemy;
+    pawn.face = e.px > pawn.px ? 1 : -1;
+    e.hp -= pawnPower(pawn);
+    // 조종성 유지: 공격은 즉발, 상태는 idle 로 되돌려 계속 이동/공격 가능
+    if (pawn.job) { releaseAllOf(world, pawn.id); pawn.job = null; }
+    pawn.state = 'idle';
+    return pawn.equipped ? '⚔️ 공격!' : '👊 맨손 공격 (약함 — 무기를 장착하세요)';
+  }
   if (pawn.state === 'working') { // 작업 취소
     releaseAllOf(world, pawn.id);
     pawn.job = null;
     pawn.state = 'idle';
     pawn.workLeft = 0;
     return '작업을 멈췄습니다';
+  }
+  // 인접 양 사냥
+  for (var s = 0; s < world.sheep.length; s++) {
+    var shp = world.sheep[s];
+    if (Math.abs(shp.x - pawn.x) <= 1 && Math.abs(shp.y - pawn.y) <= 1) {
+      var t;
+      for (t in HUNT.drops) addItem(world, idx(shp.x, shp.y), t, HUNT.drops[t]);
+      if (ctx.onItemChange) ctx.onItemChange(idx(shp.x, shp.y));
+      world.sheep.splice(s, 1);
+      if (ctx.onSheepChange) ctx.onSheepChange();
+      return '🥩 사냥 성공';
+    }
   }
   var best = null; // {pri, d, start}
   function consider(pri, d, start) {
@@ -542,14 +688,14 @@ export function manualInteract(world, pawn, ctx) {
       if (bid !== undefined && !seenB[bid]) {
         seenB[bid] = 1;
         var b = world.buildings[bid];
-        if (b && b.kind === 'goldmine' && !b.depleted && world.reserved['mine:' + bid] === undefined) {
+        if (b && (b.kind === 'goldmine' || b.kind === 'ironmine') && !b.depleted && world.reserved['mine:' + bid] === undefined) {
           (function (bb) {
             consider(1, dd, function () {
               reserve(world, 'mine:' + bb.id, pawn.id);
               pawn.job = { type: 'mine', bid: bb.id, manual: true };
               pawn.state = 'working';
-              pawn.workLeft = GOLDMINE.work;
-              return '⛏️ 금 채굴 시작';
+              pawn.workLeft = mineWork(bb.kind);
+              return bb.kind === 'ironmine' ? '⛏️ 철 채굴 시작' : '⛏️ 금 채굴 시작';
             });
           })(b);
         } else if (b && b.stage === 'bp' && world.reserved['bp:' + bid] === undefined) {
