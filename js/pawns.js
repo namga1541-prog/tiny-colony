@@ -105,6 +105,37 @@ export function isToolPose(pose) {
   return pose === 'axe' || pose === 'hammer';
 }
 
+// 건설(우선순위 높음)에 밀려 중단 가능한 저순위 작업들
+var INTERRUPTIBLE = { gather: 1, mine: 1, haul: 1, cook: 1, hunt: 1 };
+
+// "지금 실제로 할 수 있는" 건설/자재운반 작업이 있으면 true.
+// (설계도가 존재만 해서는 안 됨 — 지을 준비가 됐거나, 나를 수 있는 자재가 있어야 양보)
+function buildWorkAvailable(world) {
+  for (var id in world.buildings) {
+    var b = world.buildings[id];
+    if (b.stage !== 'bp' || world.reserved['bp:' + id] !== undefined) continue;
+    var miss = bpMissing(b);
+    if (miss === null) return true; // 자재 완비 → 건설 가능
+    for (var i in world.items) { // 부족 자재를 나를 수 있는가
+      if ((world.items[i][miss.type] || 0) > 0 && world.reserved['item:' + i] === undefined) return true;
+    }
+  }
+  return false;
+}
+
+// 현재 작업을 즉시 놓아줌 (재탐색 쿨다운 없이 다음 틱에 새 작업 배정)
+function yieldJob(world, pawn) {
+  releaseAllOf(world, pawn.id);
+  if (pawn.carry) {
+    addItem(world, idx(pawn.x, pawn.y), pawn.carry.type, pawn.carry.n);
+    if (pawn.ctxItemChange) pawn.ctxItemChange(idx(pawn.x, pawn.y));
+    pawn.carry = null;
+  }
+  pawn.job = null;
+  pawn.path = null;
+  pawn.state = 'idle';
+}
+
 function abandonJob(world, pawn) {
   releaseAllOf(world, pawn.id);
   if (pawn.carry) {
@@ -565,6 +596,12 @@ export function updatePawn(world, pawn, dtMin, ctx) {
   // 전투: 적이 있으면 AI가 자동 대응 (직접 조종 중이면 플레이어가 Space로)
   if (!pawn.manual && world.enemies.length > 0) {
     if (handleCombat(world, pawn, dtMin, ctx)) return;
+  }
+
+  // 건설 지시가 있으면 저순위 작업(벌목·채굴·운반 등)을 중단하고 건설을 먼저 하도록 양보
+  // (haul 은 건설용 자재 운반과 경쟁하므로 제외 대상이 아님 — 단, 실제 건설 작업이 가능할 때만)
+  if (!pawn.manual && pawn.job && INTERRUPTIBLE[pawn.job.type] && buildWorkAvailable(world)) {
+    return yieldJob(world, pawn);
   }
 
   switch (pawn.state) {

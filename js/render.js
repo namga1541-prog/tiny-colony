@@ -476,24 +476,27 @@ export function createRenderer(world) {
     }
   }
 
-  // ── 선택·드래그 ──
-  function setSelected(pawn) {
+  // ── 선택·드래그 ── (여러 정착민 동시 선택 지원)
+  var selList = [];
+  function setSelected(list) {
+    if (!list) selList = [];
+    else if (list.length !== undefined) selList = list.slice();
+    else selList = [list]; // 단일 pawn 도 허용
+    drawSelection();
+  }
+  function drawSelection() {
+    selGfx.position.set(0, 0);
     selGfx.clear();
-    if (pawn) {
-      selGfx.lineStyle(3, 0xffffff, 0.9);
-      selGfx.drawEllipse(0, 0, TILE * 0.42, TILE * 0.26);
-      selGfx.position.set((pawn.px + 0.5) * TILE, (pawn.py + 0.5) * TILE + 18);
-      selGfx.visible = true;
-      selGfx.pawnRef = pawn;
-    } else {
-      selGfx.visible = false;
-      selGfx.pawnRef = null;
+    if (!selList.length) return;
+    selGfx.lineStyle(3, 0xffffff, 0.9);
+    for (var n = 0; n < selList.length; n++) {
+      var p = selList[n];
+      selGfx.drawEllipse((p.px + 0.5) * TILE, (p.py + 0.5) * TILE + 18, TILE * 0.42, TILE * 0.26);
     }
+    selGfx.lineStyle(0);
   }
   function tickSelection() {
-    if (selGfx.visible && selGfx.pawnRef) {
-      selGfx.position.set((selGfx.pawnRef.px + 0.5) * TILE, (selGfx.pawnRef.py + 0.5) * TILE + 18);
-    }
+    if (selList.length) drawSelection();
   }
   function showDrag(x0, y0, x1, y1, color) {
     dragGfx.clear();

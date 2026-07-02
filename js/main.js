@@ -69,28 +69,44 @@ var ambientRng = mulberry32(world.seed ^ 0x5eed);
 var R = createRenderer(world);
 var speed = 1;
 var lastSpeed = 1;
-var selectedPawn = null;
-var controlled = null; // 직접 조종 중인 정착민
+var controlled = []; // 선택·직접 조종 중인 정착민 무리
 
-function enterControl(pawn) {
-  if (pawn.state === 'dead') return;
+function panelPawn() { return controlled.length ? controlled[0] : null; }
+
+// 정착민 무리 선택 (list = pawn 배열 또는 단일 pawn)
+function selectPawns(list) {
+  if (!list) list = [];
+  else if (list.length === undefined) list = [list];
+  list = list.filter(function (p) { return p && p.state !== 'dead'; });
   exitControl();
-  releaseAllOf(world, pawn.id);
-  pawn.job = null;
-  pawn.path = null;
-  if (pawn.state !== 'working') pawn.state = 'idle';
-  pawn.manual = true;
-  controlled = pawn;
-  UI.toast('🎮 ' + pawn.name + ' 직접 조종 — WASD 이동 · Space 작업 · ESC 해제');
+  controlled = list;
+  list.forEach(function (p) {
+    releaseAllOf(world, p.id);
+    p.job = null;
+    p.path = null;
+    if (p.state !== 'working') p.state = 'idle';
+    p.manual = true;
+  });
+  R.setSelected(controlled);
+  if (controlled.length) {
+    UI.showPawn(controlled[0]);
+    UI.toast(controlled.length === 1
+      ? '🎮 ' + controlled[0].name + ' 선택 — WASD 이동 · Space 작업 · ESC 해제'
+      : '🎮 ' + controlled.length + '명 선택 — WASD로 함께 이동 · Space 작업');
+  } else {
+    UI.hidePawn();
+  }
 }
 
+// 하위 호환: 단일 조종 진입
+function enterControl(pawn) { selectPawns(pawn ? [pawn] : []); }
+
 function exitControl() {
-  if (!controlled) return;
-  controlled.manual = false;
-  controlled.manualMoving = false;
-  // 하던 작업(예: 채광·벌목)은 조종을 넘겨도 취소하지 않고 그대로 이어서 진행한다.
-  // 작업이 끝나면 pawn.manual === false 이므로 다음 idle 틱에 자동으로 AI 행동으로 복귀한다.
-  controlled = null;
+  if (!controlled.length) return;
+  // 하던 작업은 유지(양보 아님) — manual 만 해제하면 작업 완료 후 AI 복귀
+  controlled.forEach(function (p) { p.manual = false; p.manualMoving = false; });
+  controlled = [];
+  R.setSelected(null);
 }
 
 var UI = createUI({
@@ -98,12 +114,13 @@ var UI = createUI({
   onToolChange: function () { R.showDrag(null); },
   onSpeed: setSpeed,
   onEditPawn: function () {
-    if (!selectedPawn || selectedPawn.state === 'dead') return;
+    var sp = panelPawn();
+    if (!sp || sp.state === 'dead') return;
     var wasSpeed = speed;
     setSpeed(0);
-    UI.showCustomize([selectedPawn], '✏️ ' + selectedPawn.name + ' 편집', function () {
+    UI.showCustomize([sp], '✏️ ' + sp.name + ' 편집', function () {
       setSpeed(wasSpeed || 1);
-      UI.updatePawnPanel(selectedPawn);
+      UI.updatePawnPanel(sp);
       UI.toast('✅ 변경되었습니다');
     });
   },
@@ -379,6 +396,7 @@ var canvas = R.app.view;
 var panning = false;
 var panStart = null;
 var dragStart = null;
+var selDrag = null; // 선택 박스 드래그 상태
 
 canvas.addEventListener('contextmenu', function (e) { e.preventDefault(); });
 
@@ -392,20 +410,8 @@ canvas.addEventListener('mousedown', function (e) {
     var t = R.screenToTile(e.clientX, e.clientY);
     var tool = UI.getTool();
     if (tool === 'select') {
-      var hit = null;
-      pawns.forEach(function (p) {
-        var d = Math.hypot(p.px - t.x, p.py - t.y);
-        if (d < 1.1 && (!hit || d < hit.d)) hit = { p: p, d: d };
-      });
-      selectedPawn = hit ? hit.p : null;
-      R.setSelected(selectedPawn);
-      if (selectedPawn) {
-        UI.showPawn(selectedPawn);
-        enterControl(selectedPawn); // 클릭 = 빙의
-      } else {
-        UI.hidePawn();
-        exitControl();
-      }
+      // 선택 도구: 클릭=단일 선택 / 드래그=박스 다중 선택 (mouseup 에서 판정)
+      selDrag = { sx: e.clientX, sy: e.clientY, tile: t };
     } else {
       dragStart = t;
     }
@@ -420,7 +426,13 @@ window.addEventListener('mousemove', function (e) {
     return;
   }
   var tool = UI.getTool();
-  if (dragStart) {
+  if (selDrag) {
+    // 선택 박스 (일정 거리 이상 끌었을 때만 표시)
+    if (Math.abs(e.clientX - selDrag.sx) + Math.abs(e.clientY - selDrag.sy) > 6) {
+      var st = R.screenToTile(e.clientX, e.clientY);
+      R.showDrag(selDrag.tile.x, selDrag.tile.y, st.x, st.y, 0x7dffb0);
+    }
+  } else if (dragStart) {
     var t = R.screenToTile(e.clientX, e.clientY);
     R.showDrag(dragStart.x, dragStart.y, t.x, t.y, 0x8ab6ff);
   } else if (BUILDS[tool]) {
@@ -436,6 +448,31 @@ window.addEventListener('mouseup', function (e) {
   if (panning && (e.button === 2 || e.button === 1)) {
     panning = false;
     panStart = null;
+    return;
+  }
+  if (e.button === 0 && selDrag) {
+    var t2 = R.screenToTile(e.clientX, e.clientY);
+    var moved = Math.abs(e.clientX - selDrag.sx) + Math.abs(e.clientY - selDrag.sy) > 6;
+    if (moved) {
+      // 박스 안의 살아있는 정착민 다중 선택
+      var x0 = Math.min(selDrag.tile.x, t2.x), x1 = Math.max(selDrag.tile.x, t2.x);
+      var y0 = Math.min(selDrag.tile.y, t2.y), y1 = Math.max(selDrag.tile.y, t2.y);
+      var inBox = pawns.filter(function (p) {
+        return p.state !== 'dead' && p.px >= x0 - 0.5 && p.px <= x1 + 0.5 && p.py >= y0 - 0.5 && p.py <= y1 + 0.5;
+      });
+      selectPawns(inBox);
+    } else {
+      // 단일 클릭: 커서 근처 정착민 선택 (없으면 해제)
+      var hit = null;
+      pawns.forEach(function (p) {
+        if (p.state === 'dead') return;
+        var d = Math.hypot(p.px - t2.x, p.py - t2.y);
+        if (d < 1.1 && (!hit || d < hit.d)) hit = { p: p, d: d };
+      });
+      selectPawns(hit ? [hit.p] : []);
+    }
+    selDrag = null;
+    R.showDrag(null);
     return;
   }
   if (e.button === 0 && dragStart) {
@@ -468,9 +505,11 @@ window.addEventListener('keydown', function (e) {
   keys[e.code] = true;
   if (e.code === 'Space') {
     e.preventDefault();
-    if (controlled && controlled.state !== 'dead') {
-      var msg = manualInteract(world, controlled, ctx);
-      if (msg) UI.toast(msg);
+    var live = controlled.filter(function (p) { return p.state !== 'dead'; });
+    if (live.length) {
+      var did = 0, lastMsg = null;
+      live.forEach(function (p) { var m = manualInteract(world, p, ctx); if (m) { did++; lastMsg = m; } });
+      if (did) UI.toast(live.length > 1 ? '🎬 ' + did + '명이 작업 시작' : lastMsg);
       else UI.toast('🤔 주변에 할 수 있는 일이 없습니다 (나무·금광·버섯·공사장 옆에서 누르세요)');
     } else {
       setSpeed(speed === 0 ? lastSpeed : 0);
@@ -479,8 +518,6 @@ window.addEventListener('keydown', function (e) {
   if (e.code === 'KeyP') setSpeed(speed === 0 ? lastSpeed : 0);
   if (e.code === 'Escape') {
     exitControl();
-    selectedPawn = null;
-    R.setSelected(null);
     UI.hidePawn();
   }
   if (e.code === 'Digit1') setSpeed(1);
@@ -523,7 +560,8 @@ var enemyCbs = {
   onHit: function (pawn) { /* 데미지는 world 에서 처리 */ },
   onPawnDeath: function (pawn) {
     releaseAllOf(world, pawn.id);
-    if (controlled === pawn) exitControl();
+    var ci = controlled.indexOf(pawn);
+    if (ci >= 0) { controlled.splice(ci, 1); R.setSelected(controlled); if (!controlled.length) UI.hidePawn(); }
     UI.toast('💀 ' + pawn.name + ' 이(가) 고블린에게 쓰러졌습니다...', true);
     UI.addEvent('💀 ' + pawn.name + ' 전사');
     R.updatePawnSprite(pawn);
@@ -563,7 +601,7 @@ R.app.ticker.add(function () {
   var realSec = R.app.ticker.deltaMS / 1000;
 
   var panSpd = 900 * realSec;
-  if (!controlled) {
+  if (!controlled.length) {
     if (keys.KeyW || keys.ArrowUp) { R.cam.y += panSpd; R.applyCamera(); }
     if (keys.KeyS || keys.ArrowDown) { R.cam.y -= panSpd; R.applyCamera(); }
     if (keys.KeyA || keys.ArrowLeft) { R.cam.x += panSpd; R.applyCamera(); }
@@ -647,13 +685,19 @@ R.app.ticker.add(function () {
     UI.addEvent('🏆 ' + newGoals[gi].name);
   }
 
-  // 직접 조종 이동 + 카메라 추적
-  if (controlled) {
-    if (controlled.state === 'dead') exitControl();
-    else {
-      manualMove(controlled, manualBudget);
-      var targetX = R.app.screen.width / 2 - (controlled.px + 0.5) * 64 * R.cam.zoom;
-      var targetY = R.app.screen.height / 2 - (controlled.py + 0.5) * 64 * R.cam.zoom;
+  // 직접 조종 이동 + 카메라 추적 (선택 무리 전체)
+  if (controlled.length) {
+    var moveKey = keys.KeyW || keys.KeyA || keys.KeyS || keys.KeyD;
+    var sumX = 0, sumY = 0;
+    for (var c = 0; c < controlled.length; c++) {
+      manualMove(controlled[c], manualBudget);
+      sumX += controlled[c].px; sumY += controlled[c].py;
+    }
+    if (moveKey) {
+      // 무리 중심을 화면 중앙으로 따라감 (이동 중일 때만)
+      var cxg = sumX / controlled.length, cyg = sumY / controlled.length;
+      var targetX = R.app.screen.width / 2 - (cxg + 0.5) * 64 * R.cam.zoom;
+      var targetY = R.app.screen.height / 2 - (cyg + 0.5) * 64 * R.cam.zoom;
       R.cam.x += (targetX - R.cam.x) * Math.min(1, realSec * 5);
       R.cam.y += (targetY - R.cam.y) * Math.min(1, realSec * 5);
       R.applyCamera();
@@ -671,7 +715,8 @@ R.app.ticker.add(function () {
     UI.updateClock(world.day, world.timeMin);
     var alive = pawns.filter(function (p) { return p.state !== 'dead'; }).length;
     UI.updateRes(totalRes(world), alive);
-    if (selectedPawn) UI.updatePawnPanel(selectedPawn);
+    var pp = panelPawn();
+    if (pp) UI.updatePawnPanel(pp);
   }
 });
 
