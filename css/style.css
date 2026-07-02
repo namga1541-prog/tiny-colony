@@ -335,15 +335,17 @@ body.touch .touch-only { display: inline-block; }
 }
 
 @media (max-width: 480px) {
-  #topbar { gap: 6px; padding: 6px 8px; max-width: calc(100vw - 12px); }
+  /* 상단바: 한 줄에 다 안 들어가면 두 줄로 감쌈 — 버튼이 화면 밖으로 밀려 탭 불가되는 문제 방지 */
+  #topbar { gap: 6px; row-gap: 4px; padding: 5px 8px; max-width: calc(100vw - 12px); flex-wrap: wrap; justify-content: center; }
   #clockBox { font-size: 12px; }
   .res { font-size: 11px; gap: 3px; }
   .res img { width: 14px; height: 14px; }
   .res b { min-width: 16px; }
   #minimapBox { display: none; } /* 좁은 화면에서는 미니맵 대신 화면 공간 확보 */
-  #pawnPanel { top: 64px; width: 168px; padding: 10px 12px; }
+  #toastHost { top: 132px; } /* 여러 줄 상단바 아래로 */
+  #pawnPanel { top: 136px; width: 168px; padding: 10px 12px; }
+  #roster { top: 136px; max-height: 34vh; }
   #buildPanel { width: 168px; }
-  #roster { max-height: 34vh; }
 }
 
 /* ── 터치 모드(모바일) 전용 레이아웃 ───── */

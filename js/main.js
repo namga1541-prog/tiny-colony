@@ -143,6 +143,7 @@ function exitControl() {
   controlled.forEach(function (p) { p.manual = false; p.manualMoving = false; });
   controlled = [];
   R.setSelected(null);
+  document.body.classList.remove('has-control'); // 터치 조이스틱·액션버튼 숨김
 }
 
 var UI = createUI({

@@ -13,7 +13,7 @@
 | `affordCost` | js/ui.js:467 |
 | `alivePawns` | js/goals.js:4 |
 | `applyCamera` | js/render.js:742 |
-| `applyTool` | js/main.js:321 |
+| `applyTool` | js/main.js:322 |
 | `at` | js/world.js:54 |
 | `bpMissing` | js/jobs.js:227 |
 | `buildingAtTile` | js/main.js:124 |
@@ -42,7 +42,7 @@
 | `dailyRegrowth` | js/world.js:388 |
 | `dist` | js/jobs.js:23 |
 | `distB` | js/jobs.js:27 |
-| `doInteract` | js/main.js:718 |
+| `doInteract` | js/main.js:719 |
 | `drawMinimap` | js/render.js:694 |
 | `drawSelection` | js/render.js:586 |
 | `enterControl` | js/main.js:122 |
@@ -55,7 +55,7 @@
 | `findWorkJob` | js/jobs.js:76 |
 | `finishWork` | js/pawns.js:396 |
 | `footprintClear` | js/world.js:203 |
-| `forRect` | js/main.js:313 |
+| `forRect` | js/main.js:314 |
 | `freeGrass` | js/world.js:393 |
 | `gainSkill` | js/pawns.js:567 |
 | `glowTexture` | js/render.js:614 |
@@ -74,7 +74,7 @@
 | `idx` | js/world.js:67 |
 | `inMap` | js/world.js:70 |
 | `isMine` | js/world.js:198 |
-| `isTyping` | js/main.js:715 |
+| `isTyping` | js/main.js:716 |
 | `isWalkable` | js/world.js:275 |
 | `ix` | js/world.js:68 |
 | `iy` | js/world.js:69 |
@@ -84,7 +84,7 @@
 | `loadSaveData` | js/save.js:51 |
 | `makeNoise` | js/world.js:51 |
 | `manualInteract` | js/pawns.js:751 |
-| `manualMove` | js/main.js:749 |
+| `manualMove` | js/main.js:750 |
 | `mineDrops` | js/world.js:201 |
 | `mineResource` | js/world.js:199 |
 | `mineWork` | js/world.js:200 |
@@ -101,13 +101,13 @@
 | `pawnTex` | js/render.js:114 |
 | `pickAnimalType` | js/world.js:30 |
 | `play` | js/audio.js:28 |
-| `pointerDown` | js/main.js:512 |
-| `pointerMove` | js/main.js:528 |
-| `pointerUp` | js/main.js:555 |
+| `pointerDown` | js/main.js:513 |
+| `pointerMove` | js/main.js:529 |
+| `pointerUp` | js/main.js:556 |
 | `poseOf` | js/pawns.js:91 |
 | `reachable` | js/jobs.js:31 |
 | `rebuildLights` | js/render.js:630 |
-| `recruitWanderer` | js/main.js:800 |
+| `recruitWanderer` | js/main.js:801 |
 | `refreshAll` | js/render.js:429 |
 | `refreshBuilding` | js/render.js:283 |
 | `refreshCrop` | js/render.js:229 |
@@ -115,7 +115,7 @@
 | `refreshTile` | js/render.js:184 |
 | `refreshZones` | js/render.js:390 |
 | `release` | js/jobs.js:13 |
-| `release` | js/main.js:699 |
+| `release` | js/main.js:700 |
 | `releaseAllOf` | js/jobs.js:17 |
 | `removeBuilding` | js/world.js:237 |
 | `removeBuildingSprite` | js/render.js:338 |
@@ -134,7 +134,7 @@
 | `setHireInfo` | js/ui.js:57 |
 | `setSeasonTint` | js/render.js:680 |
 | `setSelected` | js/render.js:580 |
-| `setSpeed` | js/main.js:244 |
+| `setSpeed` | js/main.js:245 |
 | `setSpeedUI` | js/ui.js:32 |
 | `setTimeOfDay` | js/render.js:653 |
 | `setTool` | js/ui.js:12 |
@@ -172,7 +172,7 @@
 | `toolIconOf` | js/pawns.js:99 |
 | `totalRes` | js/world.js:320 |
 | `totalStored` | js/world.js:348 |
-| `touchXY` | js/main.js:623 |
+| `touchXY` | js/main.js:624 |
 | `tx` | js/render.js:47 |
 | `updateBuildingBadge` | js/render.js:263 |
 | `updateClock` | js/ui.js:70 |
