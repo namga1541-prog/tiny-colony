@@ -119,6 +119,38 @@ console.log('[sim-smoke] 7) 콜로니 업그레이드 — 효과·저장고·집
   ok(upgradeAdd(w, 'maxpop') === 10, '인구상한 add 누적 합 (10)');
 })();
 
+console.log('[sim-smoke] 8) 다운(downed) — hp0 즉사 아님, 안전+식량 시 회복 (회귀가드)');
+(function () {
+  var sim = bootSim(321);
+  var pw = sim.pawns[0];
+  pw.hunger = 0; pw.hp = 0.5;         // 굶주림으로 hp 소진 직전
+  run(sim, 5);
+  ok(pw.state === 'downed', 'hp 0 → 즉사 아닌 downed (' + pw.state + ')');
+  // 식량 공급 + 적 없음 → 회복
+  pw.hunger = 95;
+  run(sim, 450);
+  ok(pw.state !== 'dead', '식량·안전 시 사망하지 않음');
+  ok(pw.state !== 'downed', '회복해서 다시 일어남 (' + pw.state + ', hp=' + Math.round(pw.hp) + ')');
+})();
+
+console.log('[sim-smoke] 9) 멘탈 붕괴(break) — 기분 장기 저하 시 진입·회복 (회귀가드)');
+(function () {
+  var sim = bootSim(654);
+  var pw = sim.pawns[0];
+  var broke = false;
+  // 기분 낮게 유지(허기·체력 낮춤) → break 진입 감시
+  for (var t = 0; t < 40 && !broke; t++) {
+    pw.hunger = 3; pw.hp = 12; pw.mood = Math.min(pw.mood, 8);
+    run(sim, 15);
+    if (pw.state === 'break') broke = true;
+  }
+  ok(broke, '기분 장기 저하 → 멘탈붕괴 진입');
+  // 회복: 식량 공급 후 충분히 대기
+  pw.hunger = 95; pw.hp = 80;
+  run(sim, 300);
+  ok(pw.state !== 'break', '시간 경과 후 멘탈붕괴 해제 (' + pw.state + ')');
+})();
+
 console.log('');
 if (fails) { console.log('❌ sim-smoke 실패 ' + fails + '건'); process.exit(1); }
 console.log('✅ sim-smoke 전체 통과');

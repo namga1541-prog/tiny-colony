@@ -482,7 +482,10 @@ export function createRenderer(world) {
     var pose = poseOf(pawn);
     if (pose === 'dead') {
       e.spr.texture = pawnTex(pawn.look, 'idle', 0, 0);
-      e.spr.alpha = 0.5; e.spr.tint = 0x888888; e.spr.angle = 90; // 회색·쓰러짐
+      e.spr.alpha = 0.5; e.spr.tint = 0x888888; e.spr.angle = 90; // 회색·쓰러짐(사망)
+    } else if (pose === 'downed') {
+      e.spr.texture = pawnTex(pawn.look, 'idle', 0, 0);
+      e.spr.alpha = 1; e.spr.tint = 0xffb0b0; e.spr.angle = 90; // 붉은기·누움(생존)
     } else {
       e.spr.alpha = 1; e.spr.tint = 0xffffff; e.spr.angle = 0;
       var frame = ((animTime / 0.15) | 0) + e.animOff;
