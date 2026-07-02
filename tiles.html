@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>타일 피커 (개발용)</title>
+<style>
+  body { background:#1a1d24; color:#eee; font-family:monospace; margin:0; padding:8px; }
+  h2 { margin:8px 0 4px; font-size:14px; }
+  .sheet { display:grid; grid-template-columns:repeat(12, 68px); gap:2px; margin-bottom:16px; }
+  .cell { width:68px; text-align:center; }
+  .tile {
+    width:64px; height:64px; margin:0 auto;
+    background-repeat:no-repeat;
+    image-rendering:pixelated;
+    background-size:768px 704px; /* 192x176 * 4 */
+    background-color:#3a3f4d;
+  }
+  .idx { font-size:11px; color:#9fb0ff; }
+</style>
+</head>
+<body>
+<h2 id="tTown">TOWN (assets/town)</h2>
+<div class="sheet" id="town"></div>
+<h2 id="tDun">DUNGEON (assets/dungeon)</h2>
+<div class="sheet" id="dungeon"></div>
+<script>
+  function build(id, url) {
+    var host = document.getElementById(id);
+    for (var i = 0; i < 132; i++) {
+      var col = i % 12, row = (i / 12) | 0;
+      var cell = document.createElement('div');
+      cell.className = 'cell';
+      var t = document.createElement('div');
+      t.className = 'tile';
+      t.style.backgroundImage = 'url(' + url + ')';
+      t.style.backgroundPosition = (-col * 64) + 'px ' + (-row * 64) + 'px';
+      var lbl = document.createElement('div');
+      lbl.className = 'idx';
+      lbl.textContent = i;
+      cell.appendChild(t); cell.appendChild(lbl);
+      host.appendChild(cell);
+    }
+  }
+  build('town', 'assets/town/Tilemap/tilemap_packed.png');
+  build('dungeon', 'assets/dungeon/Tilemap/tilemap_packed.png');
+</script>
+</body>
+</html>

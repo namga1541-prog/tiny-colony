@@ -1,0 +1,133 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  width: 100%; height: 100%;
+  overflow: hidden;
+  background: #171a21;
+  font-family: 'Segoe UI', 'Malgun Gothic', sans-serif;
+  color: #e8eaf0;
+  user-select: none;
+}
+
+#stage { position: fixed; inset: 0; }
+#stage canvas { display: block; }
+
+/* ── 공통 HUD ───────────────────────────── */
+.hud {
+  position: fixed;
+  background: rgba(23, 26, 33, 0.86);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 12px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45);
+  z-index: 10;
+}
+.hidden { display: none !important; }
+
+/* ── 상단 바 ───────────────────────────── */
+#topbar {
+  top: 10px; left: 50%; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 14px;
+  padding: 7px 14px;
+  white-space: nowrap;
+}
+.hud-group { display: flex; align-items: center; gap: 8px; }
+#clockBox { font-weight: 600; font-size: 14px; }
+#dayLabel { color: #ffd76e; }
+#timeLabel { font-variant-numeric: tabular-nums; }
+
+.res { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; }
+.res img { width: 18px; height: 18px; image-rendering: pixelated; }
+.res b { min-width: 22px; font-variant-numeric: tabular-nums; }
+
+#speedBox button, #sysBox button {
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid transparent;
+  color: #cfd4e0;
+  border-radius: 8px;
+  padding: 4px 9px;
+  font-size: 12px;
+  cursor: pointer;
+}
+#speedBox button:hover, #sysBox button:hover { background: rgba(255, 255, 255, 0.15); }
+#speedBox button.active { background: #4a7dff; color: #fff; }
+
+/* ── 하단 도구모음 ─────────────────────── */
+#toolbar {
+  bottom: 12px; left: 50%; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px;
+  max-width: calc(100vw - 24px);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.tool-section { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+.tool-sep { width: 1px; height: 26px; background: rgba(255, 255, 255, 0.14); }
+
+.tool {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #dde2ee;
+  border-radius: 9px;
+  padding: 7px 11px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.tool:hover { background: rgba(255, 255, 255, 0.14); }
+.tool.active { background: #4a7dff; border-color: #6d97ff; color: #fff; }
+
+/* ── 정착민 패널 ───────────────────────── */
+#pawnPanel {
+  right: 12px; top: 64px;
+  width: 210px;
+  padding: 12px 14px;
+}
+#pawnName { font-size: 15px; font-weight: 700; margin-bottom: 2px; }
+.pawn-task { font-size: 12px; color: #9aa3b5; margin-bottom: 10px; }
+.need { margin-bottom: 8px; font-size: 12px; }
+.need span { display: block; margin-bottom: 3px; color: #b9c0d0; }
+.bar {
+  height: 9px; border-radius: 5px;
+  background: rgba(255, 255, 255, 0.09);
+  overflow: hidden;
+}
+.fill { height: 100%; border-radius: 5px; width: 50%; transition: width 0.3s; }
+.fill.hunger { background: linear-gradient(90deg, #ff9d5c, #ffc46b); }
+.fill.energy { background: linear-gradient(90deg, #5cc8ff, #7de0ff); }
+.fill.hp { background: linear-gradient(90deg, #ff6b81, #ff8fa0); }
+
+/* ── 토스트 ────────────────────────────── */
+#toastHost {
+  position: fixed; top: 62px; left: 50%; transform: translateX(-50%);
+  display: flex; flex-direction: column; gap: 6px;
+  z-index: 30; pointer-events: none;
+}
+.toast {
+  background: rgba(23, 26, 33, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  padding: 8px 16px;
+  font-size: 13px;
+  animation: toastIn 0.25s ease-out;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+}
+.toast.warn { border-color: rgba(255, 160, 90, 0.5); }
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── 힌트 ──────────────────────────────── */
+#hint {
+  left: 12px; bottom: 12px;
+  padding: 6px 12px;
+  font-size: 11px;
+  color: #8d94a8;
+  border-radius: 8px;
+}
+
+@media (max-width: 760px) {
+  #hint { display: none; }
+  .tool { font-size: 12px; padding: 6px 8px; }
+}

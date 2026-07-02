@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>타이니 콜로니 — 작은 개척지</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="stage"></div>
+
+<!-- 상단 HUD -->
+<div id="topbar" class="hud">
+  <div class="hud-group" id="clockBox">
+    <span id="dayLabel">1일차</span>
+    <span id="timeLabel">08:00</span>
+  </div>
+  <div class="hud-group" id="resBox">
+    <span class="res"><img src="assets/town/Tiles/tile_0082.png" alt="목재"><b id="resWood">0</b></span>
+    <span class="res"><img src="assets/dungeon/Tiles/tile_0065.png" alt="석재"><b id="resStone">0</b></span>
+    <span class="res"><img src="assets/town/Tiles/tile_0029.png" alt="식량"><b id="resFood">0</b></span>
+    <span class="res">👥 <b id="resPop">3</b></span>
+  </div>
+  <div class="hud-group" id="speedBox">
+    <button class="spd" data-speed="0" title="일시정지 (Space)">⏸</button>
+    <button class="spd active" data-speed="1" title="보통 (1)">▶</button>
+    <button class="spd" data-speed="2" title="빠름 (2)">▶▶</button>
+    <button class="spd" data-speed="3" title="최고 속도 (3)">▶▶▶</button>
+  </div>
+  <div class="hud-group" id="sysBox">
+    <button id="btnSave" title="저장">💾</button>
+    <button id="btnLoad" title="불러오기">📂</button>
+    <button id="btnNew" title="새 게임">🆕</button>
+  </div>
+</div>
+
+<!-- 하단 도구모음 -->
+<div id="toolbar" class="hud">
+  <div class="tool-section">
+    <button class="tool active" data-tool="select" title="선택 / 이동 지시">🖱️ 선택</button>
+    <button class="tool" data-tool="chop" title="나무를 벌목하도록 지시">🪓 벌목</button>
+    <button class="tool" data-tool="mine" title="바위를 채굴하도록 지시">⛏️ 채광</button>
+    <button class="tool" data-tool="forage" title="버섯을 수확하도록 지시">🧺 채집</button>
+    <button class="tool" data-tool="cancel" title="지시·설계도 취소">✖️ 취소</button>
+  </div>
+  <div class="tool-sep"></div>
+  <div class="tool-section">
+    <button class="tool" data-tool="woodWall" title="목재 2 필요">🪵 나무 벽</button>
+    <button class="tool" data-tool="stoneWall" title="석재 2 필요">🧱 돌 벽</button>
+    <button class="tool" data-tool="floor" title="목재 1 필요">▦ 바닥</button>
+    <button class="tool" data-tool="bed" title="목재 8 필요">🛏️ 침대</button>
+    <button class="tool" data-tool="stockpile" title="자원을 모아 둘 구역 지정">📦 비축 구역</button>
+    <button class="tool" data-tool="demolish" title="건축물·구역 철거 (자재 일부 회수)">🔨 철거</button>
+  </div>
+</div>
+
+<!-- 정착민 패널 -->
+<div id="pawnPanel" class="hud hidden">
+  <div id="pawnName">이름</div>
+  <div id="pawnTask" class="pawn-task">대기 중</div>
+  <div class="need">
+    <span>🍖 포만감</span>
+    <div class="bar"><div id="barHunger" class="fill hunger"></div></div>
+  </div>
+  <div class="need">
+    <span>⚡ 기력</span>
+    <div class="bar"><div id="barEnergy" class="fill energy"></div></div>
+  </div>
+  <div class="need">
+    <span>❤️ 체력</span>
+    <div class="bar"><div id="barHp" class="fill hp"></div></div>
+  </div>
+</div>
+
+<div id="toastHost"></div>
+<div id="hint" class="hud">우클릭 드래그: 화면 이동 · 휠: 확대/축소 · 좌클릭 드래그: 구역 지정</div>
+
+<script src="vendor/pixi.min.js"></script>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
