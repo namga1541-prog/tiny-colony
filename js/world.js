@@ -47,7 +47,8 @@ export function createWorld(seed) {
     buildings: {},      // id -> {id, kind, x, y, stage:'bp'|'built', delivered, work, charges?, natural?}
     occupancy: {},      // idx -> buildingId
     nextBid: 1,
-    items: {},          // idx -> {wood,gold,food}
+    stock: { wood: 0, gold: 0, food: 0, iron: 0, meal: 0 }, // 콜로니 전체 재고 (바닥에 안 쌓임)
+    items: {},          // (구) 타일 아이템 — 현재는 미사용, 재고로 통합됨
     stockpile: {},
     designations: {},   // idx -> 'chop'|'forage'  |  'mine:'+bid 는 mineDesig 에
     mineDesig: {},      // buildingId -> true
@@ -111,9 +112,9 @@ export function createWorld(seed) {
     }
   }
 
-  // 금광 2~3개 + 철광 1~2개 (탁 트인 잔디에)
-  var mines = 2 + ((rng() * 2) | 0);
-  var ironMines = 1 + ((rng() * 2) | 0);
+  // 금광·철광 (넓은 맵에 맞춰 증가)
+  var mines = 3 + ((rng() * 3) | 0);
+  var ironMines = 2 + ((rng() * 2) | 0);
   var tries = 0;
   while ((mines > 0 || ironMines > 0) && tries++ < 400) {
     var mx = 4 + ((rng() * (MAP_W - 8)) | 0);
@@ -129,8 +130,8 @@ export function createWorld(seed) {
     }
   }
 
-  // 양 4~6마리
-  var sheepN = 4 + ((rng() * 3) | 0);
+  // 양 (넓은 맵에 맞춰 증가)
+  var sheepN = 7 + ((rng() * 4) | 0);
   tries = 0;
   while (sheepN > 0 && tries++ < 200) {
     var sx = (rng() * MAP_W) | 0, sy = (rng() * MAP_H) | 0;
@@ -262,42 +263,27 @@ export function canPlaceBridge(world, x, y) {
          isWalkable(world, x, y + 1) || isWalkable(world, x, y - 1);
 }
 
-// ── 아이템 ──
+// ── 재고 (글로벌) ── addItem/removeItem 는 타일 인자를 무시하고 전체 재고에 반영
 export function addItem(world, i, type, n) {
-  var slot = world.items[i];
-  if (!slot) { slot = {}; world.items[i] = slot; }
-  slot[type] = (slot[type] || 0) + n;
+  world.stock[type] = (world.stock[type] || 0) + n;
 }
 
 export function removeItem(world, i, type, n) {
-  var slot = world.items[i];
-  if (!slot || !slot[type]) return 0;
-  var take = Math.min(slot[type], n);
-  slot[type] -= take;
-  if (slot[type] <= 0) delete slot[type];
-  if (Object.keys(slot).length === 0) delete world.items[i];
+  var have = world.stock[type] || 0;
+  var take = Math.min(have, n);
+  world.stock[type] = have - take;
   return take;
 }
 
-export function stackRoom(world, i, type) {
-  var slot = world.items[i];
-  if (!slot) return STACK_MAX;
-  var used = 0, hasOther = false;
-  for (var k in slot) {
-    used += slot[k];
-    if (k !== type && slot[k] > 0) hasOther = true;
-  }
-  if (hasOther) return 0;
-  return Math.max(0, STACK_MAX - used);
-}
+export function stackRoom() { return STACK_MAX; }
 
 export function totalRes(world) {
-  var sum = { wood: 0, gold: 0, food: 0, iron: 0, meal: 0 };
-  for (var i in world.items) {
-    var slot = world.items[i];
-    for (var k in slot) sum[k] = (sum[k] || 0) + slot[k];
-  }
-  return sum;
+  var s = world.stock || {};
+  return {
+    wood: s.wood || 0, gold: s.gold || 0, food: s.food || 0,
+    iron: s.iron || 0, meal: s.meal || 0,
+    sword: s.sword || 0, bow: s.bow || 0, ironSword: s.ironSword || 0, ironBow: s.ironBow || 0,
+  };
 }
 
 // ── 저장고 용량 (창고 수에 비례) ──
@@ -310,7 +296,7 @@ export function storageCap(world) {
   return STORAGE.base + n * STORAGE.perWarehouse;
 }
 export function totalStored(world) {
-  var s = totalRes(world);
+  var s = world.stock || {};
   return (s.wood || 0) + (s.gold || 0) + (s.food || 0) + (s.iron || 0) + (s.meal || 0);
 }
 export function storageFull(world) { return totalStored(world) >= storageCap(world); }
@@ -420,16 +406,7 @@ export function dailyMineRegen(world) {
 
 // 여러 타일에 흩어진 자원을 목표 수량만큼 전역에서 차감 (사전에 totalRes로 충분한지 확인 후 호출)
 export function consumeGlobal(world, type, n) {
-  var left = n;
-  for (var i in world.items) {
-    if (left <= 0) break;
-    var have = world.items[i][type] || 0;
-    if (have <= 0) continue;
-    var take = Math.min(have, left);
-    removeItem(world, i, type, take);
-    left -= take;
-  }
-  return n - left; // 실제 차감된 양
+  return removeItem(world, 0, type, n);
 }
 
 export function canAfford(world, cost) {

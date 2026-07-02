@@ -670,12 +670,11 @@ export function updatePawn(world, pawn, dtMin, ctx) {
     case 'eating': {
       pawn.workLeft -= dtMin;
       if (pawn.workLeft <= 0) {
-        var ert = (pawn.job && pawn.job.resType) || 'food';
-        var got = removeItem(world, idx(pawn.x, pawn.y), ert, 1);
+        var ert = (world.stock.meal || 0) > 0 ? 'meal' : 'food';
+        var got = removeItem(world, 0, ert, 1);
         if (got > 0) {
           var amt = ert === 'meal' ? COOK.mealEatAmount : NEEDS.eatAmount;
           pawn.hunger = Math.min(100, pawn.hunger + amt);
-          ctx.onItemChange(idx(pawn.x, pawn.y));
         }
         releaseAllOf(world, pawn.id);
         pawn.job = null;
@@ -804,6 +803,15 @@ export function manualInteract(world, pawn, ctx) {
 
 function think(world, pawn, dtMin, ctx) {
   if (pawn.hunger <= NEEDS.hungryAt) {
+    // 재고에 식량/요리가 있으면 그 자리에서 바로 먹음 (바닥에 안 쌓음)
+    if ((world.stock.meal || 0) > 0 || (world.stock.food || 0) > 0) {
+      releaseAllOf(world, pawn.id);
+      pawn.job = null;
+      pawn.state = 'eating';
+      pawn.workLeft = 4;
+      return;
+    }
+    // 재고가 없으면 야생 버섯 채집
     var fj = findFoodJob(world, pawn);
     if (fj) {
       pawn.job = fj;

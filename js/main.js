@@ -8,7 +8,7 @@ import {
   addBuilding, removeBuilding, buildingDef, addItem, totalRes, dailyRegrowth,
   updateSheep, tickResearch, tickCrops, updateEnemies, spawnRaid,
   canPlaceBridge, consumeGlobal, seasonDef, seasonIndex,
-  tickRanches, storageCap, totalStored, dailyMineRegen, tickTowers,
+  tickRanches, storageCap, totalStored, dailyMineRegen, tickTowers, canAfford,
 } from './world.js';
 import { createPawn, updatePawn, manualInteract, equipWeapon } from './pawns.js';
 import { RESEARCH, WEAPONS, HIRE, hireCost } from './config.js';
@@ -30,8 +30,9 @@ if (saved) {
   world.buildings = saved.buildings;
   world.occupancy = saved.occupancy;
   world.nextBid = saved.nextBid;
-  world.items = saved.items;
-  world.stockpile = saved.stockpile;
+  world.stock = saved.stock || { wood: 0, gold: 0, food: 0, iron: 0, meal: 0 };
+  world.items = {};
+  world.stockpile = saved.stockpile || {};
   world.designations = saved.designations;
   world.mineDesig = saved.mineDesig || {};
   world.sheep = saved.sheep || [];
@@ -206,22 +207,9 @@ var ctx = {
   onBuildingBuilt: function (b) {
     var def = buildingDef(b.kind);
     Audio2.play('build');
-    if (b.kind === 'warehouse') R.invalidateMinimapTerrain();
-
-    // 창고: 건물 주변 1칸 테두리를 자동으로 비축 구역화 (건물 자체는 진입 불가라 제외)
-    if (def.autoStockRing) {
-      for (var ry = -1; ry <= def.fh; ry++) {
-        for (var rx = -1; rx <= def.fw; rx++) {
-          if (rx >= 0 && rx < def.fw && ry >= 0 && ry < def.fh) continue; // 건물 내부는 제외
-          var rtx = b.x + rx, rty = b.y + ry;
-          var ri = idx(rtx, rty);
-          if (isWalkable(world, rtx, rty) && world.occupancy[ri] === undefined && !world.stockpile[ri]) {
-            world.stockpile[ri] = true;
-          }
-        }
-      }
-      R.refreshZones();
-      UI.addEvent('🏚️ 창고 주변에 비축 구역이 자동 지정되었습니다');
+    if (b.kind === 'warehouse') {
+      R.invalidateMinimapTerrain();
+      UI.addEvent('🏚️ 창고 완공 — 저장 용량 증가');
     }
 
     // 완공된 건물 풋프린트에 서 있던 정착민 밀어내기
@@ -375,16 +363,6 @@ function applyTool(tool, a, b) {
     if (count) UI.toast('✖️ ' + count + '건 취소');
   }
 
-  else if (tool === 'stockpile') {
-    forRect(a, b, function (i, x, y) {
-      if (!world.stockpile[i] && isWalkable(world, x, y) && world.occupancy[i] === undefined) {
-        world.stockpile[i] = true;
-        count++;
-      }
-    });
-    if (count) UI.toast('📦 비축 구역 ' + count + '칸 지정');
-  }
-
   else if (tool === 'demolish') {
     var seenD = {};
     forRect(a, b, function (i) {
@@ -414,15 +392,19 @@ function applyTool(tool, a, b) {
     var px = Math.min(a.x, b.x), py = Math.min(a.y, b.y);
     if (!footprintClear(world, px, py, def.fw, def.fh, false)) {
       UI.toast('⚠️ 그 위치에는 지을 수 없습니다 (' + def.fw + '×' + def.fh + ' 필요)', true);
-    } else {
-      var bNew = addBuilding(world, tool, px, py);
-      R.refreshBuilding(bNew);
+    } else if (!canAfford(world, def.cost)) {
       var needStr = Object.keys(def.cost).map(function (t) {
-        var nm = { wood: '목재', gold: '금' }[t] || t;
-        var lack = def.cost[t] > (res[t] || 0) ? ' (부족!)' : '';
-        return nm + ' ' + def.cost[t] + lack;
+        var nm = { wood: '목재', gold: '금', iron: '철' }[t] || t;
+        return nm + ' ' + def.cost[t];
       }).join(', ');
-      UI.toast('📐 ' + def.name + ' 설계 — ' + needStr);
+      UI.toast('⚠️ 자재가 부족합니다 — ' + def.name + ' (' + needStr + ')', true);
+    } else {
+      // 자재를 재고에서 즉시 차감하고 설계도 배치 (일꾼이 와서 짓기만 하면 됨)
+      for (var ct in def.cost) consumeGlobal(world, ct, def.cost[ct]);
+      var bNew = addBuilding(world, tool, px, py);
+      for (var ct2 in def.cost) bNew.delivered[ct2] = def.cost[ct2]; // 운반 완료 상태로 시작
+      R.refreshBuilding(bNew);
+      UI.toast('📐 ' + def.name + ' 착공 — 일꾼이 건설합니다');
     }
   }
 

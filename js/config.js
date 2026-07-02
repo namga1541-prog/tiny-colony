@@ -2,8 +2,8 @@
 // 아트 그리드 64px. 유닛·나무 스프라이트는 192px (시각적으로 1타일 점유 + 오버행)
 
 export const TILE = 64;
-export const MAP_W = 64;
-export const MAP_H = 64;
+export const MAP_W = 96;
+export const MAP_H = 96;
 
 export const TS = 'assets/ts/';
 
@@ -20,9 +20,9 @@ export const BUILDS = {
   },
   warehouse: {
     name: '창고', cost: { wood: 12 }, work: 55,
-    fw: 2, fh: 2, solid: true, autoStockRing: true,
+    fw: 2, fh: 2, solid: true,
     img: 'House', imgC: 'House_C', pw: 128, ph: 192, tint: 0xe0c088,
-    desc: '저장 용량을 늘립니다. 완공 시 주변이 자동으로 비축 구역이 됩니다.',
+    desc: '저장 용량을 크게 늘립니다.',
   },
   tower: {
     name: '망루', cost: { wood: 15, gold: 5 }, work: 80,
@@ -92,9 +92,9 @@ export const GOLDMINE = { fw: 3, fh: 2, work: 15, dropsPerCycle: 2, charges: 24,
 
 // ── 자원 재생 (맵 고갈 방지) ──
 export const REGROW = {
-  treeCap: 160,          // 섬 전체 나무 상한
+  treeCap: 300,          // 섬 전체 나무 상한 (96x96 맵)
   stumpToTreeChance: 0.35, // 매일 아침 그루터기가 다시 나무로 자랄 확률
-  newSaplingsPerDay: 4,  // 매일 빈 잔디에 새로 돋는 나무 수
+  newSaplingsPerDay: 6,  // 매일 빈 잔디에 새로 돋는 나무 수
 };
 
 // ── 연구: 정착민 수에 비례해 자동 누적, 포인트로 기술 해금 ──
