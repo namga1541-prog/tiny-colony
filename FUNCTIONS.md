@@ -24,7 +24,7 @@
 | `canAfford` | js/world.js:462 |
 | `cancelToSelect` | js/main.js:130 |
 | `canPlaceBridge` | js/world.js:297 |
-| `catchFish` | js/config.js:220 |
+| `catchFish` | js/config.js:225 |
 | `centerOn` | js/render.js:739 |
 | `checkGoals` | js/goals.js:30 |
 | `clearSave` | js/save.js:67 |
@@ -70,7 +70,7 @@
 | `heapPush` | js/path.js:12 |
 | `hideBuilding` | js/ui.js:256 |
 | `hidePawn` | js/ui.js:152 |
-| `hireCost` | js/config.js:201 |
+| `hireCost` | js/config.js:206 |
 | `idx` | js/world.js:67 |
 | `inMap` | js/world.js:70 |
 | `isMine` | js/world.js:198 |
@@ -148,8 +148,8 @@
 | `showPawn` | js/ui.js:148 |
 | `showResearch` | js/ui.js:353 |
 | `showUpgrades` | js/ui.js:488 |
-| `skillLevel` | js/config.js:98 |
-| `skillMult` | js/config.js:99 |
+| `skillLevel` | js/config.js:103 |
+| `skillMult` | js/config.js:104 |
 | `spawnAttackFx` | js/render.js:753 |
 | `spawnRaid` | js/world.js:494 |
 | `stackRoom` | js/world.js:318 |

@@ -22,7 +22,8 @@ export const BUILDS = {
   smithy: {
     name: '대장간', cost: { wood: 12, gold: 4 }, work: 70,
     fw: 2, fh: 2, solid: true, light: true,
-    img: 'House', imgC: 'House_C', pw: 128, ph: 192, tint: 0x8a90a0,
+    img: 'House', imgC: 'House_C', pw: 128, ph: 192,
+    town: { sx: 0, sy: 64, sw: 64, sh: 64 }, tint: 0x8f96a8, // 회색집 + 강철색조(대장간)
     craftHere: true, // 이 건물에서 무기 제작
     desc: '검·활 등 무기를 제작하는 곳입니다. 제작 주문은 대장간에서 처리됩니다.',
   },
@@ -37,13 +38,15 @@ export const BUILDS = {
     name: '망루', cost: { wood: 15, gold: 5 }, work: 80,
     fw: 2, fh: 2, solid: true, light: true,
     img: 'Tower', imgC: 'Tower_C', pw: 128, ph: 256,
+    town: { sx: 128, sy: 48, sw: 48, sh: 48 }, // 목책 요새(방어)
     attack: { power: 10, range: 6, cd: 14 }, // 적 자동 공격
     desc: '사거리 안의 고블린을 자동으로 공격합니다. 밤을 밝힙니다.',
   },
   outpost: {
     name: '초소', cost: { wood: 8 }, work: 40,
     fw: 2, fh: 2, solid: true,
-    img: 'Tower', imgC: 'Tower_C', pw: 128, ph: 256, tint: 0x8fdc9e,
+    img: 'Tower', imgC: 'Tower_C', pw: 128, ph: 256,
+    town: { sx: 128, sy: 48, sw: 48, sh: 48 }, tint: 0xcbb088, // 목책 + 밝은 색조(초소)
     attack: { power: 5, range: 4, cd: 20 },
     desc: '저렴한 방어 초소. 가까운 적을 약하게 공격합니다.',
   },
@@ -64,13 +67,15 @@ export const BUILDS = {
   ranch: {
     name: '목장', cost: { wood: 14 }, work: 60,
     fw: 2, fh: 2, solid: true,
-    img: 'House', imgC: 'House_C', pw: 128, ph: 192, tint: 0x9be08a,
+    img: 'House', imgC: 'House_C', pw: 128, ph: 192,
+    town: { sx: 64, sy: 64, sw: 64, sh: 64 }, tint: 0xa8e08a, // 빨강집 + 초록조(목장)
     desc: '주기적으로 식량을 생산하고 가축(양·돼지·소·닭)을 번식시킵니다.',
   },
   clinic: {
     name: '치료소', cost: { wood: 10, gold: 3 }, work: 60,
     fw: 2, fh: 2, solid: true, light: true,
-    img: 'House', imgC: 'House_C', pw: 128, ph: 192, tint: 0xff9ab0,
+    img: 'House', imgC: 'House_C', pw: 128, ph: 192,
+    town: { sx: 0, sy: 64, sw: 64, sh: 64 }, tint: 0xffb3c2, // 회색집 + 분홍조(치료소)
     desc: '부상당한 정착민이 찾아와 빠르게 회복합니다.',
   },
 };
