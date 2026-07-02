@@ -101,6 +101,16 @@ function selectPawns(list) {
 // 하위 호환: 단일 조종 진입
 function enterControl(pawn) { selectPawns(pawn ? [pawn] : []); }
 
+// 진행 중인 모든 것 취소: 도구→선택, 정착민 선택 해제, 드래그 박스 제거
+function cancelToSelect() {
+  if (UI.getTool() !== 'select') UI.setTool('select');
+  exitControl();
+  UI.hidePawn();
+  dragStart = null;
+  selDrag = null;
+  R.showDrag(null);
+}
+
 function exitControl() {
   if (!controlled.length) return;
   // 하던 작업은 유지(양보 아님) — manual 만 해제하면 작업 완료 후 AI 복귀
@@ -403,7 +413,7 @@ canvas.addEventListener('contextmenu', function (e) { e.preventDefault(); });
 canvas.addEventListener('mousedown', function (e) {
   if (e.button === 2 || e.button === 1) {
     panning = true;
-    panStart = { mx: e.clientX, my: e.clientY, cx: R.cam.x, cy: R.cam.y };
+    panStart = { mx: e.clientX, my: e.clientY, cx: R.cam.x, cy: R.cam.y, moved: false };
     return;
   }
   if (e.button === 0) {
@@ -420,6 +430,7 @@ canvas.addEventListener('mousedown', function (e) {
 
 window.addEventListener('mousemove', function (e) {
   if (panning && panStart) {
+    if (Math.abs(e.clientX - panStart.mx) + Math.abs(e.clientY - panStart.my) > 4) panStart.moved = true;
     R.cam.x = panStart.cx + (e.clientX - panStart.mx);
     R.cam.y = panStart.cy + (e.clientY - panStart.my);
     R.applyCamera();
@@ -446,8 +457,11 @@ window.addEventListener('mousemove', function (e) {
 
 window.addEventListener('mouseup', function (e) {
   if (panning && (e.button === 2 || e.button === 1)) {
+    var didMove = panStart && panStart.moved;
     panning = false;
     panStart = null;
+    // 우클릭을 끌지 않고 그냥 눌렀다 떼면 = 취소 (도구→선택, 선택 무리 해제)
+    if (e.button === 2 && !didMove) cancelToSelect();
     return;
   }
   if (e.button === 0 && selDrag) {
@@ -516,10 +530,7 @@ window.addEventListener('keydown', function (e) {
     }
   }
   if (e.code === 'KeyP') setSpeed(speed === 0 ? lastSpeed : 0);
-  if (e.code === 'Escape') {
-    exitControl();
-    UI.hidePawn();
-  }
+  if (e.code === 'Escape') cancelToSelect();
   if (e.code === 'Digit1') setSpeed(1);
   if (e.code === 'Digit2') setSpeed(2);
   if (e.code === 'Digit3') setSpeed(3);

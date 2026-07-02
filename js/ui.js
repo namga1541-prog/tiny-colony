@@ -12,12 +12,16 @@ export function createUI(handlers) {
 
   // 도구 버튼
   var toolBtns = document.querySelectorAll('.tool');
+  function setTool(name) {
+    tool = name;
+    toolBtns.forEach(function (b) { b.classList.toggle('active', b.dataset.tool === name); });
+    if (handlers.onToolChange) handlers.onToolChange(tool);
+  }
   toolBtns.forEach(function (btn) {
     btn.addEventListener('click', function () {
-      toolBtns.forEach(function (b) { b.classList.remove('active'); });
-      btn.classList.add('active');
-      tool = btn.dataset.tool;
-      handlers.onToolChange(tool);
+      // 이미 활성인 도구를 다시 누르면 선택 도구로 되돌림(취소)
+      if (btn.dataset.tool === tool && tool !== 'select') setTool('select');
+      else setTool(btn.dataset.tool);
     });
   });
 
@@ -319,6 +323,7 @@ export function createUI(handlers) {
     showCraft: showCraft,
     showGoals: showGoals,
     getTool: function () { return tool; },
+    setTool: setTool,
     setSpeedUI: setSpeedUI,
     updateClock: updateClock,
     updateRes: updateRes,
