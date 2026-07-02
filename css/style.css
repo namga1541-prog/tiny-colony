@@ -111,7 +111,11 @@ html, body {
 
 .pawn-trait {
   font-size: 11.5px; color: #ffd76e;
-  margin: 2px 0 8px;
+  margin: 2px 0 4px;
+}
+.pawn-skills {
+  font-size: 11px; color: #8fd0ff;
+  margin: 0 0 8px;
 }
 .pawn-equip { display: flex; gap: 6px; margin-bottom: 6px; }
 .pawn-equip button {
@@ -253,6 +257,35 @@ html, body {
 .rs-unlock:not(:disabled):hover, .cr-order:hover { background: #5f8dff; }
 .rs-done { color: #7dffb0; font-size: 12.5px; font-weight: 600; }
 .cr-queue { font-size: 12px; color: #ffd76e; margin-top: 4px; }
+
+/* ── 미니맵 ────────────────────────────── */
+#minimapBox {
+  right: 12px; top: 64px;
+  padding: 6px; line-height: 0;
+}
+#minimap { image-rendering: pixelated; border-radius: 6px; display: block; }
+
+/* ── 정착민 명단 ───────────────────────── */
+#roster {
+  left: 12px; top: 64px;
+  padding: 6px;
+  display: flex; flex-direction: column; gap: 3px;
+  max-height: 60vh; overflow-y: auto;
+}
+.roster-row {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; color: #dde2ee;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid transparent;
+  border-radius: 7px;
+  padding: 4px 8px; cursor: pointer;
+  white-space: nowrap;
+}
+.roster-row:hover { background: rgba(255,255,255,0.13); }
+.roster-row.sel { border-color: #6d97ff; background: rgba(74,125,255,0.18); }
+.roster-row.dead { opacity: 0.45; }
+.roster-hp { width: 34px; height: 5px; border-radius: 3px; background: rgba(255,255,255,0.12); overflow: hidden; }
+.roster-hp > div { height: 100%; background: linear-gradient(90deg,#ff6b81,#ff8fa0); }
 
 /* ── 이벤트 피드 ───────────────────────── */
 #eventFeed {

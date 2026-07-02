@@ -1,12 +1,12 @@
 // 정착민 AI (v0.3): 욕구 → 상태기계 → 작업 수행
 import {
   NEEDS, NATURE, BUILDS, WALK_MIN_PER_TILE, TRAITS, CROP, WEAPONS,
-  COMBAT, COOK, HUNT,
+  COMBAT, COOK, HUNT, CLINIC, skillMult,
 } from './config.js';
 import {
   idx, ix, iy, isWalkable, addItem, removeItem, natureDef, stackRoom,
   buildingDef, buildingFront, consumeGlobal, canAfford, totalRes,
-  mineResource, mineWork, mineDrops, nearestEnemy, sheepById,
+  mineResource, mineWork, mineDrops, nearestEnemy, sheepById, storageFull,
 } from './world.js';
 import { findPath } from './path.js';
 import {
@@ -23,6 +23,7 @@ export function createPawn(id, def, x, y) {
     name: def.name,
     look: def.look || { unit: 'pawn', color: def.color || 'Blue' },
     trait: trait,
+    skills: def.skills || {},   // {woodcutting, mining, construction, farming, combat} → xp
     equipped: def.equipped || null, // 'sword' | 'bow' | null
     face: 1,             // 1 우 / -1 좌
     x: x, y: y,
@@ -60,6 +61,8 @@ export function taskLabel(pawn) {
     return '🎮 직접 조종 중 (WASD·Space)';
   }
   if (pawn.state === 'eating') return '🍽️ 식사 중';
+  if (pawn.state === 'resting') return '🏥 치료 중';
+  if (pawn.state === 'attacking') return '⚔️ 전투 중';
   var j = pawn.job;
   if (!j) return '🌿 대기 중';
   if (pawn.state === 'working') {
@@ -164,7 +167,7 @@ function jobTarget(world, j) {
       return { x: ix(j.idx), y: iy(j.idx), adj: j.type === 'gather' };
     case 'plant': case 'harvestCrop':
       return { x: ix(j.idx), y: iy(j.idx), adj: true };
-    case 'craft': case 'cook':
+    case 'craft': case 'cook': case 'rest':
       return { x: j.x, y: j.y, adj: false };
     case 'hunt':
       return { x: j.x, y: j.y, adj: true };
@@ -253,6 +256,10 @@ function onArrive(world, pawn, ctx) {
       if (totalRes(world).food < COOK.foodPerMeal) return abandonJob(world, pawn);
       pawn.state = 'working';
       pawn.workLeft = COOK.work;
+      break;
+    }
+    case 'rest': {
+      pawn.state = 'resting';
       break;
     }
     case 'hunt': {
@@ -382,8 +389,8 @@ function finishWork(world, pawn, ctx) {
       if (j.type === 'eatShroom') {
         pawn.hunger = Math.min(100, pawn.hunger + NEEDS.eatAmount);
       } else {
-        for (var t in def.drops) addItem(world, j.idx, t, def.drops[t]);
-        ctx.onItemChange(j.idx);
+        if (storageFull(world)) { ctx.onStorageFull(); }
+        else { for (var t in def.drops) addItem(world, j.idx, t, def.drops[t]); ctx.onItemChange(j.idx); }
         if (wasTree) {
           world.objects[j.idx] = { kind: 'stump' }; // 그루터기 (통행 가능)
           ctx.onEvent(pawn.name + '이(가) 나무를 벌목했습니다');
@@ -399,7 +406,9 @@ function finishWork(world, pawn, ctx) {
 
   if (j.type === 'mine') {
     var mb = world.buildings[j.bid];
-    if (mb && (mb.charges || 0) > 0) {
+    if (mb && (mb.charges || 0) > 0 && storageFull(world)) {
+      ctx.onStorageFull();
+    } else if (mb && (mb.charges || 0) > 0) {
       mb.charges--;
       addItem(world, idx(pawn.x, pawn.y), mineResource(mb.kind), mineDrops(mb.kind));
       ctx.onItemChange(idx(pawn.x, pawn.y));
@@ -431,8 +440,8 @@ function finishWork(world, pawn, ctx) {
   if (j.type === 'hunt') {
     var shp = sheepById(world, j.sheepId);
     if (shp) {
-      for (var t in HUNT.drops) addItem(world, idx(shp.x, shp.y), t, HUNT.drops[t]);
-      ctx.onItemChange(idx(shp.x, shp.y));
+      if (!storageFull(world)) { for (var t in HUNT.drops) addItem(world, idx(shp.x, shp.y), t, HUNT.drops[t]); ctx.onItemChange(idx(shp.x, shp.y)); }
+      else ctx.onStorageFull();
       var si2 = world.sheep.indexOf(shp);
       if (si2 >= 0) world.sheep.splice(si2, 1);
       ctx.onSheepChange();
@@ -473,8 +482,8 @@ function finishWork(world, pawn, ctx) {
     var cr = world.crops[j.idx];
     if (cr && cr.stage === 'ready') {
       delete world.crops[j.idx];
-      addItem(world, j.idx, 'food', CROP.yield);
-      ctx.onItemChange(j.idx);
+      if (storageFull(world)) ctx.onStorageFull();
+      else { addItem(world, j.idx, 'food', CROP.yield); ctx.onItemChange(j.idx); }
       ctx.onCropChange(j.idx);
       ctx.onEvent(pawn.name + '이(가) 밀을 수확했습니다');
     }
@@ -507,10 +516,35 @@ function finishWork(world, pawn, ctx) {
   pawn.state = 'idle';
 }
 
+// ── 스킬 유틸 (4) ──
+function jobSkill(world, j) {
+  if (!j) return null;
+  switch (j.type) {
+    case 'gather': return (world.objects[j.idx] && world.objects[j.idx].kind === 'tree') ? 'woodcutting' : 'farming';
+    case 'mine': return 'mining';
+    case 'build': case 'craft': return 'construction';
+    case 'plant': case 'harvestCrop': return 'farming';
+    default: return null;
+  }
+}
+function gainSkill(pawn, key, amt) {
+  if (!key) return;
+  if (!pawn.skills) pawn.skills = {};
+  pawn.skills[key] = Math.min(1000, (pawn.skills[key] || 0) + amt);
+}
+
+function clinicExists(world) {
+  for (var id in world.buildings) {
+    var b = world.buildings[id];
+    if (b.kind === 'clinic' && b.stage === 'built') return b;
+  }
+  return null;
+}
+
 // ── 전투 유틸 ──
 export function pawnPower(pawn) {
-  if (pawn.equipped && WEAPONS[pawn.equipped]) return WEAPONS[pawn.equipped].power;
-  return COMBAT.unarmedPower;
+  var base = (pawn.equipped && WEAPONS[pawn.equipped]) ? WEAPONS[pawn.equipped].power : COMBAT.unarmedPower;
+  return Math.round(base * skillMult(pawn.skills && pawn.skills.combat)); // 전투 숙련 반영
 }
 export function pawnRange(pawn) {
   if (pawn.equipped && WEAPONS[pawn.equipped]) return WEAPONS[pawn.equipped].range;
@@ -553,6 +587,7 @@ function handleCombat(world, pawn, dtMin, ctx) {
       if (pawn.atkCd <= 0) {
         pawn.atkCd = COMBAT.attackCd;
         e.hp -= pawnPower(pawn);
+        gainSkill(pawn, 'combat', 4);
       }
     } else {
       pawn.state = 'moving';
@@ -624,7 +659,10 @@ export function updatePawn(world, pawn, dtMin, ctx) {
         b.work += dtMin;
       }
       var moodPenalty = pawn.mood < 30 ? 0.85 : 1;
-      pawn.workLeft -= dtMin * (pawn.trait.workMult || 1) * moodPenalty;
+      var sk = jobSkill(world, j);
+      var sm = sk ? skillMult(pawn.skills && pawn.skills[sk]) : 1;
+      if (sk) gainSkill(pawn, sk, dtMin * 0.6);
+      pawn.workLeft -= dtMin * (pawn.trait.workMult || 1) * moodPenalty * sm;
       if (pawn.workLeft <= 0) finishWork(world, pawn, ctx);
       break;
     }
@@ -639,6 +677,16 @@ export function updatePawn(world, pawn, dtMin, ctx) {
           pawn.hunger = Math.min(100, pawn.hunger + amt);
           ctx.onItemChange(idx(pawn.x, pawn.y));
         }
+        releaseAllOf(world, pawn.id);
+        pawn.job = null;
+        pawn.state = 'idle';
+      }
+      break;
+    }
+
+    case 'resting': {
+      pawn.hp = Math.min(100, pawn.hp + CLINIC.restRegen * dtMin);
+      if (pawn.hp >= CLINIC.healedAt || world.enemies.length > 0) {
         releaseAllOf(world, pawn.id);
         pawn.job = null;
         pawn.state = 'idle';
@@ -764,6 +812,19 @@ function think(world, pawn, dtMin, ctx) {
       return;
     }
     if (pawn.hunger < 15) ctx.onStarving(pawn);
+  }
+
+  // 부상 + 치료소 존재 + 적 없음 → 치료소로 가서 회복 (6)
+  if (pawn.hp < CLINIC.hurtAt && world.enemies.length === 0) {
+    var clinic = clinicExists(world);
+    if (clinic) {
+      var cf = buildingFront(world, clinic);
+      if (cf) {
+        pawn.job = { type: 'rest', x: cf.x, y: cf.y };
+        if (!goTo(world, pawn, cf.x, cf.y, false)) { pawn.job = null; }
+        else return;
+      }
+    }
   }
 
   if (pawn.stuckCd <= 0) {

@@ -8,11 +8,13 @@ import {
   addBuilding, removeBuilding, buildingDef, addItem, totalRes, dailyRegrowth,
   updateSheep, tickResearch, tickCrops, updateEnemies, spawnRaid,
   canPlaceBridge, consumeGlobal, seasonDef, seasonIndex,
+  tickRanches, storageCap, totalStored,
 } from './world.js';
 import { createPawn, updatePawn, manualInteract, equipWeapon } from './pawns.js';
 import { RESEARCH, WEAPONS, HIRE, hireCost } from './config.js';
 import { releaseAllOf } from './jobs.js';
 import { GOALS, checkGoals } from './goals.js';
+import { createAudio } from './audio.js';
 import { createRenderer } from './render.js';
 import { createUI } from './ui.js';
 import { saveGame, loadSaveData, clearSave } from './save.js';
@@ -46,7 +48,7 @@ if (saved) {
   world.goals = saved.goals || {};
   world.nextRaidDay = saved.nextRaidDay || RAID.firstDay;
   pawns = saved.pawns.map(function (p) {
-    var pw = createPawn(p.id, { name: p.name, look: p.look, color: p.color, trait: p.trait, equipped: p.equipped }, p.x, p.y);
+    var pw = createPawn(p.id, { name: p.name, look: p.look, color: p.color, trait: p.trait, equipped: p.equipped, skills: p.skills }, p.x, p.y);
     pw.hunger = p.hunger; pw.hp = p.hp;
     pw.mood = p.mood === undefined ? 70 : p.mood;
     pw.carry = p.carry || null;
@@ -67,9 +69,11 @@ var ambientRng = mulberry32(world.seed ^ 0x5eed);
 
 // ── 렌더러·UI ──
 var R = createRenderer(world);
+var Audio2 = createAudio();
 var speed = 1;
 var lastSpeed = 1;
 var controlled = []; // 선택·직접 조종 중인 정착민 무리
+var storageWarnCd = 0;
 
 function panelPawn() { return controlled.length ? controlled[0] : null; }
 
@@ -194,6 +198,8 @@ var ctx = {
   onBuildingChange: function (b) { R.refreshBuilding(b); },
   onBuildingBuilt: function (b) {
     var def = buildingDef(b.kind);
+    Audio2.play('build');
+    if (b.kind === 'warehouse') R.invalidateMinimapTerrain();
 
     // 창고: 건물 주변 1칸 테두리를 자동으로 비축 구역화 (건물 자체는 진입 불가라 제외)
     if (def.autoStockRing) {
@@ -230,6 +236,12 @@ var ctx = {
     });
   },
   onEvent: function (msg) { UI.addEvent(msg); },
+  onStorageFull: function () {
+    if (world.timeMin - storageWarnCd > 180) {
+      storageWarnCd = world.timeMin;
+      UI.toast('📦 저장고가 가득 찼습니다 — 창고를 지어 용량을 늘리세요', true);
+    }
+  },
   onDeath: function (pawn) {
     UI.toast('💀 ' + pawn.name + ' 이(가) 굶주림으로 사망했습니다...', true);
     UI.addEvent('💀 ' + pawn.name + ' 사망');
@@ -410,6 +422,23 @@ function applyTool(tool, a, b) {
   R.refreshZones();
 }
 
+// 음소거 버튼 + 첫 입력에 BGM 시작
+document.getElementById('btnMute').addEventListener('click', function () {
+  var m = Audio2.toggleMute();
+  document.getElementById('btnMute').textContent = m ? '🔇' : '🔊';
+});
+window.addEventListener('pointerdown', function () { Audio2.startBgm(); });
+window.addEventListener('keydown', function () { Audio2.startBgm(); });
+
+// 명단에서 정착민 클릭 → 선택 + 카메라 이동
+window.addEventListener('roster-select', function (e) {
+  var p = pawns[e.detail];
+  if (p && p.state !== 'dead') {
+    selectPawns([p]);
+    R.centerOn(p.x, p.y);
+  }
+});
+
 // ── 마우스 입력 ──
 var canvas = R.app.view;
 var panning = false;
@@ -586,7 +615,7 @@ var enemyCbs = {
     UI.addEvent('💀 ' + pawn.name + ' 전사');
     R.updatePawnSprite(pawn);
   },
-  onEnemyDown: function (e) { R.refreshItem(idx(e.x, e.y)); },
+  onEnemyDown: function (e) { R.refreshItem(idx(e.x, e.y)); Audio2.play('coin'); },
 };
 
 // 계절 초기 표시
@@ -657,6 +686,8 @@ R.app.ticker.add(function () {
     tickResearch(world, aliveNow, dt);
     var ready = tickCrops(world, dt);
     if (ready.length) cropReadyBatch = cropReadyBatch.concat(ready);
+    var rev = tickRanches(world, dt, ambientRng);
+    for (var re = 0; re < rev.length; re++) { if (rev[re].idx !== undefined) R.refreshItem(rev[re].idx); }
   }
   cropReadyBatch.forEach(function (i) { R.refreshCrop(i); });
 
@@ -664,8 +695,15 @@ R.app.ticker.add(function () {
   if (world.raidActive && world.enemies.length === 0) {
     world.raidActive = false;
     world.raidCleared = true;
-    UI.toast('🎉 고블린 습격을 격퇴했습니다!');
-    UI.addEvent('🎉 습격 격퇴');
+    // 전리품 보상 (일수 비례)
+    var mult = Math.max(1, 1 + Math.floor((world.day - RAID.firstDay) * 0.3));
+    var lootAt = idx(MAP_W / 2 | 0, MAP_H / 2 | 0);
+    addItem(world, lootAt, 'gold', RAID.loot.gold * mult);
+    addItem(world, lootAt, 'iron', RAID.loot.iron * mult);
+    R.refreshItem(lootAt);
+    UI.toast('🎉 고블린 습격을 격퇴했습니다! 전리품 획득 (금 ' + (RAID.loot.gold * mult) + ' · 철 ' + (RAID.loot.iron * mult) + ')');
+    UI.addEvent('🎉 습격 격퇴 +전리품');
+    Audio2.play('success');
   }
 
   if (world.day !== prevDay) {
@@ -699,6 +737,7 @@ R.app.ticker.add(function () {
       world.nextRaidDay = world.day + RAID.intervalDays;
       UI.toast('⚔️ 고블린 습격! 고블린 ' + got + '마리가 상륙했습니다!', true);
       UI.addEvent('⚔️ 고블린 습격 (' + got + '마리)');
+      Audio2.play('alert');
     }
   }
   if (curHour < RAID.spawnHour) world.raidToday = false;
@@ -708,6 +747,7 @@ R.app.ticker.add(function () {
   for (var gi = 0; gi < newGoals.length; gi++) {
     UI.toast('🏆 목표 달성: ' + newGoals[gi].name);
     UI.addEvent('🏆 ' + newGoals[gi].name);
+    Audio2.play('success');
   }
 
   // 직접 조종 이동 + 카메라 추적 (선택 무리 전체)
@@ -734,6 +774,8 @@ R.app.ticker.add(function () {
   R.tickSelection();
   R.setTimeOfDay((world.timeMin % DAY_MIN) / 60);
 
+  R.drawMinimap(pawns);
+
   hudTimer += realSec;
   if (hudTimer > 0.25) {
     hudTimer = 0;
@@ -741,6 +783,7 @@ R.app.ticker.add(function () {
     var alive = pawns.filter(function (p) { return p.state !== 'dead'; }).length;
     var res = totalRes(world);
     UI.updateRes(res, alive);
+    UI.updateStorage(totalStored(world), storageCap(world));
     // 고용 버튼: 현재 비용·가능 여부 표시
     if (alive >= HIRE.maxPop) UI.setHireInfo('🧑‍🌾 인구 최대', true);
     else {
@@ -749,6 +792,7 @@ R.app.ticker.add(function () {
     }
     var pp = panelPawn();
     if (pp) UI.updatePawnPanel(pp);
+    UI.updateRoster(pawns, controlled);
   }
 });
 

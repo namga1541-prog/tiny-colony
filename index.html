@@ -19,6 +19,7 @@
     <span class="res"><img src="assets/ts/W_Idle.png" alt="목재"><b id="resWood">0</b></span>
     <span class="res"><img src="assets/ts/G_Idle.png" alt="금"><b id="resGold">0</b></span>
     <span class="res"><img src="assets/ts/Food_Grain.png" alt="식량"><b id="resFood">0</b></span>
+    <span class="res">📦 <b id="resStorage">0/0</b></span>
     <span class="res">👥 <b id="resPop">3</b></span>
   </div>
   <div class="hud-group" id="speedBox">
@@ -28,6 +29,7 @@
     <button class="spd" data-speed="3" title="최고 속도 (3)">▶▶▶</button>
   </div>
   <div class="hud-group" id="sysBox">
+    <button id="btnMute" title="음소거 전환">🔊</button>
     <button id="btnSave" title="저장">💾</button>
     <button id="btnLoad" title="불러오기">📂</button>
     <button id="btnNew" title="새 게임">🆕</button>
@@ -53,6 +55,8 @@
     <button class="tool" data-tool="outpost" title="목재 8 — 저렴한 초소 (조명 없음)">🛡️ 초소</button>
     <button class="tool" data-tool="castle" title="목재 30 + 금 10 — 콜로니의 위용!">🏰 성</button>
     <button class="tool" data-tool="campfire" title="목재 2 — 밤을 밝힙니다">🔥 모닥불</button>
+    <button class="tool" data-tool="ranch" title="목재 14 — 주기적으로 식량 생산 + 양 번식">🐑 목장</button>
+    <button class="tool" data-tool="clinic" title="목재 10 + 금 3 — 부상 정착민이 빠르게 회복">🏥 치료소</button>
     <button class="tool" data-tool="bridge" title="목재 3 — 물 위에 놓아 건널 수 있습니다 (드래그)">🌉 다리</button>
     <button class="tool" data-tool="stockpile" title="자원을 모아 둘 구역 지정">📦 비축 구역</button>
     <button class="tool" data-tool="demolish" title="건축물·구역 철거 (자재 일부 회수)">🔨 철거</button>
@@ -65,6 +69,12 @@
     <button id="btnHire" class="tool-action" title="식량을 지불하고 새 정착민을 고용합니다">🧑‍🌾 고용</button>
   </div>
 </div>
+
+<!-- 미니맵 (우상단) -->
+<div id="minimapBox" class="hud"><canvas id="minimap" width="160" height="160"></canvas></div>
+
+<!-- 정착민 명단 (좌측) -->
+<div id="roster" class="hud"></div>
 
 <!-- 우하단 이벤트 피드 -->
 <div id="eventFeed"></div>
@@ -86,6 +96,7 @@
     <div class="bar"><div id="barMood" class="fill mood"></div></div>
   </div>
   <div id="pawnTrait" class="pawn-trait"></div>
+  <div id="pawnSkills" class="pawn-skills"></div>
   <div id="pawnEquip" class="pawn-equip"></div>
   <button id="btnEditPawn">✏️ 이름·외형 변경</button>
 </div>

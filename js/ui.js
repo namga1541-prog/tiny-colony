@@ -1,6 +1,6 @@
 // DOM HUD: 도구·시계·자원·정착민 패널·토스트·커스터마이징 모달·연구/제작 모달
 import { taskLabel } from './pawns.js';
-import { UNITS, COLORS, TS, RESEARCH, WEAPONS } from './config.js';
+import { UNITS, COLORS, TS, RESEARCH, WEAPONS, SKILL_LABEL, skillLevel } from './config.js';
 import { totalRes } from './world.js';
 
 var SHEET_W = { pawn: 1152, warrior: 1152, archer: 1536 };
@@ -74,11 +74,45 @@ export function createUI(handlers) {
     timeLabel.textContent = hh + ':' + mm;
   }
 
+  var resStorage = document.getElementById('resStorage');
   function updateRes(sum, alivePawns) {
     resWood.textContent = sum.wood || 0;
     resGold.textContent = sum.gold || 0;
     resFood.textContent = sum.food || 0;
     resPop.textContent = alivePawns;
+  }
+  function updateStorage(used, cap) {
+    if (!resStorage) return;
+    resStorage.textContent = Math.round(used) + '/' + cap;
+    resStorage.style.color = used >= cap ? '#ff9a5c' : '#e8eaf0';
+  }
+
+  // ── 정착민 명단 (7) ──
+  var rosterHost = document.getElementById('roster');
+  function updateRoster(pawns, controlled) {
+    if (!rosterHost) return;
+    // 행 수가 바뀌면 재생성
+    if (rosterHost.childElementCount !== pawns.length) {
+      rosterHost.innerHTML = '';
+      pawns.forEach(function (p, n) {
+        var row = document.createElement('div');
+        row.className = 'roster-row';
+        row.innerHTML = '<span class="rn"></span><span class="roster-hp"><div></div></span>';
+        row.addEventListener('click', function () {
+          window.dispatchEvent(new CustomEvent('roster-select', { detail: n }));
+        });
+        rosterHost.appendChild(row);
+      });
+    }
+    for (var n = 0; n < pawns.length; n++) {
+      var p = pawns[n];
+      var row = rosterHost.children[n];
+      if (!row) continue;
+      var selected = controlled && controlled.indexOf(p) >= 0;
+      row.className = 'roster-row' + (p.state === 'dead' ? ' dead' : '') + (selected ? ' sel' : '');
+      row.querySelector('.rn').textContent = p.name;
+      row.querySelector('.roster-hp > div').style.width = Math.max(0, Math.round(p.hp)) + '%';
+    }
   }
 
   // 우하단 이벤트 피드
@@ -102,6 +136,7 @@ export function createUI(handlers) {
   var barHp = document.getElementById('barHp');
   var barMood = document.getElementById('barMood');
   var pawnTrait = document.getElementById('pawnTrait');
+  var pawnSkills = document.getElementById('pawnSkills');
   var pawnEquip = document.getElementById('pawnEquip');
 
   function showPawn(pawn) {
@@ -119,6 +154,16 @@ export function createUI(handlers) {
     barMood.style.width = Math.round(pawn.mood) + '%';
     pawnTrait.textContent = pawn.trait && pawn.trait.id !== 'none'
       ? '✦ ' + pawn.trait.name + ' — ' + pawn.trait.desc : '';
+    // 스킬: 레벨 1 이상인 것만 표시
+    if (pawnSkills) {
+      var sk = pawn.skills || {};
+      var parts = [];
+      for (var key in SKILL_LABEL) {
+        var lv = skillLevel(sk[key]);
+        if (lv > 0) parts.push(SKILL_LABEL[key] + ' Lv' + lv);
+      }
+      pawnSkills.textContent = parts.length ? '🛠️ ' + parts.join(' · ') : '';
+    }
     pawnEquip.innerHTML = '';
     if (pawn.state !== 'dead') {
       var res = totalRes(world);
@@ -336,6 +381,8 @@ export function createUI(handlers) {
     setSpeedUI: setSpeedUI,
     updateClock: updateClock,
     updateRes: updateRes,
+    updateStorage: updateStorage,
+    updateRoster: updateRoster,
     showPawn: showPawn,
     hidePawn: hidePawn,
     updatePawnPanel: updatePawnPanel,

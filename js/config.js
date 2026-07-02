@@ -42,7 +42,33 @@ export const BUILDS = {
     fw: 1, fh: 1, solid: false, light: true,
     img: null, pw: 128, ph: 128, // Fire 애니메이션으로 렌더
   },
+  ranch: {
+    name: '목장', cost: { wood: 14 }, work: 60,
+    fw: 2, fh: 2, solid: true,
+    img: 'House', imgC: 'House_C', pw: 128, ph: 192, tint: 0x9be08a,
+  },
+  clinic: {
+    name: '치료소', cost: { wood: 10, gold: 3 }, work: 60,
+    fw: 2, fh: 2, solid: true, light: true,
+    img: 'House', imgC: 'House_C', pw: 128, ph: 192, tint: 0xff9ab0,
+  },
 };
+
+// ── 저장고 용량 (2): 기본 + 창고당 증가. 초과분은 저장 불가(폐기) ──
+export const STORAGE = { base: 120, perWarehouse: 180 };
+
+// ── 목장 (5): 지어두면 주기적으로 식량 산출 + 양 번식 ──
+export const RANCH = { interval: 200, food: 4, breedChance: 0.2, maxSheep: 12 };
+
+// ── 치료소 (6): 부상 정착민이 와서 빠르게 회복 ──
+export const CLINIC = { hurtAt: 55, healedAt: 92, restRegen: 100 / 200 };
+
+// ── 정착민 스킬 (4): 활동으로 숙련도 상승 → 작업 속도↑ ──
+export const SKILL_LABEL = {
+  woodcutting: '벌목', mining: '채광', construction: '건축', farming: '농사', combat: '전투',
+};
+export function skillLevel(xp) { return Math.min(10, Math.floor((xp || 0) / 100)); }
+export function skillMult(xp) { return 1 + skillLevel(xp) * 0.06; } // 레벨당 +6%, 만렙 +60%
 
 // 자연물 (단일 타일)
 export const NATURE = {
@@ -81,7 +107,8 @@ export const COMBAT = {
 };
 // 고블린 습격
 export const ENEMY = { hp: 45, power: 8, attackCd: 14, moveMinPerTile: 1.4, dropGold: 2 };
-export const RAID = { firstDay: 4, intervalDays: 3, baseCount: 2, perDayExtra: 0.4, spawnHour: 20 };
+export const RAID = { firstDay: 4, intervalDays: 3, baseCount: 2, perDayExtra: 0.4, spawnHour: 20,
+  perPop: 0.4, hpPerDay: 1.5, loot: { gold: 4, iron: 2 } };
 
 // ── 요리 (모닥불에서) ──
 export const COOK = { work: 15, foodPerMeal: 2, mealEatAmount: 95 };

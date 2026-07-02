@@ -1,7 +1,7 @@
 // v0.3 월드: 바다 위의 섬 + 다중타일 건물(풋프린트) + 금광 + 양
 import {
   MAP_W, MAP_H, NATURE, STACK_MAX, BUILDS, GOLDMINE, IRONMINE, BRIDGE,
-  RESEARCH_RATE_PER_PAWN, ENEMY, SEASON_DAYS, SEASONS,
+  RESEARCH_RATE_PER_PAWN, ENEMY, RAID, SEASON_DAYS, SEASONS, STORAGE, RANCH,
   T_WATER, T_GRASS, T_SAND,
 } from './config.js';
 
@@ -300,6 +300,48 @@ export function totalRes(world) {
   return sum;
 }
 
+// ── 저장고 용량 (창고 수에 비례) ──
+export function storageCap(world) {
+  var n = 0;
+  for (var id in world.buildings) {
+    var b = world.buildings[id];
+    if (b.kind === 'warehouse' && b.stage === 'built') n++;
+  }
+  return STORAGE.base + n * STORAGE.perWarehouse;
+}
+export function totalStored(world) {
+  var s = totalRes(world);
+  return (s.wood || 0) + (s.gold || 0) + (s.food || 0) + (s.iron || 0) + (s.meal || 0);
+}
+export function storageFull(world) { return totalStored(world) >= storageCap(world); }
+
+// ── 목장: 지어진 목장마다 주기적으로 식량 산출 + 양 번식 ──
+export function tickRanches(world, dtMin, rng) {
+  var events = [];
+  for (var id in world.buildings) {
+    var b = world.buildings[id];
+    if (b.kind !== 'ranch' || b.stage !== 'built') continue;
+    b.ranchT = (b.ranchT || 0) + dtMin;
+    if (b.ranchT >= RANCH.interval) {
+      b.ranchT = 0;
+      if (!storageFull(world)) {
+        var fr = buildingFront(world, b) || { x: b.x, y: b.y + 2 };
+        addItem(world, idx(fr.x, fr.y), 'food', RANCH.food);
+        events.push({ type: 'food', idx: idx(fr.x, fr.y) });
+      }
+      // 양 번식
+      if (world.sheep.length < RANCH.maxSheep && rng() < RANCH.breedChance) {
+        var sx = b.x + ((rng() * 4) | 0) - 1, sy = b.y + 2 + ((rng() * 2) | 0);
+        if (isWalkable(world, sx, sy)) {
+          world.sheep.push({ id: world.nextSid++, x: sx, y: sy, px: sx, py: sy, dir: 1, cd: rng() * 30, phase: (rng() * 8) | 0 });
+          events.push({ type: 'sheep' });
+        }
+      }
+    }
+  }
+  return events;
+}
+
 // ── 계절 ──
 export function seasonIndex(world) {
   return Math.floor((world.day - 1) / SEASON_DAYS) % SEASONS.length;
@@ -386,6 +428,8 @@ export function spawnRaid(world, count, rng) {
   }
   if (edges.length === 0) return 0;
   var spawned = 0;
+  // 일수에 따라 고블린 체력 강화
+  var ehp = ENEMY.hp + Math.floor((world.day || 1) * (RAID.hpPerDay || 0));
   // 한 지점 근처에 무리로 상륙
   var base = edges[(rng() * edges.length) | 0];
   for (var n = 0; n < count; n++) {
@@ -394,7 +438,7 @@ export function spawnRaid(world, count, rng) {
     if (!isWalkable(world, sx, sy)) { sx = base.x; sy = base.y; }
     world.enemies.push({
       id: world.nextEid++, x: sx, y: sy, px: sx, py: sy,
-      hp: ENEMY.hp, cd: 0, dir: 1, anim: (rng() * 6) | 0,
+      hp: ehp, maxHp: ehp, cd: 0, dir: 1, anim: (rng() * 6) | 0,
     });
     spawned++;
   }

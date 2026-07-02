@@ -587,6 +587,57 @@ export function createRenderer(world) {
     }
   }
 
+  // ── 미니맵 (9) — DOM 캔버스에 다운스케일 렌더 ──
+  var miniCv = document.getElementById('minimap');
+  var miniCtx = miniCv ? miniCv.getContext('2d') : null;
+  var MINI = miniCv ? miniCv.width / MAP_W : 0; // 픽셀/타일
+  var miniLandCache = null;
+  function drawMinimap(pawns) {
+    if (!miniCtx) return;
+    var W = miniCv.width, H = miniCv.height;
+    // 지형은 최초 1회 캐시
+    if (!miniLandCache) {
+      miniCtx.fillStyle = '#2f6db0'; miniCtx.fillRect(0, 0, W, H); // 바다
+      for (var y = 0; y < MAP_H; y++) for (var x = 0; x < MAP_W; x++) {
+        var tt = world.terrain[idx(x, y)];
+        if (tt === T_WATER) continue;
+        miniCtx.fillStyle = tt === T_SAND ? '#dcc98a' : '#6ab04a';
+        miniCtx.fillRect(x * MINI, y * MINI, MINI + 0.5, MINI + 0.5);
+      }
+      miniLandCache = miniCtx.getImageData(0, 0, W, H);
+    } else {
+      miniCtx.putImageData(miniLandCache, 0, 0);
+    }
+    // 건물
+    for (var id in world.buildings) {
+      var b = world.buildings[id];
+      if (b.stage !== 'built') continue;
+      miniCtx.fillStyle = (b.kind === 'goldmine') ? '#ffd94d'
+        : (b.kind === 'ironmine') ? '#b8c0cc'
+        : (b.natural ? '#888' : '#c98a4b');
+      var def = buildingDef(b.kind);
+      miniCtx.fillRect(b.x * MINI, b.y * MINI, def.fw * MINI, def.fh * MINI);
+    }
+    // 적(빨강)·정착민(흰)
+    var n;
+    miniCtx.fillStyle = '#ff4b4b';
+    for (n = 0; n < world.enemies.length; n++) {
+      miniCtx.fillRect(world.enemies[n].px * MINI - 1, world.enemies[n].py * MINI - 1, 3, 3);
+    }
+    miniCtx.fillStyle = '#ffffff';
+    for (n = 0; n < pawns.length; n++) {
+      if (pawns[n].state === 'dead') continue;
+      miniCtx.fillRect(pawns[n].px * MINI - 1, pawns[n].py * MINI - 1, 3, 3);
+    }
+    // 카메라 뷰포트 사각형
+    var vx = (-cam.x / cam.zoom / TILE) * MINI;
+    var vy = (-cam.y / cam.zoom / TILE) * MINI;
+    var vw = (app.screen.width / cam.zoom / TILE) * MINI;
+    var vh = (app.screen.height / cam.zoom / TILE) * MINI;
+    miniCtx.strokeStyle = 'rgba(255,255,255,0.9)'; miniCtx.lineWidth = 1;
+    miniCtx.strokeRect(vx, vy, vw, vh);
+  }
+
   // ── 카메라 ──
   var cam = { x: 0, y: 0, zoom: ZOOM_DEFAULT };
   function applyCamera() {
@@ -661,6 +712,8 @@ export function createRenderer(world) {
     setTimeOfDay: setTimeOfDay,
     setSeasonTint: setSeasonTint,
     syncEnemies: syncEnemies,
+    drawMinimap: drawMinimap,
+    invalidateMinimapTerrain: function () { miniLandCache = null; },
     tick: tick,
   };
 }
