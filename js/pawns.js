@@ -1,7 +1,7 @@
 // 정착민 AI (v0.3): 욕구 → 상태기계 → 작업 수행
 import {
   NEEDS, NATURE, BUILDS, WALK_MIN_PER_TILE, TRAITS, CROP, WEAPONS,
-  COMBAT, COOK, HUNT, CLINIC, ANIMALS, skillMult,
+  COMBAT, COOK, HUNT, CLINIC, ANIMALS, FISHING, FISH, catchFish, skillMult,
 } from './config.js';
 import {
   idx, ix, iy, isWalkable, addItem, removeItem, natureDef, stackRoom,
@@ -72,6 +72,7 @@ export function taskLabel(pawn) {
     if (j.type === 'eatShroom') return '🍄 버섯 따먹는 중';
     if (j.type === 'plant') return '🌱 파종 중';
     if (j.type === 'harvestCrop') return '🌾 수확 중';
+    if (j.type === 'fish') return '🎣 낚시 중';
     if (j.type === 'craft') return '⚒️ ' + (WEAPONS[j.order.type] || {}).name + ' 제작 중';
   }
   var names = {
@@ -79,6 +80,7 @@ export function taskLabel(pawn) {
     build: '건설하러 가는 중', deliver: '자재 운반 중',
     gather: '작업하러 가는 중', mine: '금광으로 가는 중', haul: '자원 정리 중',
     plant: '밭으로 가는 중', harvestCrop: '수확하러 가는 중', craft: '대장간으로 가는 중',
+    fish: '낚시터로 가는 중',
   };
   return '🚶 ' + (names[j.type] || '작업 중');
 }
@@ -171,6 +173,8 @@ function jobTarget(world, j) {
       return { x: j.x, y: j.y, adj: false };
     case 'hunt':
       return { x: j.x, y: j.y, adj: true };
+    case 'fish':
+      return { x: ix(j.idx), y: iy(j.idx), adj: true }; // 물가 인접에서 낚시
     case 'build': case 'deliver': {
       var b = world.buildings[j.bid];
       if (!b) return null;
@@ -260,6 +264,13 @@ function onArrive(world, pawn, ctx) {
     }
     case 'rest': {
       pawn.state = 'resting';
+      break;
+    }
+    case 'fish': {
+      if (!world.fishDesig[j.idx]) return abandonJob(world, pawn);
+      pawn.state = 'working';
+      pawn.workLeft = FISHING.work;
+      pawn.face = ix(j.idx) > pawn.x ? 1 : -1;
       break;
     }
     case 'hunt': {
@@ -437,6 +448,23 @@ function finishWork(world, pawn, ctx) {
     return;
   }
 
+  if (j.type === 'fish') {
+    if (world.fishDesig[j.idx]) {
+      if (storageFull(world)) { ctx.onStorageFull(); }
+      else {
+        var fish = catchFish(world.rodTier || 0, Math.random);
+        addItem(world, 0, 'food', fish.food);
+        if (fish.gold) addItem(world, 0, 'gold', fish.gold);
+        if (fish.rare >= 2) ctx.onEvent('🎣 ' + pawn.name + ' 이(가) 희귀 어종 "' + fish.name + '" 을(를) 낚았습니다!');
+        else ctx.onEvent('🎣 ' + pawn.name + ' 이(가) ' + fish.name + ' 을(를) 낚았습니다');
+      }
+    }
+    releaseAllOf(world, pawn.id);
+    pawn.job = null;
+    pawn.state = 'idle';
+    return;
+  }
+
   if (j.type === 'hunt') {
     var shp = sheepById(world, j.sheepId);
     if (shp) {
@@ -525,6 +553,7 @@ function jobSkill(world, j) {
     case 'mine': return 'mining';
     case 'build': case 'craft': return 'construction';
     case 'plant': case 'harvestCrop': return 'farming';
+    case 'fish': return 'fishing';
     default: return null;
   }
 }
@@ -652,6 +681,7 @@ export function updatePawn(world, pawn, dtMin, ctx) {
         return abandonJob(world, pawn);
       }
       if (j.type === 'plant' && !world.farmZone[j.idx]) return abandonJob(world, pawn);
+      if (j.type === 'fish' && !world.fishDesig[j.idx]) return abandonJob(world, pawn);
       if (j.type === 'harvestCrop' &&
           (!world.crops[j.idx] || world.crops[j.idx].stage !== 'ready')) return abandonJob(world, pawn);
       if (j.type === 'build') {

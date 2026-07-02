@@ -179,6 +179,15 @@ export function findWorkJob(world, pawn) {
     }
   }
 
+  // 4.95) 낚시 (지정된 물가)
+  if (cands.length === 0) {
+    for (i in world.fishDesig) {
+      ii = +i;
+      if (world.reserved['fish:' + ii] !== undefined || !reachable(world, ii)) continue;
+      cands.push({ type: 'fish', idx: ii, _d: dist(pawn, ii) });
+    }
+  }
+
   // 5) 비축 운반
   if (cands.length === 0 && hasStockpileSpace(world)) {
     for (i in world.items) {
@@ -209,6 +218,7 @@ export function findWorkJob(world, pawn) {
   else if (job.type === 'craft') reserve(world, 'craft', pawn.id);
   else if (job.type === 'cook') reserve(world, 'cook', pawn.id);
   else if (job.type === 'hunt') reserve(world, 'hunt:' + job.sheepId, pawn.id);
+  else if (job.type === 'fish') reserve(world, 'fish:' + job.idx, pawn.id);
   return job;
 }
 

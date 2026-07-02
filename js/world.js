@@ -75,6 +75,8 @@ export function createWorld(seed) {
     nextEid: 1,
     nextRaidDay: 0,     // main.js 에서 설정
     goals: {},          // goalId -> true (달성)
+    rodTier: 0,         // 낚싯대 등급 (0 맨손 ~ 3 황금)
+    fishDesig: {},      // idx -> true (낚시 지정된 물 타일)
   };
 
   var coast = makeNoise(rng, 8);

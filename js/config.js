@@ -76,7 +76,7 @@ export const CLINIC = { hurtAt: 55, healedAt: 92, restRegen: 100 / 200 };
 
 // ── 정착민 스킬 (4): 활동으로 숙련도 상승 → 작업 속도↑ ──
 export const SKILL_LABEL = {
-  woodcutting: '벌목', mining: '채광', construction: '건축', farming: '농사', combat: '전투',
+  woodcutting: '벌목', mining: '채광', construction: '건축', farming: '농사', combat: '전투', fishing: '낚시',
 };
 export function skillLevel(xp) { return Math.min(10, Math.floor((xp || 0) / 100)); }
 export function skillMult(xp) { return 1 + skillLevel(xp) * 0.06; } // 레벨당 +6%, 만렙 +60%
@@ -144,6 +144,34 @@ export const ANIMAL_TYPES = ['sheep', 'pig', 'cow', 'chicken'];
 // ── 고용: 식량을 지불하고 새 정착민 영입 (인원 늘수록 비용↑) ──
 export const HIRE = { base: 25, perPawn: 15, maxPop: 12 };
 export function hireCost(alivePop) { return HIRE.base + HIRE.perPawn * alivePop; }
+
+// ── 낚시 ──
+// rodTier: 0=맨손, 1=나무, 2=강철, 3=황금. 높을수록 희귀 어종 확률↑·시간↓
+export const FISHING = { work: 18 };
+export const RODS = [
+  { id: 'wood',  name: '나무 낚싯대', tier: 1, cost: { wood: 5 } },
+  { id: 'iron',  name: '강철 낚싯대', tier: 2, cost: { wood: 3, iron: 3 } },
+  { id: 'gold',  name: '황금 낚싯대', tier: 3, cost: { wood: 3, gold: 6 } },
+];
+// rare: 0 흔함 → 3 전설. weight 는 기본 확률, 낚싯대 등급이 높을수록 rare 가중
+export const FISH = [
+  { name: '멸치',       food: 2,  gold: 0,  weight: 42, rare: 0 },
+  { name: '붕어',       food: 4,  gold: 0,  weight: 30, rare: 0 },
+  { name: '농어',       food: 6,  gold: 1,  weight: 16, rare: 1 },
+  { name: '연어',       food: 9,  gold: 2,  weight: 9,  rare: 1 },
+  { name: '금붕어',     food: 6,  gold: 7,  weight: 3,  rare: 2 },
+  { name: '전설의 잉어', food: 15, gold: 28, weight: 0.7, rare: 3 },
+];
+export function catchFish(rodTier, rng) {
+  var total = 0, i, w = [];
+  for (i = 0; i < FISH.length; i++) {
+    var ww = FISH[i].weight * (1 + (rodTier || 0) * 0.9 * FISH[i].rare);
+    w.push(ww); total += ww;
+  }
+  var r = rng() * total;
+  for (i = 0; i < FISH.length; i++) { r -= w[i]; if (r <= 0) return FISH[i]; }
+  return FISH[0];
+}
 
 // ── 광물: 금광 일부는 철광 (강철 무기 재료) ──
 export const IRONMINE = { fw: 3, fh: 2, work: 18, dropsPerCycle: 2, charges: 20, regenPerDay: 5 };

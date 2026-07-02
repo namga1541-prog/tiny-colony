@@ -1,6 +1,6 @@
 // DOM HUD: 도구·시계·자원·정착민 패널·토스트·커스터마이징 모달·연구/제작 모달
 import { taskLabel } from './pawns.js';
-import { UNITS, COLORS, TS, RESEARCH, WEAPONS, SKILL_LABEL, skillLevel, BUILDS, STORAGE } from './config.js';
+import { UNITS, COLORS, TS, RESEARCH, WEAPONS, SKILL_LABEL, skillLevel, BUILDS, STORAGE, RODS } from './config.js';
 import { totalRes } from './world.js';
 
 var SHEET_W = { pawn: 1152, warrior: 1152, archer: 1536 };
@@ -353,44 +353,78 @@ export function createUI(handlers) {
     overlay.querySelector('.rs-close').addEventListener('click', function () { overlay.remove(); });
   }
 
-  // ── 제작(대장간) 모달 ──
+  // ── 제작 모달 (무기 + 낚싯대) ──
+  function costStr(cost, res) {
+    return Object.keys(cost).map(function (t) {
+      var nm = { wood: '목재', gold: '금', iron: '철' }[t] || t;
+      return nm + ' ' + cost[t] + ' (보유 ' + (res[t] || 0) + ')';
+    }).join(', ');
+  }
   function showCraft() {
-    if (!world.research.unlocked.blacksmith) {
-      toast('🔒 먼저 "대장간 기술"을 연구해야 합니다', true);
-      showResearch();
-      return;
-    }
-    var overlay = openModal('<h2>⚒️ 대장간 제작</h2><div class="cr-rows"></div>' +
+    var overlay = openModal('<h2>⚒️ 제작</h2><div class="cr-rows"></div>' +
       '<div class="cm-actions"><button class="cm-ok cr-close">닫기</button></div>');
     var rows = overlay.querySelector('.cr-rows');
 
     function render() {
       rows.innerHTML = '';
-      Object.keys(WEAPONS).forEach(function (type) {
-        var wdef = WEAPONS[type];
-        // 강철 무기는 제철 연구 후에만
-        if (wdef.iron && !world.research.unlocked.steel) return;
-        var res = totalRes(world);
-        var costStr = Object.keys(wdef.cost).map(function (t) {
-          var nm = { wood: '목재', gold: '금', iron: '철' }[t] || t;
-          return nm + ' ' + wdef.cost[t] + ' (보유 ' + (res[t] || 0) + ')';
-        }).join(', ');
-        var queued = world.craftQueue.filter(function (o) { return o.type === type; }).length;
+      var res = totalRes(world);
+
+      // 낚싯대 (연구 불필요)
+      var rodHead = document.createElement('p');
+      rodHead.style.cssText = 'font-size:13px;color:#ffd76e;margin:2px 0 4px;';
+      rodHead.textContent = '🎣 낚싯대 (현재 등급: ' + (['맨손', '나무', '강철', '황금'][world.rodTier || 0]) + ')';
+      rows.appendChild(rodHead);
+      RODS.forEach(function (rod) {
+        var owned = (world.rodTier || 0) >= rod.tier;
+        var can = affordCost(res, rod.cost);
         var item = document.createElement('div');
         item.className = 'cr-item';
-        item.innerHTML = '<h3>' + wdef.name + ' <span style="font-size:11px;color:#9aa3b5">공격력 ' + wdef.power +
-          (wdef.range > 1 ? ' · 원거리' : '') + '</span></h3><p>' + costStr + '</p>' +
-          '<button class="cr-order">제작 주문</button>' +
-          (queued ? '<div class="cr-queue">대기 중인 주문: ' + queued + '개</div>' : '');
+        item.innerHTML = '<h3>' + rod.name + ' <span style="font-size:11px;color:#9aa3b5">희귀 어종 확률↑</span></h3>' +
+          '<p>' + costStr(rod.cost, res) + '</p>' +
+          (owned ? '<div class="rs-done">✅ 보유</div>'
+                 : '<button class="cr-rod" ' + (can ? '' : 'disabled') + '>제작</button>');
         rows.appendChild(item);
-        item.querySelector('.cr-order').addEventListener('click', function () {
-          if (handlers.onQueueCraft) handlers.onQueueCraft(type);
+        if (!owned) item.querySelector('.cr-rod').addEventListener('click', function () {
+          if (handlers.onCraftRod) handlers.onCraftRod(rod);
           render();
         });
       });
+
+      // 무기 (대장간 기술 필요)
+      var wHead = document.createElement('p');
+      wHead.style.cssText = 'font-size:13px;color:#ffd76e;margin:12px 0 4px;';
+      wHead.textContent = '⚔️ 무기';
+      rows.appendChild(wHead);
+      if (!world.research.unlocked.blacksmith) {
+        var lock = document.createElement('p');
+        lock.style.cssText = 'font-size:12px;color:#8d94a8;';
+        lock.textContent = '🔒 "대장간 기술" 연구가 필요합니다';
+        rows.appendChild(lock);
+      } else {
+        Object.keys(WEAPONS).forEach(function (type) {
+          var wdef = WEAPONS[type];
+          if (wdef.iron && !world.research.unlocked.steel) return;
+          var queued = world.craftQueue.filter(function (o) { return o.type === type; }).length;
+          var item = document.createElement('div');
+          item.className = 'cr-item';
+          item.innerHTML = '<h3>' + wdef.name + ' <span style="font-size:11px;color:#9aa3b5">공격력 ' + wdef.power +
+            (wdef.range > 1 ? ' · 원거리' : '') + '</span></h3><p>' + costStr(wdef.cost, res) + '</p>' +
+            '<button class="cr-order">제작 주문</button>' +
+            (queued ? '<div class="cr-queue">대기 중인 주문: ' + queued + '개</div>' : '');
+          rows.appendChild(item);
+          item.querySelector('.cr-order').addEventListener('click', function () {
+            if (handlers.onQueueCraft) handlers.onQueueCraft(type);
+            render();
+          });
+        });
+      }
     }
     render();
     overlay.querySelector('.cr-close').addEventListener('click', function () { overlay.remove(); });
+  }
+  function affordCost(res, cost) {
+    for (var t in cost) if ((res[t] || 0) < cost[t]) return false;
+    return true;
   }
 
   // ── 목표 모달 ──

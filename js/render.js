@@ -348,6 +348,11 @@ export function createRenderer(world) {
       zoneGfx.drawRect(ix(+i) * TILE + 1, iy(+i) * TILE + 1, TILE - 2, TILE - 2);
       zoneGfx.lineStyle(0);
     }
+    for (i in world.fishDesig) {
+      zoneGfx.lineStyle(3, 0x4fd6ff, 0.85);
+      zoneGfx.drawRect(ix(+i) * TILE + 3, iy(+i) * TILE + 3, TILE - 6, TILE - 6);
+      zoneGfx.lineStyle(0);
+    }
     for (i in world.designations) {
       var c = DESIG_COLOR[world.designations[i]] || 0xffffff;
       zoneGfx.lineStyle(3, c, 0.85);

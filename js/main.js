@@ -31,6 +31,8 @@ if (saved) {
   world.occupancy = saved.occupancy;
   world.nextBid = saved.nextBid;
   world.stock = saved.stock || { wood: 0, gold: 0, food: 0, iron: 0, meal: 0 };
+  world.rodTier = saved.rodTier || 0;
+  world.fishDesig = saved.fishDesig || {};
   world.items = {};
   world.stockpile = saved.stockpile || {};
   world.designations = saved.designations;
@@ -157,6 +159,13 @@ var UI = createUI({
   onQueueCraft: function (type) {
     world.craftQueue.push({ type: type });
     UI.toast('⚒️ ' + WEAPONS[type].name + ' 제작 주문 접수');
+  },
+  onCraftRod: function (rod) {
+    if (!canAfford(world, rod.cost)) { UI.toast('⚠️ 자재가 부족합니다', true); return; }
+    for (var t in rod.cost) consumeGlobal(world, t, rod.cost[t]);
+    if ((world.rodTier || 0) < rod.tier) world.rodTier = rod.tier;
+    UI.toast('🎣 ' + rod.name + ' 제작 — 희귀 어종 확률이 올랐습니다!');
+    UI.addEvent('🎣 ' + rod.name + ' 제작');
   },
   onEquip: function (pawn, type) {
     var msg = equipWeapon(world, pawn, type);
@@ -305,7 +314,20 @@ function applyTool(tool, a, b) {
       }
     });
     if (count) UI.toast('🥩 ' + count + '마리 사냥 지시');
-    else UI.toast('⚠️ 범위에 양이 없습니다', true);
+    else UI.toast('⚠️ 범위에 동물이 없습니다', true);
+  }
+
+  else if (tool === 'fish') {
+    forRect(a, b, function (i, x, y) {
+      if (world.terrain[i] !== 0 || world.fishDesig[i]) return; // 물 타일만
+      // 육지와 접한 물가여야 함 (일꾼이 옆에 설 수 있어야)
+      if (isWalkable(world, x + 1, y) || isWalkable(world, x - 1, y) ||
+          isWalkable(world, x, y + 1) || isWalkable(world, x, y - 1)) {
+        world.fishDesig[i] = true; count++;
+      }
+    });
+    if (count) UI.toast('🎣 낚시터 ' + count + '곳 지정');
+    else UI.toast('⚠️ 육지에 접한 물가에만 지정할 수 있습니다', true);
   }
 
   else if (tool === 'bridge') {
@@ -345,6 +367,7 @@ function applyTool(tool, a, b) {
         if (world.crops[i]) { delete world.crops[i]; R.refreshCrop(i); }
         count++;
       }
+      if (world.fishDesig[i]) { delete world.fishDesig[i]; count++; }
       var bid = world.occupancy[i];
       if (bid !== undefined) {
         var bld = world.buildings[bid];
