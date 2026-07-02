@@ -78,10 +78,8 @@ function exitControl() {
   if (!controlled) return;
   controlled.manual = false;
   controlled.manualMoving = false;
-  if (controlled.state === 'working' && controlled.job && controlled.job.manual) {
-    controlled.job = null;
-    controlled.state = 'idle';
-  }
+  // 하던 작업(예: 채광·벌목)은 조종을 넘겨도 취소하지 않고 그대로 이어서 진행한다.
+  // 작업이 끝나면 pawn.manual === false 이므로 다음 idle 틱에 자동으로 AI 행동으로 복귀한다.
   controlled = null;
 }
 

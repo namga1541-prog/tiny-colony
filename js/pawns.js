@@ -498,6 +498,7 @@ export function updatePawn(world, pawn, dtMin, ctx) {
 // 주변(3x3)에서 나무 > 금광 > 버섯 > 설계도 순으로 대상 탐색 후 즉시 작업 시작
 export function manualInteract(world, pawn, ctx) {
   if (pawn.state === 'working') { // 작업 취소
+    releaseAllOf(world, pawn.id);
     pawn.job = null;
     pawn.state = 'idle';
     pawn.workLeft = 0;
@@ -516,18 +517,20 @@ export function manualInteract(world, pawn, ctx) {
       var i = idx(tx2, ty2);
       var dd = Math.abs(dx) + Math.abs(dy) - (dx === pawn.face && dy === 0 ? 0.5 : 0);
       var o = world.objects[i];
-      if (o && o.kind === 'tree') {
+      if (o && o.kind === 'tree' && world.reserved['job:' + i] === undefined) {
         (function (ii) {
           consider(0, dd, function () {
+            reserve(world, 'job:' + ii, pawn.id);
             pawn.job = { type: 'gather', idx: ii, manual: true };
             pawn.state = 'working';
             pawn.workLeft = NATURE.tree.work;
             return '🪓 벌목 시작';
           });
         })(i);
-      } else if (o && o.kind === 'mushroom') {
+      } else if (o && o.kind === 'mushroom' && world.reserved['job:' + i] === undefined) {
         (function (ii) {
           consider(2, dd, function () {
+            reserve(world, 'job:' + ii, pawn.id);
             pawn.job = { type: 'gather', idx: ii, manual: true };
             pawn.state = 'working';
             pawn.workLeft = NATURE.mushroom.work;
@@ -539,19 +542,21 @@ export function manualInteract(world, pawn, ctx) {
       if (bid !== undefined && !seenB[bid]) {
         seenB[bid] = 1;
         var b = world.buildings[bid];
-        if (b && b.kind === 'goldmine' && !b.depleted) {
+        if (b && b.kind === 'goldmine' && !b.depleted && world.reserved['mine:' + bid] === undefined) {
           (function (bb) {
             consider(1, dd, function () {
+              reserve(world, 'mine:' + bb.id, pawn.id);
               pawn.job = { type: 'mine', bid: bb.id, manual: true };
               pawn.state = 'working';
               pawn.workLeft = GOLDMINE.work;
               return '⛏️ 금 채굴 시작';
             });
           })(b);
-        } else if (b && b.stage === 'bp') {
+        } else if (b && b.stage === 'bp' && world.reserved['bp:' + bid] === undefined) {
           (function (bb) {
             consider(3, dd, function () {
               if (bpMissing(bb) !== null) return '⚠️ 자재가 아직 부족합니다';
+              reserve(world, 'bp:' + bb.id, pawn.id);
               pawn.job = { type: 'build', bid: bb.id, manual: true };
               pawn.state = 'working';
               pawn.workLeft = Math.max(1, BUILDS[bb.kind].work - bb.work);
