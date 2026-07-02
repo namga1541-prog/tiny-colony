@@ -61,10 +61,24 @@ export function createRenderer(world) {
   for (var fi = 0; fi < 7; fi++) fireFrames.push(tx('Fire', fi * 128, 0, 128, 128));
   for (var sf = 0; sf < 8; sf++) sheepFrames.push(tx('Sheep_Idle', sf * 128, 0, 128, 128));
   var mushroomTex = PIXI.Texture.from(TS + 'deco03.png');
+
+  // 작물 스프라이트 (v0.2 때 받아둔 Kenney RPG 시트 재사용 — 새 에셋 불필요)
+  var rpgBase = PIXI.BaseTexture.from('assets/rpg/roguelikeSheet_transparent.png');
+  rpgBase.scaleMode = PIXI.SCALE_MODES.NEAREST;
+  function rpgTex(i) {
+    var cols = 57, sp = 1, cell = 16;
+    var col = i % cols, row = (i / cols) | 0;
+    return new PIXI.Texture(rpgBase, new PIXI.Rectangle(col * (cell + sp), row * (cell + sp), cell, cell));
+  }
+  var cropGrowingTex = rpgTex(649); // 새싹
+  var cropReadyTex = rpgTex(594);   // 열매 맺은 밀 (수확 가능)
   var ITEM_TEX = {
     wood: function () { return tx('W_Idle', 0, 0, 128, 128); },
     gold: function () { return tx('G_Idle', 0, 0, 128, 128); },
     food: function () { return tx('M_Idle', 0, 0, 128, 128); },
+    // 검·활 아이템은 별도 아이콘 에셋이 없어 해당 유닛 스프라이트(파랑) 아이들 프레임을 재사용
+    sword: function () { return tx('Warrior_Blue', 0, 0, 192, 192); },
+    bow: function () { return tx('Archer_Blue', 0, 0, 192, 192); },
   };
 
   function pawnTex(look, rowName, frame) {
@@ -166,6 +180,26 @@ export function createRenderer(world) {
       stumpSprites[i].destroy();
       delete stumpSprites[i];
     }
+  }
+
+  // ── 작물 ──
+  var cropSprites = {};
+  function refreshCrop(i) {
+    var c = world.crops[i];
+    var e = cropSprites[i];
+    if (!c) {
+      if (e) { groundDecor.removeChild(e); e.destroy(); delete cropSprites[i]; }
+      return;
+    }
+    if (!e) {
+      e = new PIXI.Sprite(cropGrowingTex);
+      e.anchor.set(0.5, 0.85);
+      e.scale.set(2.6);
+      e.x = ix(i) * TILE + 32; e.y = (iy(i) + 1) * TILE - 8;
+      groundDecor.addChild(e);
+      cropSprites[i] = e;
+    }
+    e.texture = c.stage === 'ready' ? cropReadyTex : cropGrowingTex;
   }
 
   function buildingTexture(b) {
@@ -271,6 +305,14 @@ export function createRenderer(world) {
       zoneGfx.drawRect(ix(+i) * TILE + 1, iy(+i) * TILE + 1, TILE - 2, TILE - 2);
       zoneGfx.lineStyle(0);
     }
+    for (i in world.farmZone) {
+      zoneGfx.beginFill(0x8a5a2e, 0.28);
+      zoneGfx.drawRect(ix(+i) * TILE, iy(+i) * TILE, TILE, TILE);
+      zoneGfx.endFill();
+      zoneGfx.lineStyle(2, 0xc98a4b, 0.5);
+      zoneGfx.drawRect(ix(+i) * TILE + 1, iy(+i) * TILE + 1, TILE - 2, TILE - 2);
+      zoneGfx.lineStyle(0);
+    }
     for (i in world.designations) {
       var c = DESIG_COLOR[world.designations[i]] || 0xffffff;
       zoneGfx.lineStyle(3, c, 0.85);
@@ -297,6 +339,7 @@ export function createRenderer(world) {
     for (i in world.items) seenI[i] = 1;
     for (i in itemSprites) seenI[i] = 1;
     for (i in seenI) refreshItem(+i);
+    for (i in world.crops) refreshCrop(+i);
     refreshZones();
   }
 
@@ -534,6 +577,7 @@ export function createRenderer(world) {
     screenToTile: screenToTile,
     refreshTile: refreshTile,
     refreshItem: refreshItem,
+    refreshCrop: refreshCrop,
     refreshZones: refreshZones,
     refreshBuilding: refreshBuilding,
     removeBuildingSprite: removeBuildingSprite,

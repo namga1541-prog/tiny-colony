@@ -1,6 +1,7 @@
 // v0.3 월드: 바다 위의 섬 + 다중타일 건물(풋프린트) + 금광 + 양
 import {
   MAP_W, MAP_H, NATURE, STACK_MAX, BUILDS, GOLDMINE,
+  RESEARCH_RATE_PER_PAWN,
   T_WATER, T_GRASS, T_SAND,
 } from './config.js';
 
@@ -54,6 +55,10 @@ export function createWorld(seed) {
     reserved: {},
     timeMin: 8 * 60,
     day: 1,
+    research: { points: 0, unlocked: {} },
+    farmZone: {},       // idx -> true
+    crops: {},          // idx -> {stage:'empty'|'growing'|'ready', timer}
+    craftQueue: [],      // [{type:'sword'|'bow'}]
   };
 
   var coast = makeNoise(rng, 8);
@@ -273,6 +278,50 @@ export function dailyRegrowth(world, rng) {
     count++;
   }
   return spawned;
+}
+
+// 여러 타일에 흩어진 자원을 목표 수량만큼 전역에서 차감 (사전에 totalRes로 충분한지 확인 후 호출)
+export function consumeGlobal(world, type, n) {
+  var left = n;
+  for (var i in world.items) {
+    if (left <= 0) break;
+    var have = world.items[i][type] || 0;
+    if (have <= 0) continue;
+    var take = Math.min(have, left);
+    removeItem(world, i, type, take);
+    left -= take;
+  }
+  return n - left; // 실제 차감된 양
+}
+
+export function canAfford(world, cost) {
+  var sum = totalRes(world);
+  for (var t in cost) if ((sum[t] || 0) < cost[t]) return false;
+  return true;
+}
+
+// 연구 포인트 자동 누적 (정착민 수 비례)
+export function tickResearch(world, aliveCount, dtMin) {
+  world.research.points += RESEARCH_RATE_PER_PAWN * aliveCount * dtMin;
+}
+
+export function researchProgress(world, key, def) {
+  return Math.min(1, world.research.points / def.cost);
+}
+
+// 작물 성장 (매 틱) — 성숙하면 stage 'ready' 전환만, 수확은 pawn job
+export function tickCrops(world, dtMin) {
+  var readyNow = [];
+  for (var i in world.crops) {
+    var c = world.crops[i];
+    if (c.stage !== 'growing') continue;
+    c.timer -= dtMin;
+    if (c.timer <= 0) {
+      c.stage = 'ready';
+      readyNow.push(+i);
+    }
+  }
+  return readyNow;
 }
 
 // 양 배회

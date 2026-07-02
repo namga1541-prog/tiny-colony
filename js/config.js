@@ -43,6 +43,32 @@ export const NATURE = {
 // 금광 (3x2 풋프린트 자연 구조물)
 export const GOLDMINE = { fw: 3, fh: 2, work: 15, dropsPerCycle: 2, charges: 24 };
 
+// ── 연구: 정착민 수에 비례해 자동 누적, 포인트로 기술 해금 ──
+export const RESEARCH_RATE_PER_PAWN = 100 / (6 * 60); // 정착민 1명당 6시간에 100점
+export const RESEARCH = {
+  farming:    { name: '농업', cost: 60,  desc: '농사 구역을 지정해 밀을 재배할 수 있습니다' },
+  blacksmith: { name: '대장간 기술', cost: 90, desc: '검·활을 제작할 수 있습니다' },
+};
+
+// ── 농사 ──
+export const CROP = { plantWork: 12, growTime: 380, harvestWork: 10, yield: 3 };
+
+// ── 대장간 (건물 불필요 — 지은 집에서 제작) ──
+export const WEAPONS = {
+  sword: { name: '검', cost: { wood: 4, gold: 3 }, work: 40, equip: 'warrior' },
+  bow:   { name: '활', cost: { wood: 3, gold: 4 }, work: 40, equip: 'archer' },
+};
+
+// ── 정착민 특성 (생성 시 1개 무작위 배정) ──
+export const TRAITS = [
+  { id: 'hardy',    name: '억척',   desc: '작업 속도 +20%',       workMult: 1.2 },
+  { id: 'lazy',     name: '게으름', desc: '작업 속도 -20%',       workMult: 0.8 },
+  { id: 'glutton',  name: '대식가', desc: '포만감이 30% 빨리 줆', hungerMult: 1.3 },
+  { id: 'optimist', name: '낙천적', desc: '기분이 잘 떨어지지 않음', moodMult: 0.55 },
+  { id: 'tough',    name: '강골',   desc: '체력 회복 +50%',       hpRegenMult: 1.5 },
+  { id: 'none',     name: '평범',   desc: '특이사항 없음' },
+];
+
 // 시간
 export const MIN_PER_SEC = 6;
 export const DAY_MIN = 1440;

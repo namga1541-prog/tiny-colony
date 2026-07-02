@@ -1,8 +1,10 @@
 // 정착민 AI (v0.3): 욕구 → 상태기계 → 작업 수행
-import { NEEDS, NATURE, BUILDS, GOLDMINE, WALK_MIN_PER_TILE } from './config.js';
+import {
+  NEEDS, NATURE, BUILDS, GOLDMINE, WALK_MIN_PER_TILE, TRAITS, CROP, WEAPONS,
+} from './config.js';
 import {
   idx, ix, iy, isWalkable, addItem, removeItem, natureDef, stackRoom,
-  buildingDef, buildingFront,
+  buildingDef, buildingFront, consumeGlobal, canAfford,
 } from './world.js';
 import { findPath } from './path.js';
 import {
@@ -13,16 +15,20 @@ import {
 var CARRY_MAX = 10;
 
 export function createPawn(id, def, x, y) {
+  var trait = def.trait || TRAITS[(Math.random() * TRAITS.length) | 0];
   return {
     id: id,
     name: def.name,
     look: def.look || { unit: 'pawn', color: def.color || 'Blue' },
+    trait: trait,
+    equipped: def.equipped || null, // 'sword' | 'bow' | null
     face: 1,             // 1 우 / -1 좌
     x: x, y: y,
     px: x, py: y,
     hunger: 60 + Math.random() * 30,
     energy: 60 + Math.random() * 30,
     hp: 100,
+    mood: 70,
     state: 'idle',       // idle | moving | working | eating | sleeping | dead
     job: null,
     path: null,
@@ -31,6 +37,16 @@ export function createPawn(id, def, x, y) {
     wanderCd: 0,
     stuckCd: 0,
   };
+}
+
+// 정착민을 검/활로 무장 (창고 자원에서 즉시 소비) — 실패 시 null 메시지 반환
+export function equipWeapon(world, pawn, weaponType) {
+  var wdef = WEAPONS[weaponType];
+  if (!wdef) return null;
+  if (consumeGlobal(world, weaponType, 1) < 1) return '⚠️ ' + wdef.name + ' 이(가) 없습니다';
+  pawn.equipped = weaponType;
+  pawn.look = { unit: wdef.equip, color: pawn.look.color };
+  return '🗡️ ' + pawn.name + ' 이(가) ' + wdef.name + ' 을(를) 장착했습니다';
 }
 
 export function taskLabel(pawn) {
@@ -53,12 +69,16 @@ export function taskLabel(pawn) {
     if (j.type === 'mine') return '⛏️ 금 채굴 중';
     if (j.type === 'build') return '🔨 건설 중';
     if (j.type === 'eatShroom') return '🍄 버섯 따먹는 중';
+    if (j.type === 'plant') return '🌱 파종 중';
+    if (j.type === 'harvestCrop') return '🌾 수확 중';
+    if (j.type === 'craft') return '⚒️ ' + (WEAPONS[j.order.type] || {}).name + ' 제작 중';
   }
   var names = {
     eat: '식량 가지러 가는 중', eatShroom: '버섯 찾아가는 중',
     sleepHouse: '집으로 가는 중', sleepGround: '잘 곳 찾는 중',
     build: '건설하러 가는 중', deliver: '자재 운반 중',
     gather: '작업하러 가는 중', mine: '금광으로 가는 중', haul: '자원 정리 중',
+    plant: '밭으로 가는 중', harvestCrop: '수확하러 가는 중', craft: '대장간으로 가는 중',
   };
   return '🚶 ' + (names[j.type] || '작업 중');
 }
@@ -72,8 +92,8 @@ export function poseOf(pawn) {
   if (pawn.state === 'moving') return pawn.carry ? 'carryWalk' : 'walk';
   if (pawn.state === 'working') {
     var j = pawn.job;
-    if (j && (j.type === 'build')) return 'hammer';
-    return 'axe'; // 벌목·채굴·채집
+    if (j && (j.type === 'build' || j.type === 'craft')) return 'hammer';
+    return 'axe'; // 벌목·채굴·채집·농사
   }
   if (pawn.carry) return 'carryIdle';
   return 'idle';
@@ -105,6 +125,10 @@ function jobTarget(world, j) {
   switch (j.type) {
     case 'eat': case 'haul': case 'eatShroom': case 'gather':
       return { x: ix(j.idx), y: iy(j.idx), adj: j.type === 'gather' };
+    case 'plant': case 'harvestCrop':
+      return { x: ix(j.idx), y: iy(j.idx), adj: true };
+    case 'craft':
+      return { x: j.x, y: j.y, adj: false };
     case 'build': case 'deliver': {
       var b = world.buildings[j.bid];
       if (!b) return null;
@@ -193,6 +217,28 @@ function onArrive(world, pawn, ctx) {
       if (!mb || (mb.charges || 0) <= 0 || !world.mineDesig[j.bid]) return abandonJob(world, pawn);
       pawn.state = 'working';
       pawn.workLeft = GOLDMINE.work;
+      break;
+    }
+    case 'plant': {
+      if (!world.farmZone[j.idx] || world.crops[j.idx]) return abandonJob(world, pawn);
+      pawn.state = 'working';
+      pawn.workLeft = CROP.plantWork;
+      break;
+    }
+    case 'harvestCrop': {
+      var cr = world.crops[j.idx];
+      if (!cr || cr.stage !== 'ready') return abandonJob(world, pawn);
+      pawn.state = 'working';
+      pawn.workLeft = CROP.harvestWork;
+      break;
+    }
+    case 'craft': {
+      var order = world.craftQueue[0];
+      if (!order || order !== j.order) return abandonJob(world, pawn);
+      var wdef = WEAPONS[order.type];
+      if (!wdef) return abandonJob(world, pawn);
+      pawn.state = 'working';
+      pawn.workLeft = wdef.work;
       break;
     }
     case 'build': {
@@ -340,6 +386,51 @@ function finishWork(world, pawn, ctx) {
     return;
   }
 
+  if (j.type === 'plant') {
+    if (world.farmZone[j.idx] && !world.crops[j.idx]) {
+      world.crops[j.idx] = { stage: 'growing', timer: CROP.growTime };
+      ctx.onCropChange(j.idx);
+    }
+    releaseAllOf(world, pawn.id);
+    pawn.job = null;
+    pawn.state = 'idle';
+    return;
+  }
+
+  if (j.type === 'harvestCrop') {
+    var cr = world.crops[j.idx];
+    if (cr && cr.stage === 'ready') {
+      delete world.crops[j.idx];
+      addItem(world, j.idx, 'food', CROP.yield);
+      ctx.onItemChange(j.idx);
+      ctx.onCropChange(j.idx);
+      ctx.onEvent(pawn.name + '이(가) 밀을 수확했습니다');
+    }
+    releaseAllOf(world, pawn.id);
+    pawn.job = null;
+    pawn.state = 'idle';
+    return;
+  }
+
+  if (j.type === 'craft') {
+    var pending = world.craftQueue[0];
+    if (pending) {
+      var wdef = WEAPONS[pending.type];
+      if (wdef && canAfford(world, wdef.cost)) {
+        for (var rt in wdef.cost) consumeGlobal(world, rt, wdef.cost[rt]);
+        var dropIdx = idx(pawn.x, pawn.y);
+        addItem(world, dropIdx, pending.type, 1);
+        ctx.onItemChange(dropIdx);
+        ctx.onEvent(pawn.name + '이(가) ' + wdef.name + ' 제작을 완료했습니다');
+        world.craftQueue.shift();
+      }
+    }
+    releaseAllOf(world, pawn.id);
+    pawn.job = null;
+    pawn.state = 'idle';
+    return;
+  }
+
   pawn.job = null;
   pawn.state = 'idle';
 }
@@ -349,7 +440,8 @@ export function updatePawn(world, pawn, dtMin, ctx) {
   if (pawn.state === 'dead') return;
   pawn.ctxItemChange = ctx.onItemChange;
 
-  pawn.hunger = Math.max(0, pawn.hunger - NEEDS.hungerDecay * dtMin);
+  var trait = pawn.trait;
+  pawn.hunger = Math.max(0, pawn.hunger - NEEDS.hungerDecay * (trait.hungerMult || 1) * dtMin);
   if (pawn.state !== 'sleeping') {
     pawn.energy = Math.max(0, pawn.energy - NEEDS.energyDecay * dtMin);
   }
@@ -362,9 +454,15 @@ export function updatePawn(world, pawn, dtMin, ctx) {
       return;
     }
   } else if (pawn.hunger > 60 && pawn.hp < 100) {
-    pawn.hp = Math.min(100, pawn.hp + NEEDS.hpRegen * dtMin);
+    pawn.hp = Math.min(100, pawn.hp + NEEDS.hpRegen * (trait.hpRegenMult || 1) * dtMin);
   }
   if (pawn.stuckCd > 0) pawn.stuckCd -= dtMin;
+
+  // 기분: 포만감·기력·체력의 가중 평균으로 서서히 수렴
+  var moodTarget = pawn.hunger * 0.4 + pawn.energy * 0.35 + pawn.hp * 0.25;
+  var moodRate = 0.006 * (trait.moodMult || 1);
+  pawn.mood += (moodTarget - pawn.mood) * Math.min(1, moodRate * dtMin);
+  pawn.mood = Math.max(0, Math.min(100, pawn.mood));
 
   switch (pawn.state) {
     case 'moving':
@@ -377,12 +475,16 @@ export function updatePawn(world, pawn, dtMin, ctx) {
       if (j.type === 'gather' && (!world.objects[j.idx] || (!j.manual && !world.designations[j.idx]))) {
         return abandonJob(world, pawn);
       }
+      if (j.type === 'plant' && !world.farmZone[j.idx]) return abandonJob(world, pawn);
+      if (j.type === 'harvestCrop' &&
+          (!world.crops[j.idx] || world.crops[j.idx].stage !== 'ready')) return abandonJob(world, pawn);
       if (j.type === 'build') {
         var b = world.buildings[j.bid];
         if (!b || b.stage !== 'bp') return abandonJob(world, pawn);
         b.work += dtMin;
       }
-      pawn.workLeft -= dtMin;
+      var moodPenalty = pawn.mood < 30 ? 0.85 : 1;
+      pawn.workLeft -= dtMin * (pawn.trait.workMult || 1) * moodPenalty;
       if (pawn.workLeft <= 0) finishWork(world, pawn, ctx);
       break;
     }

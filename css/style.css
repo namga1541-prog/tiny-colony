@@ -77,6 +77,18 @@ html, body {
 .tool:hover { background: rgba(255, 255, 255, 0.14); }
 .tool.active { background: #4a7dff; border-color: #6d97ff; color: #fff; }
 
+.tool-action {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #dde2ee;
+  border-radius: 9px;
+  padding: 7px 11px;
+  font-size: 13px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.tool-action:hover { background: rgba(255, 255, 255, 0.14); }
+
 /* ── 정착민 패널 ───────────────────────── */
 #pawnPanel {
   right: 12px; top: 64px;
@@ -96,6 +108,26 @@ html, body {
 .fill.hunger { background: linear-gradient(90deg, #ff9d5c, #ffc46b); }
 .fill.energy { background: linear-gradient(90deg, #5cc8ff, #7de0ff); }
 .fill.hp { background: linear-gradient(90deg, #ff6b81, #ff8fa0); }
+.fill.mood { background: linear-gradient(90deg, #9d7dff, #c9a8ff); }
+
+.pawn-trait {
+  font-size: 11.5px; color: #ffd76e;
+  margin: 2px 0 8px;
+}
+.pawn-equip { display: flex; gap: 6px; margin-bottom: 6px; }
+.pawn-equip button {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #dde2ee;
+  border-radius: 8px;
+  padding: 6px 4px;
+  font-size: 11.5px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.pawn-equip button:hover { background: rgba(255, 255, 255, 0.15); }
+.pawn-equip button.eq-active { background: #4a7dff; border-color: #6d97ff; color: #fff; }
 
 /* ── 토스트 ────────────────────────────── */
 #toastHost {
@@ -198,6 +230,30 @@ html, body {
   .cm-grid { grid-template-columns: repeat(6, 48px); }
   .cm-look { width: 48px; height: 48px; }
 }
+
+/* ── 연구·제작 모달 (커스터마이징 모달 스타일 재사용) ── */
+.rs-item, .cr-item {
+  padding: 12px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  min-width: 320px;
+}
+.rs-item h3, .cr-item h3 { font-size: 14.5px; margin-bottom: 4px; }
+.rs-item p, .cr-item p { font-size: 12.5px; color: #9aa3b5; margin-bottom: 8px; }
+.rs-bar {
+  height: 10px; border-radius: 5px;
+  background: rgba(255, 255, 255, 0.09);
+  overflow: hidden; margin-bottom: 8px;
+}
+.rs-bar-fill { height: 100%; background: linear-gradient(90deg, #4a7dff, #7ea6ff); border-radius: 5px; }
+.rs-unlock, .cr-order {
+  background: #4a7dff; border: none; color: #fff;
+  border-radius: 8px; padding: 7px 14px;
+  font-size: 12.5px; font-weight: 600; cursor: pointer; font-family: inherit;
+}
+.rs-unlock:disabled { background: rgba(255, 255, 255, 0.1); color: #8d94a8; cursor: not-allowed; }
+.rs-unlock:not(:disabled):hover, .cr-order:hover { background: #5f8dff; }
+.rs-done { color: #7dffb0; font-size: 12.5px; font-weight: 600; }
+.cr-queue { font-size: 12px; color: #ffd76e; margin-top: 4px; }
 
 /* ── 이벤트 피드 ───────────────────────── */
 #eventFeed {

@@ -5,9 +5,10 @@ import {
 import {
   createWorld, mulberry32, idx, ix, iy, isWalkable, footprintClear,
   addBuilding, removeBuilding, buildingDef, addItem, totalRes, dailyRegrowth,
-  updateSheep,
+  updateSheep, tickResearch, tickCrops,
 } from './world.js';
-import { createPawn, updatePawn, manualInteract } from './pawns.js';
+import { createPawn, updatePawn, manualInteract, equipWeapon } from './pawns.js';
+import { RESEARCH, WEAPONS } from './config.js';
 import { releaseAllOf } from './jobs.js';
 import { createRenderer } from './render.js';
 import { createUI } from './ui.js';
@@ -32,9 +33,14 @@ if (saved) {
   world.reserved = {};
   world.timeMin = saved.timeMin;
   world.day = saved.day;
+  world.research = saved.research || { points: 0, unlocked: {} };
+  world.farmZone = saved.farmZone || {};
+  world.crops = saved.crops || {};
+  world.craftQueue = saved.craftQueue || [];
   pawns = saved.pawns.map(function (p) {
-    var pw = createPawn(p.id, { name: p.name, look: p.look, color: p.color }, p.x, p.y);
+    var pw = createPawn(p.id, { name: p.name, look: p.look, color: p.color, trait: p.trait, equipped: p.equipped }, p.x, p.y);
     pw.hunger = p.hunger; pw.energy = p.energy; pw.hp = p.hp;
+    pw.mood = p.mood === undefined ? 70 : p.mood;
     pw.carry = p.carry || null;
     if (p.dead) pw.state = 'dead';
     return pw;
@@ -80,6 +86,7 @@ function exitControl() {
 }
 
 var UI = createUI({
+  world: world,
   onToolChange: function () { R.showDrag(null); },
   onSpeed: setSpeed,
   onEditPawn: function () {
@@ -91,6 +98,24 @@ var UI = createUI({
       UI.updatePawnPanel(selectedPawn);
       UI.toast('✅ 변경되었습니다');
     });
+  },
+  onUnlockResearch: function (key) {
+    var def = RESEARCH[key];
+    if (!def || world.research.unlocked[key] || world.research.points < def.cost) return;
+    world.research.points -= def.cost;
+    world.research.unlocked[key] = true;
+    UI.toast('📚 "' + def.name + '" 연구 완료!');
+    UI.addEvent('📚 ' + def.name + ' 기술 습득');
+  },
+  onQueueCraft: function (type) {
+    world.craftQueue.push({ type: type });
+    UI.toast('⚒️ ' + WEAPONS[type].name + ' 제작 주문 접수');
+  },
+  onEquip: function (pawn, type) {
+    var msg = equipWeapon(world, pawn, type);
+    if (msg) UI.toast(msg);
+    R.updatePawnSprite(pawn);
+    UI.updatePawnPanel(pawn);
   },
   onSave: function () {
     UI.toast(saveGame(world, pawns) ? '💾 저장되었습니다' : '⚠️ 저장 실패', false);
@@ -120,6 +145,7 @@ var ctx = {
   rng: ambientRng,
   onWorldChange: function (i) { R.refreshTile(i); R.refreshZones(); },
   onItemChange: function (i) { R.refreshItem(i); },
+  onCropChange: function (i) { R.refreshCrop(i); },
   onBuildingChange: function (b) { R.refreshBuilding(b); },
   onBuildingBuilt: function (b) {
     // 완공된 건물 풋프린트에 서 있던 정착민 밀어내기
@@ -197,9 +223,30 @@ function applyTool(tool, a, b) {
     else UI.toast('⚠️ 범위에 채굴할 금광이 없습니다', true);
   }
 
+  else if (tool === 'farm') {
+    if (!world.research.unlocked.farming) {
+      UI.toast('🔒 먼저 "농업" 기술을 연구해야 합니다', true);
+      UI.showResearch();
+    } else {
+      forRect(a, b, function (i, x, y) {
+        if (!world.farmZone[i] && isWalkable(world, x, y) &&
+            world.occupancy[i] === undefined && !world.objects[i] && !world.stockpile[i]) {
+          world.farmZone[i] = true;
+          count++;
+        }
+      });
+      if (count) UI.toast('🌾 농사 구역 ' + count + '칸 지정');
+    }
+  }
+
   else if (tool === 'cancel') {
     forRect(a, b, function (i) {
       if (world.designations[i]) { delete world.designations[i]; count++; }
+      if (world.farmZone[i]) {
+        delete world.farmZone[i];
+        if (world.crops[i]) { delete world.crops[i]; R.refreshCrop(i); }
+        count++;
+      }
       var bid = world.occupancy[i];
       if (bid !== undefined) {
         var bld = world.buildings[bid];
@@ -437,14 +484,23 @@ R.app.ticker.add(function () {
   var gameMin = Math.min(30, realSec * MIN_PER_SEC * SPEED_MULT[speed]);
   var manualBudget = gameMin;
   var prevDay = world.day;
+  var cropReadyBatch = [];
   while (gameMin > 0) {
     var dt = Math.min(1, gameMin);
     gameMin -= dt;
     world.timeMin += dt;
     world.day = 1 + Math.floor(world.timeMin / DAY_MIN);
-    for (var n = 0; n < pawns.length; n++) updatePawn(world, pawns[n], dt, ctx);
+    var aliveNow = 0;
+    for (var n = 0; n < pawns.length; n++) {
+      updatePawn(world, pawns[n], dt, ctx);
+      if (pawns[n].state !== 'dead') aliveNow++;
+    }
     updateSheep(world, dt, ambientRng);
+    tickResearch(world, aliveNow, dt);
+    var ready = tickCrops(world, dt);
+    if (ready.length) cropReadyBatch = cropReadyBatch.concat(ready);
   }
+  cropReadyBatch.forEach(function (i) { R.refreshCrop(i); });
   if (world.day !== prevDay) {
     UI.toast('🌅 ' + world.day + '일차 아침이 밝았습니다');
     UI.addEvent('🌅 ' + world.day + '일차');

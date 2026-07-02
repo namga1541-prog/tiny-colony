@@ -41,6 +41,7 @@
     <button class="tool" data-tool="chop" title="나무를 벌목하도록 지시 (드래그)">🪓 벌목</button>
     <button class="tool" data-tool="mine" title="금광을 채굴하도록 지시 (금광 위에 드래그)">⛏️ 채굴</button>
     <button class="tool" data-tool="forage" title="버섯을 수확하도록 지시 (드래그)">🧺 채집</button>
+    <button class="tool" data-tool="farm" title="농업 연구 필요 — 밀을 심고 수확하는 구역 지정 (드래그)">🌾 농사</button>
     <button class="tool" data-tool="cancel" title="지시·설계도 취소 (드래그)">✖️ 취소</button>
   </div>
   <div class="tool-sep"></div>
@@ -51,6 +52,11 @@
     <button class="tool" data-tool="campfire" title="목재 2 — 밤을 밝힙니다">🔥 모닥불</button>
     <button class="tool" data-tool="stockpile" title="자원을 모아 둘 구역 지정">📦 비축 구역</button>
     <button class="tool" data-tool="demolish" title="건축물·구역 철거 (자재 일부 회수)">🔨 철거</button>
+  </div>
+  <div class="tool-sep"></div>
+  <div class="tool-section">
+    <button id="btnResearch" class="tool-action" title="연구 포인트를 모아 기술을 해금합니다">📚 연구</button>
+    <button id="btnCraft" class="tool-action" title="대장간 기술 연구 후 검·활을 제작합니다">⚒️ 제작</button>
   </div>
 </div>
 
@@ -73,6 +79,12 @@
     <span>❤️ 체력</span>
     <div class="bar"><div id="barHp" class="fill hp"></div></div>
   </div>
+  <div class="need">
+    <span>😊 기분</span>
+    <div class="bar"><div id="barMood" class="fill mood"></div></div>
+  </div>
+  <div id="pawnTrait" class="pawn-trait"></div>
+  <div id="pawnEquip" class="pawn-equip"></div>
   <button id="btnEditPawn">✏️ 이름·외형 변경</button>
 </div>
 

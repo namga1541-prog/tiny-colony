@@ -1,9 +1,9 @@
-// localStorage 저장/불러오기 (v3)
+// localStorage 저장/불러오기 (v4)
 var KEY = 'tinyColony.save1';
 
 export function saveGame(world, pawns) {
   var data = {
-    v: 3,
+    v: 4,
     seed: world.seed,
     terrain: Array.from(world.terrain),
     objects: world.objects,
@@ -17,11 +17,15 @@ export function saveGame(world, pawns) {
     sheep: world.sheep,
     timeMin: world.timeMin,
     day: world.day,
+    research: world.research,
+    farmZone: world.farmZone,
+    crops: world.crops,
+    craftQueue: world.craftQueue,
     pawns: pawns.map(function (p) {
       return {
-        id: p.id, name: p.name, look: p.look,
+        id: p.id, name: p.name, look: p.look, trait: p.trait, equipped: p.equipped,
         x: p.x, y: p.y,
-        hunger: p.hunger, energy: p.energy, hp: p.hp,
+        hunger: p.hunger, energy: p.energy, hp: p.hp, mood: p.mood,
         dead: p.state === 'dead',
         carry: p.carry,
       };
@@ -40,7 +44,7 @@ export function loadSaveData() {
     var raw = localStorage.getItem(KEY);
     if (!raw) return null;
     var data = JSON.parse(raw);
-    if (!data || data.v !== 3) return null;
+    if (!data || data.v !== 4) return null;
     return data;
   } catch (e) {
     return null;

@@ -1,12 +1,14 @@
-// DOM HUD: 도구·시계·자원·정착민 패널·토스트·커스터마이징 모달
+// DOM HUD: 도구·시계·자원·정착민 패널·토스트·커스터마이징 모달·연구/제작 모달
 import { taskLabel } from './pawns.js';
-import { UNITS, COLORS, TS } from './config.js';
+import { UNITS, COLORS, TS, RESEARCH, WEAPONS } from './config.js';
+import { totalRes } from './world.js';
 
 var SHEET_W = { pawn: 1152, warrior: 1152, archer: 1536 };
 var COLOR_LABEL = { Blue: '파랑', Red: '빨강', Yellow: '노랑', Purple: '보라' };
 
 export function createUI(handlers) {
   var tool = 'select';
+  var world = handlers.world;
 
   // 도구 버튼
   var toolBtns = document.querySelectorAll('.tool');
@@ -38,6 +40,8 @@ export function createUI(handlers) {
   document.getElementById('btnEditPawn').addEventListener('click', function () {
     if (handlers.onEditPawn) handlers.onEditPawn();
   });
+  document.getElementById('btnResearch').addEventListener('click', showResearch);
+  document.getElementById('btnCraft').addEventListener('click', showCraft);
 
   // 시계·자원
   var dayLabel = document.getElementById('dayLabel');
@@ -82,6 +86,9 @@ export function createUI(handlers) {
   var barHunger = document.getElementById('barHunger');
   var barEnergy = document.getElementById('barEnergy');
   var barHp = document.getElementById('barHp');
+  var barMood = document.getElementById('barMood');
+  var pawnTrait = document.getElementById('pawnTrait');
+  var pawnEquip = document.getElementById('pawnEquip');
 
   function showPawn(pawn) {
     panel.classList.remove('hidden');
@@ -96,6 +103,24 @@ export function createUI(handlers) {
     barHunger.style.width = pawn.hunger + '%';
     barEnergy.style.width = pawn.energy + '%';
     barHp.style.width = pawn.hp + '%';
+    barMood.style.width = Math.round(pawn.mood) + '%';
+    pawnTrait.textContent = pawn.trait && pawn.trait.id !== 'none'
+      ? '✦ ' + pawn.trait.name + ' — ' + pawn.trait.desc : '';
+    pawnEquip.innerHTML = '';
+    if (pawn.state !== 'dead') {
+      ['sword', 'bow'].forEach(function (wt) {
+        var res = totalRes(world);
+        var btn = document.createElement('button');
+        var label = wt === 'sword' ? '🗡️ 검' : '🏹 활';
+        btn.textContent = label + ' (보유 ' + (res[wt] || 0) + ')';
+        if (pawn.equipped === wt) btn.classList.add('eq-active');
+        btn.disabled = (res[wt] || 0) <= 0 && pawn.equipped !== wt;
+        btn.addEventListener('click', function () {
+          if (handlers.onEquip) handlers.onEquip(pawn, wt);
+        });
+        pawnEquip.appendChild(btn);
+      });
+    }
   }
 
   // 토스트
@@ -179,9 +204,98 @@ export function createUI(handlers) {
     document.body.appendChild(overlay);
   }
 
+  function openModal(innerHtml) {
+    var old = document.getElementById('customModal');
+    if (old) old.remove();
+    var overlay = document.createElement('div');
+    overlay.id = 'customModal';
+    overlay.innerHTML = '<div class="cm-box">' + innerHtml + '</div>';
+    overlay.addEventListener('click', function (e) {
+      if (e.target === overlay) overlay.remove();
+    });
+    document.body.appendChild(overlay);
+    return overlay;
+  }
+
+  // ── 연구 모달 ──
+  function showResearch() {
+    var overlay = openModal('<h2>📚 연구</h2><div class="rs-rows"></div>' +
+      '<div class="cm-actions"><button class="cm-ok rs-close">닫기</button></div>');
+    var rows = overlay.querySelector('.rs-rows');
+
+    function render() {
+      rows.innerHTML = '';
+      var pts = Math.floor(world.research.points);
+      var head = document.createElement('p');
+      head.style.marginBottom = '10px';
+      head.textContent = '보유 연구 포인트: ' + pts + ' (정착민이 시간이 지나면 자동으로 모읍니다)';
+      rows.appendChild(head);
+      Object.keys(RESEARCH).forEach(function (key) {
+        var def = RESEARCH[key];
+        var done = !!world.research.unlocked[key];
+        var item = document.createElement('div');
+        item.className = 'rs-item';
+        var pct = Math.min(100, Math.round((world.research.points / def.cost) * 100));
+        item.innerHTML = '<h3>' + def.name + '</h3><p>' + def.desc + '</p>' +
+          (done ? '<div class="rs-done">✅ 연구 완료</div>' :
+            '<div class="rs-bar"><div class="rs-bar-fill" style="width:' + pct + '%"></div></div>' +
+            '<button class="rs-unlock" ' + (world.research.points < def.cost ? 'disabled' : '') + '>' +
+            '해금 (' + def.cost + '점 필요, 현재 ' + pts + ')</button>');
+        rows.appendChild(item);
+        if (!done) {
+          item.querySelector('.rs-unlock').addEventListener('click', function () {
+            if (handlers.onUnlockResearch) handlers.onUnlockResearch(key);
+            render();
+          });
+        }
+      });
+    }
+    render();
+    overlay.querySelector('.rs-close').addEventListener('click', function () { overlay.remove(); });
+  }
+
+  // ── 제작(대장간) 모달 ──
+  function showCraft() {
+    if (!world.research.unlocked.blacksmith) {
+      toast('🔒 먼저 "대장간 기술"을 연구해야 합니다', true);
+      showResearch();
+      return;
+    }
+    var overlay = openModal('<h2>⚒️ 대장간 제작</h2><div class="cr-rows"></div>' +
+      '<div class="cm-actions"><button class="cm-ok cr-close">닫기</button></div>');
+    var rows = overlay.querySelector('.cr-rows');
+
+    function render() {
+      rows.innerHTML = '';
+      Object.keys(WEAPONS).forEach(function (type) {
+        var wdef = WEAPONS[type];
+        var res = totalRes(world);
+        var costStr = Object.keys(wdef.cost).map(function (t) {
+          var nm = { wood: '목재', gold: '금' }[t] || t;
+          return nm + ' ' + wdef.cost[t] + ' (보유 ' + (res[t] || 0) + ')';
+        }).join(', ');
+        var queued = world.craftQueue.filter(function (o) { return o.type === type; }).length;
+        var item = document.createElement('div');
+        item.className = 'cr-item';
+        item.innerHTML = '<h3>' + wdef.name + '</h3><p>' + costStr + '</p>' +
+          '<button class="cr-order">제작 주문</button>' +
+          (queued ? '<div class="cr-queue">대기 중인 주문: ' + queued + '개</div>' : '');
+        rows.appendChild(item);
+        item.querySelector('.cr-order').addEventListener('click', function () {
+          if (handlers.onQueueCraft) handlers.onQueueCraft(type);
+          render();
+        });
+      });
+    }
+    render();
+    overlay.querySelector('.cr-close').addEventListener('click', function () { overlay.remove(); });
+  }
+
   return {
     addEvent: addEvent,
     showCustomize: showCustomize,
+    showResearch: showResearch,
+    showCraft: showCraft,
     getTool: function () { return tool; },
     setSpeedUI: setSpeedUI,
     updateClock: updateClock,

@@ -1,7 +1,7 @@
 // 작업 탐색·예약 시스템 (v0.3 — 건물 id 기반)
-import { BUILDS } from './config.js';
+import { BUILDS, WEAPONS } from './config.js';
 import {
-  ix, iy, idx, isWalkable, stackRoom, buildingDef, buildingFront,
+  ix, iy, idx, isWalkable, stackRoom, buildingDef, buildingFront, canAfford,
 } from './world.js';
 
 export function reserve(world, key, pawnId) {
@@ -141,6 +141,38 @@ export function findWorkJob(world, pawn) {
     }
   }
 
+  // 4.5) 농사 (밭 심기 > 수확)
+  if (cands.length === 0 && world.research.unlocked.farming) {
+    for (i in world.farmZone) {
+      ii = +i;
+      var crop = world.crops[i];
+      if (crop && crop.stage === 'ready') {
+        if (world.reserved['crop:' + ii] !== undefined) continue;
+        cands.push({ type: 'harvestCrop', idx: ii, _d: dist(pawn, ii) });
+      } else if (!crop) {
+        if (world.reserved['crop:' + ii] !== undefined || !reachable(world, ii)) continue;
+        cands.push({ type: 'plant', idx: ii, _d: dist(pawn, ii) });
+      }
+    }
+  }
+
+  // 4.7) 대장간 제작 주문
+  if (cands.length === 0 && world.research.unlocked.blacksmith && world.craftQueue.length > 0) {
+    var order = world.craftQueue[0];
+    var wdef = WEAPONS[order.type];
+    if (wdef && canAfford(world, wdef.cost) && world.reserved['craft'] === undefined) {
+      var houseFront = null;
+      for (id in world.buildings) {
+        b = world.buildings[id];
+        if (b.kind === 'house' && b.stage === 'built') {
+          var fr = buildingFront(world, b);
+          if (fr) { houseFront = fr; break; }
+        }
+      }
+      if (houseFront) cands.push({ type: 'craft', x: houseFront.x, y: houseFront.y, order: order, _d: distB(pawn, houseFront) });
+    }
+  }
+
   // 5) 비축 운반
   if (cands.length === 0 && hasStockpileSpace(world)) {
     for (i in world.items) {
@@ -167,6 +199,8 @@ export function findWorkJob(world, pawn) {
   else if (job.type === 'gather') reserve(world, 'job:' + job.idx, pawn.id);
   else if (job.type === 'mine') reserve(world, 'mine:' + job.bid, pawn.id);
   else if (job.type === 'haul') reserve(world, 'haul:' + job.idx, pawn.id);
+  else if (job.type === 'plant' || job.type === 'harvestCrop') reserve(world, 'crop:' + job.idx, pawn.id);
+  else if (job.type === 'craft') reserve(world, 'craft', pawn.id);
   return job;
 }
 
