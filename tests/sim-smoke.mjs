@@ -1,6 +1,6 @@
 // L1 시나리오 스모크 — 시드 고정, 헤드리스. stepWorld 추출이 올바른지 + 결정론 확인.
 import { bootSim, run, runDays, designateChop, give, snapshot } from './harness.mjs';
-import { addBuilding } from '../js/world.js';
+import { addBuilding, storageCap, upgradeMult, upgradeAdd } from '../js/world.js';
 
 var fails = 0;
 function ok(cond, msg) {
@@ -90,6 +90,33 @@ console.log('[sim-smoke] 6) 제작 우선순위 — 다른 일(벌목)이 많아
   var remain = Object.keys(w.designations).length;
   ok((w.stock.sword || 0) >= 1, '벌목 ' + chops + '건 지시 중에도 검 제작 완료 (남은 벌목 ' + remain + ')');
   ok(remain > 0, '동시에 벌목도 진행 중 (제작이 벌목을 완전히 막지 않음)');
+})();
+
+console.log('[sim-smoke] 7) 콜로니 업그레이드 — 효과·저장고·집계 (회귀가드)');
+(function () {
+  // 벌목속도 업그레이드: 같은 시드·같은 시간에 목재 산출이 더 많아야 함
+  function woodAfter(withUpg) {
+    var sim = bootSim(555);
+    if (withUpg) sim.world.upgrades.prod_wood = true;
+    designateChop(sim, 80);   // 넉넉히 지정해 시간 안에 다 못 베도록(나무 수 제한 회피)
+    run(sim, 130);            // 짧은 구간: 벌목 속도가 총량을 좌우
+    return sim.world.stock.wood || 0;
+  }
+  var base = woodAfter(false), up = woodAfter(true);
+  ok(up > base, '벌목속도 업그레이드 시 목재 산출 증가 (' + base + ' → ' + up + ')');
+
+  // 저장고 업그레이드: storageCap 이 정확히 +250
+  var s = bootSim(1);
+  var capBefore = storageCap(s.world);
+  s.world.upgrades.log_store1 = true;
+  ok(storageCap(s.world) === capBefore + 250, '저장고 업그레이드 시 용량 +250 (' + capBefore + ' → ' + storageCap(s.world) + ')');
+
+  // 집계 함수: mult 누적 곱, add 누적 합
+  var w = bootSim(2).world;
+  w.upgrades.def_power1 = true; w.upgrades.def_power2 = true; // 1.4 * 1.5 = 2.1
+  ok(Math.abs(upgradeMult(w, 'towerpower') - 2.1) < 1e-9, '방어력 mult 누적 곱 (2.1)');
+  w.upgrades.pop_max1 = true; w.upgrades.pop_max2 = true; // 4 + 6 = 10
+  ok(upgradeAdd(w, 'maxpop') === 10, '인구상한 add 누적 합 (10)');
 })();
 
 console.log('');

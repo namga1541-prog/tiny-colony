@@ -7,6 +7,7 @@ import {
   idx, ix, iy, isWalkable, addItem, removeItem, natureDef, stackRoom,
   buildingDef, buildingFront, consumeGlobal, canAfford, totalRes,
   mineResource, mineWork, mineDrops, nearestEnemy, sheepById, storageFull,
+  upgradeMult,
 } from './world.js';
 import { findPath } from './path.js';
 import {
@@ -719,7 +720,9 @@ export function updatePawn(world, pawn, dtMin, ctx) {
       var sk = jobSkill(world, j);
       var sm = sk ? skillMult(pawn.skills && pawn.skills[sk]) : 1;
       if (sk) gainSkill(pawn, sk, dtMin * 0.6);
-      pawn.workLeft -= dtMin * (pawn.trait.workMult || 1) * moodPenalty * sm;
+      // 콜로니 업그레이드: 전체 작업속도 + 해당 작업 전용 속도 (구매 즉시 라이브 반영)
+      var um = upgradeMult(world, 'speed_all') * (sk ? upgradeMult(world, 'speed_' + sk) : 1);
+      pawn.workLeft -= dtMin * (pawn.trait.workMult || 1) * moodPenalty * sm * um;
       if (pawn.workLeft <= 0) finishWork(world, pawn, ctx);
       break;
     }
@@ -741,7 +744,7 @@ export function updatePawn(world, pawn, dtMin, ctx) {
     }
 
     case 'resting': {
-      pawn.hp = Math.min(100, pawn.hp + CLINIC.restRegen * dtMin);
+      pawn.hp = Math.min(100, pawn.hp + CLINIC.restRegen * upgradeMult(world, 'healspeed') * dtMin);
       if (pawn.hp >= CLINIC.healedAt) {
         releaseAllOf(world, pawn.id);
         pawn.job = null;

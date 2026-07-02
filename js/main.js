@@ -9,9 +9,10 @@ import {
   updateSheep, tickResearch, tickCrops, updateEnemies, spawnRaid,
   canPlaceBridge, consumeGlobal, seasonDef, seasonIndex,
   tickRanches, storageCap, totalStored, dailyMineRegen, tickTowers, canAfford,
+  upgradeAdd,
 } from './world.js';
 import { createPawn, updatePawn, manualInteract, equipWeapon } from './pawns.js';
-import { RESEARCH, WEAPONS, HIRE, hireCost } from './config.js';
+import { RESEARCH, WEAPONS, HIRE, hireCost, UPGRADES, UPGRADE_CATS } from './config.js';
 import { releaseAllOf } from './jobs.js';
 import { GOALS, checkGoals } from './goals.js';
 import { stepWorld } from './sim.js';
@@ -43,6 +44,7 @@ if (saved) {
   world.timeMin = saved.timeMin;
   world.day = saved.day;
   world.research = saved.research || { points: 0, unlocked: {} };
+  world.upgrades = saved.upgrades || {};
   world.farmZone = saved.farmZone || {};
   world.crops = saved.crops || {};
   world.craftQueue = saved.craftQueue || [];
@@ -196,9 +198,27 @@ var UI = createUI({
     UI.addEvent('🔼 창고 업그레이드 (' + b.tier + '단계)');
   },
   onShowGoals: function () { UI.showGoals(GOALS, world); },
+  onShowUpgrades: function () { UI.showUpgrades(UPGRADES, UPGRADE_CATS, world); },
+  onBuyUpgrade: function (id) {
+    var u = UPGRADES[id];
+    if (!u || world.upgrades[id]) return;
+    // 선행 조건 확인
+    if (u.requires) {
+      for (var r = 0; r < u.requires.length; r++) {
+        if (!world.upgrades[u.requires[r]]) { UI.toast('🔒 선행 업그레이드가 필요합니다', true); return; }
+      }
+    }
+    if (!canAfford(world, u.cost)) { UI.toast('⚠️ 자재가 부족합니다', true); return; }
+    for (var t in u.cost) consumeGlobal(world, t, u.cost[t]);
+    world.upgrades[id] = true;
+    UI.toast('📈 업그레이드 완료: ' + u.name);
+    UI.addEvent('📈 ' + u.name);
+    Audio2.play('success');
+  },
   onHire: function () {
     var alive = pawns.filter(function (p) { return p.state !== 'dead'; }).length;
-    if (alive >= HIRE.maxPop) { UI.toast('⚠️ 인구 상한(' + HIRE.maxPop + '명)에 도달했습니다', true); return; }
+    var maxPop = HIRE.maxPop + upgradeAdd(world, 'maxpop');
+    if (alive >= maxPop) { UI.toast('⚠️ 인구 상한(' + maxPop + '명)에 도달했습니다', true); return; }
     var cost = hireCost(alive);
     if (totalRes(world).food < cost) { UI.toast('⚠️ 식량이 부족합니다 (고용 비용 ' + cost + ')', true); return; }
     consumeGlobal(world, 'food', cost);
@@ -861,7 +881,7 @@ R.app.ticker.add(function () {
     UI.updateRes(res, alive);
     UI.updateStorage(totalStored(world), storageCap(world));
     // 고용 버튼: 현재 비용·가능 여부 표시
-    if (alive >= HIRE.maxPop) UI.setHireInfo('🧑‍🌾 인구 최대', true);
+    if (alive >= HIRE.maxPop + upgradeAdd(world, 'maxpop')) UI.setHireInfo('🧑‍🌾 인구 최대', true);
     else {
       var hc = hireCost(alive);
       UI.setHireInfo('🧑‍🌾 고용 (🍖' + hc + ')', (res.food || 0) < hc);

@@ -49,6 +49,10 @@ export function createUI(handlers) {
   document.getElementById('btnGoals').addEventListener('click', function () {
     if (handlers.onShowGoals) handlers.onShowGoals();
   });
+  var btnUpg = document.getElementById('btnUpgrades');
+  if (btnUpg) btnUpg.addEventListener('click', function () {
+    if (handlers.onShowUpgrades) handlers.onShowUpgrades();
+  });
   var btnHire = document.getElementById('btnHire');
   btnHire.addEventListener('click', function () {
     if (handlers.onHire) handlers.onHire();
@@ -385,7 +389,7 @@ export function createUI(handlers) {
   // ── 제작 모달 (무기 + 낚싯대) ──
   function costStr(cost, res) {
     return Object.keys(cost).map(function (t) {
-      var nm = { wood: '목재', gold: '금', iron: '철' }[t] || t;
+      var nm = { wood: '목재', gold: '금', iron: '철', food: '식량' }[t] || t;
       return nm + ' ' + cost[t] + ' (보유 ' + (res[t] || 0) + ')';
     }).join(', ');
   }
@@ -480,12 +484,60 @@ export function createUI(handlers) {
     overlay.querySelector('.gl-close').addEventListener('click', function () { overlay.remove(); });
   }
 
+  // ── 콜로니 업그레이드 모달 ──
+  function showUpgrades(upgrades, cats, w) {
+    var overlay = openModal('<h2>📈 콜로니 업그레이드</h2><div class="up-rows"></div>' +
+      '<div class="cm-actions"><button class="cm-ok up-close">닫기</button></div>');
+    var rows = overlay.querySelector('.up-rows');
+
+    function render() {
+      rows.innerHTML = '';
+      var res = totalRes(w);
+      Object.keys(cats).forEach(function (cat) {
+        var head = document.createElement('p');
+        head.style.cssText = 'font-size:13px;color:#ffd76e;margin:12px 0 4px;';
+        head.textContent = cats[cat];
+        rows.appendChild(head);
+        Object.keys(upgrades).forEach(function (id) {
+          var u = upgrades[id];
+          if (u.cat !== cat) return;
+          var owned = !!w.upgrades[id];
+          var locked = false;
+          if (u.requires) {
+            for (var r = 0; r < u.requires.length; r++) if (!w.upgrades[u.requires[r]]) locked = true;
+          }
+          var can = affordCost(res, u.cost);
+          var item = document.createElement('div');
+          item.className = 'rs-item';
+          var btn;
+          if (owned) btn = '<div class="rs-done">✅ 보유</div>';
+          else if (locked) {
+            var reqNames = u.requires.map(function (r) { return upgrades[r] ? upgrades[r].name : r; }).join(', ');
+            btn = '<div style="font-size:12px;color:#8d94a8;">🔒 선행 필요: ' + reqNames + '</div>';
+          } else btn = '<button class="up-buy" data-id="' + id + '" ' + (can ? '' : 'disabled') + '>구매</button>';
+          item.innerHTML = '<h3>' + u.name + ' <span style="font-size:11px;color:#8fd0ff">' + u.desc + '</span></h3>' +
+            '<p>' + costStr(u.cost, res) + '</p>' + btn;
+          rows.appendChild(item);
+        });
+      });
+      rows.querySelectorAll('.up-buy').forEach(function (b) {
+        b.addEventListener('click', function () {
+          if (handlers.onBuyUpgrade) handlers.onBuyUpgrade(b.dataset.id);
+          render();
+        });
+      });
+    }
+    render();
+    overlay.querySelector('.up-close').addEventListener('click', function () { overlay.remove(); });
+  }
+
   return {
     addEvent: addEvent,
     showCustomize: showCustomize,
     showResearch: showResearch,
     showCraft: showCraft,
     showGoals: showGoals,
+    showUpgrades: showUpgrades,
     getTool: function () { return tool; },
     setTool: setTool,
     setHireInfo: setHireInfo,

@@ -2,9 +2,30 @@
 import {
   MAP_W, MAP_H, NATURE, STACK_MAX, BUILDS, GOLDMINE, IRONMINE, BRIDGE,
   RESEARCH_RATE_PER_PAWN, ENEMY, RAID, SEASON_DAYS, SEASONS, STORAGE, RANCH, REGROW,
-  ANIMAL_TYPES, WAREHOUSE_TIERS,
+  ANIMAL_TYPES, WAREHOUSE_TIERS, UPGRADES,
   T_WATER, T_GRASS, T_SAND,
 } from './config.js';
+
+// ── 콜로니 업그레이드 효과 조회 (구매한 업그레이드들을 집계) ──
+export function hasUpgrade(world, id) { return !!(world.upgrades && world.upgrades[id]); }
+export function upgradeMult(world, key) {
+  var m = 1, U = world.upgrades || {};
+  for (var id in U) {
+    if (!U[id]) continue;
+    var u = UPGRADES[id];
+    if (u && u.effect.key === key && u.effect.mult) m *= u.effect.mult;
+  }
+  return m;
+}
+export function upgradeAdd(world, key) {
+  var a = 0, U = world.upgrades || {};
+  for (var id in U) {
+    if (!U[id]) continue;
+    var u = UPGRADES[id];
+    if (u && u.effect.key === key && u.effect.add) a += u.effect.add;
+  }
+  return a;
+}
 
 function pickAnimalType(rng) {
   // 양이 가장 흔함
@@ -68,6 +89,7 @@ export function createWorld(seed) {
     timeMin: 8 * 60,
     day: 1,
     research: { points: 0, unlocked: {} },
+    upgrades: {},       // 구매한 콜로니 업그레이드 id -> true
     farmZone: {},       // idx -> true
     crops: {},          // idx -> {stage:'empty'|'growing'|'ready', timer}
     craftQueue: [],      // [{type:'sword'|'bow'}]
@@ -321,7 +343,7 @@ export function storageCap(world) {
     var b = world.buildings[id];
     if (b.kind === 'warehouse' && b.stage === 'built') n += warehouseCap(b);
   }
-  return STORAGE.base + n;
+  return STORAGE.base + n + upgradeAdd(world, 'storage');
 }
 export function totalStored(world) {
   var s = world.stock || {};
@@ -578,10 +600,10 @@ export function tickTowers(world, dtMin, cb) {
     b.atkCd = (b.atkCd || 0) - dtMin;
     if (b.atkCd > 0) continue;
     var cx = b.x + def.fw / 2, cy = b.y + def.fh / 2;
-    var near = nearestEnemy(world, cx, cy, def.attack.range);
+    var near = nearestEnemy(world, cx, cy, def.attack.range + upgradeAdd(world, 'towerrange'));
     if (!near) continue;
     b.atkCd = def.attack.cd;
-    near.enemy.hp -= def.attack.power;
+    near.enemy.hp -= def.attack.power * upgradeMult(world, 'towerpower');
     if (cb && cb.onTowerFire) cb.onTowerFire(b, near.enemy);
   }
 }

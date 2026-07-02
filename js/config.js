@@ -119,6 +119,44 @@ export const RESEARCH = {
   steel:      { name: '제철 기술', cost: 160, desc: '철광을 채굴하고 강철검·강철활을 제작할 수 있습니다' },
 };
 
+// ── 콜로니 업그레이드 트리 (자원 소비형 영구 강화) ──
+// RESEARCH(포인트로 기술 해금)와 별개. 잉여 자원 소비처 + 장기 성장 목표.
+// effect.key 를 world.upgradeMult/upgradeAdd 가 합산해 게임 로직에 라이브 적용.
+// 참고: RimWorld 연구 · Frostpunk 기술트리 · Civilization 트리.
+export const UPGRADE_CATS = {
+  production: '⚙️ 생산', logistics: '📦 물류', defense: '🛡️ 방어', population: '👥 인구',
+};
+export const UPGRADES = {
+  // 생산 — 작업 속도 (pawns 작업 틱에 곱)
+  prod_wood: { name: '날카로운 도끼', cat: 'production', cost: { wood: 80 },
+    effect: { key: 'speed_woodcutting', mult: 1.3 }, desc: '벌목 속도 +30%' },
+  prod_mine: { name: '강화 곡괭이', cat: 'production', cost: { wood: 60, gold: 30 },
+    effect: { key: 'speed_mining', mult: 1.3 }, desc: '채굴 속도 +30%' },
+  prod_farm: { name: '개량 농기구', cat: 'production', cost: { wood: 80 },
+    effect: { key: 'speed_farming', mult: 1.3 }, desc: '농사·수확 속도 +30%' },
+  prod_all: { name: '작업 반장', cat: 'production', cost: { wood: 300, gold: 120 }, requires: ['prod_wood', 'prod_mine'],
+    effect: { key: 'speed_all', mult: 1.2 }, desc: '모든 작업 속도 +20% (누적)' },
+  // 물류 — 저장 용량 (storageCap 에 합산)
+  log_store1: { name: '비축 확장 I', cat: 'logistics', cost: { wood: 120 },
+    effect: { key: 'storage', add: 250 }, desc: '저장 용량 +250' },
+  log_store2: { name: '비축 확장 II', cat: 'logistics', cost: { wood: 300, gold: 60 }, requires: ['log_store1'],
+    effect: { key: 'storage', add: 500 }, desc: '저장 용량 +500' },
+  // 방어 — 방어건물 강화 (tickTowers)
+  def_power1: { name: '단조 화살촉', cat: 'defense', cost: { wood: 100, gold: 50 },
+    effect: { key: 'towerpower', mult: 1.4 }, desc: '방어건물 공격력 +40%' },
+  def_range1: { name: '망원 조준경', cat: 'defense', cost: { gold: 120, iron: 20 }, requires: ['def_power1'],
+    effect: { key: 'towerrange', add: 2 }, desc: '방어건물 사거리 +2' },
+  def_power2: { name: '강철 탄두', cat: 'defense', cost: { gold: 200, iron: 40 }, requires: ['def_power1'],
+    effect: { key: 'towerpower', mult: 1.5 }, desc: '방어건물 공격력 +50% (누적)' },
+  // 인구 — 상한·치료
+  pop_max1: { name: '정착 확대 I', cat: 'population', cost: { food: 150, wood: 100 },
+    effect: { key: 'maxpop', add: 4 }, desc: '고용 인구 상한 +4' },
+  pop_heal1: { name: '의료 지식', cat: 'population', cost: { gold: 60 },
+    effect: { key: 'healspeed', mult: 1.6 }, desc: '치료소 회복 속도 +60%' },
+  pop_max2: { name: '정착 확대 II', cat: 'population', cost: { food: 400, gold: 100 }, requires: ['pop_max1'],
+    effect: { key: 'maxpop', add: 6 }, desc: '고용 인구 상한 +6 (누적)' },
+};
+
 // ── 농사 ──
 export const CROP = { plantWork: 12, growTime: 380, harvestWork: 10, yield: 3 };
 
