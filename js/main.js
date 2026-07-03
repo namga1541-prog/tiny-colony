@@ -1,7 +1,7 @@
 // v0.3 부팅·게임 루프·입력
 import {
   MAP_W, MAP_H, MIN_PER_SEC, DAY_MIN, SPEED_MULT, BUILDS, PAWN_DEFS,
-  RAID, BRIDGE, TRAITS, HUMAN_IDS, WAREHOUSE_TIERS,
+  RAID, BRIDGE, TRAITS, HUMAN_IDS, WAREHOUSE_TIERS, BUILD_MIN_RANK, RANKS,
 } from './config.js';
 import {
   createWorld, mulberry32, idx, ix, iy, isWalkable, footprintClear,
@@ -9,7 +9,7 @@ import {
   updateSheep, tickResearch, tickCrops, updateEnemies, spawnRaid,
   canPlaceBridge, consumeGlobal, seasonDef, seasonIndex,
   tickRanches, storageCap, totalStored, dailyMineRegen, tickTowers, canAfford,
-  upgradeAdd,
+  upgradeAdd, maxPop, canAdvanceRank, advanceRank,
 } from './world.js';
 import { createPawn, updatePawn, manualInteract, equipWeapon } from './pawns.js';
 import { RESEARCH, WEAPONS, HIRE, hireCost, UPGRADES, UPGRADE_CATS } from './config.js';
@@ -35,6 +35,7 @@ if (saved) {
   world.stock = saved.stock || { wood: 0, gold: 0, food: 0, iron: 0, meal: 0 };
   world.rodTier = saved.rodTier || 0;
   world.fishDesig = saved.fishDesig || {};
+  world.rank = saved.rank || 0;
   world.items = {};
   world.stockpile = saved.stockpile || {};
   world.designations = saved.designations;
@@ -224,13 +225,24 @@ var UI = createUI({
   },
   onHire: function () {
     var alive = pawns.filter(function (p) { return p.state !== 'dead'; }).length;
-    var maxPop = HIRE.maxPop + upgradeAdd(world, 'maxpop');
-    if (alive >= maxPop) { UI.toast('⚠️ 인구 상한(' + maxPop + '명)에 도달했습니다', true); return; }
+    var cap = maxPop(world);
+    if (alive >= cap) { UI.toast('⚠️ 인구 상한(' + cap + '명)에 도달했습니다', true); return; }
     var cost = hireCost(alive);
     if (totalRes(world).food < cost) { UI.toast('⚠️ 식량이 부족합니다 (고용 비용 ' + cost + ')', true); return; }
     consumeGlobal(world, 'food', cost);
     var pw = recruitWanderer('고용');
     if (pw) UI.toast('🧑‍🌾 새 정착민 "' + pw.name + '" 을(를) 고용했습니다 (식량 ' + cost + ' 소비)');
+  },
+  getAlive: function () { return pawns.filter(function (p) { return p.state !== 'dead'; }).length; },
+  onAdvanceRank: function () {
+    var alive = pawns.filter(function (p) { return p.state !== 'dead'; }).length;
+    if (!canAdvanceRank(world, alive)) { UI.toast('아직 승급 요건이 부족합니다', true); return false; }
+    var r = advanceRank(world);
+    UI.toast('🎉 콜로니가 「' + r.name + '」 단계로 발전했습니다! (인구 상한 ' + maxPop(world) + ')');
+    UI.addEvent('🎉 ' + r.icon + ' ' + r.name + ' 단계 도달');
+    if (UI.refreshLocks) UI.refreshLocks();
+    Audio2.play('goal');
+    return true;
   },
   onSave: function () {
     UI.toast(saveGame(world, pawns) ? '💾 저장되었습니다' : '⚠️ 저장 실패', false);
@@ -468,7 +480,10 @@ function applyTool(tool, a, b) {
   else if (BUILDS[tool]) {
     var def = BUILDS[tool];
     var px = Math.min(a.x, b.x), py = Math.min(a.y, b.y);
-    if (!footprintClear(world, px, py, def.fw, def.fh, false)) {
+    if ((BUILD_MIN_RANK[tool] || 0) > (world.rank || 0)) {
+      var rq = RANKS[BUILD_MIN_RANK[tool]];
+      UI.toast('🔒 ' + def.name + ' 은(는) 「' + rq.name + '」 단계에서 해금됩니다', true);
+    } else if (!footprintClear(world, px, py, def.fw, def.fh, false)) {
       UI.toast('⚠️ 그 위치에는 지을 수 없습니다 (' + def.fw + '×' + def.fh + ' 필요)', true);
     } else if (!canAfford(world, def.cost)) {
       var needStr = Object.keys(def.cost).map(function (t) {
@@ -932,7 +947,7 @@ R.app.ticker.add(function () {
     UI.updateRes(res, alive);
     UI.updateStorage(totalStored(world), storageCap(world));
     // 고용 버튼: 현재 비용·가능 여부 표시
-    if (alive >= HIRE.maxPop + upgradeAdd(world, 'maxpop')) UI.setHireInfo('🧑‍🌾 인구 최대', true);
+    if (alive >= maxPop(world)) UI.setHireInfo('🧑‍🌾 인구 최대', true);
     else {
       var hc = hireCost(alive);
       UI.setHireInfo('🧑‍🌾 고용 (🍖' + hc + ')', (res.food || 0) < hc);

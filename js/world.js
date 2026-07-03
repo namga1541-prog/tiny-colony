@@ -2,7 +2,7 @@
 import {
   MAP_W, MAP_H, NATURE, STACK_MAX, BUILDS, GOLDMINE, IRONMINE, BRIDGE,
   RESEARCH_RATE_PER_PAWN, ENEMY, RAID, SEASON_DAYS, SEASONS, STORAGE, RANCH, REGROW,
-  ANIMAL_TYPES, WAREHOUSE_TIERS, UPGRADES,
+  ANIMAL_TYPES, WAREHOUSE_TIERS, UPGRADES, RANKS,
   T_WATER, T_GRASS, T_SAND,
 } from './config.js';
 
@@ -99,6 +99,7 @@ export function createWorld(seed) {
     goals: {},          // goalId -> true (달성)
     rodTier: 0,         // 낚싯대 등급 (0 맨손 ~ 3 황금)
     fishDesig: {},      // idx -> true (낚시 지정된 물 타일)
+    rank: 0,            // 발전 단계 (0 무리 ~ 4 나라) — RANKS 인덱스
   };
 
   var coast = makeNoise(rng, 8);
@@ -327,6 +328,48 @@ export function totalRes(world) {
 }
 
 // ── 창고 업그레이드: 옛 저장본 호환용 기본 단계 ──
+// ── 발전 단계 (문명 성장) ──
+export function countBuilt(world, kind) {
+  var n = 0;
+  for (var id in world.buildings) {
+    var b = world.buildings[id];
+    if (b.kind === kind && b.stage === 'built') n++;
+  }
+  return n;
+}
+export function maxPop(world) {
+  var base = (RANKS[world.rank || 0] || RANKS[0]).popCap;
+  return base + upgradeAdd(world, 'maxpop');
+}
+// 다음 단계 승급 요건 상태 (없으면 null = 최고 단계). items: [{label, ok}]
+export function rankReqStatus(world, alive) {
+  var next = RANKS[(world.rank || 0) + 1];
+  if (!next) return null;
+  var req = next.req || {}, items = [], all = true, ok;
+  if (req.pop) { ok = alive >= req.pop; items.push({ label: '인구 ' + Math.min(alive, req.pop) + '/' + req.pop, ok: ok }); all = all && ok; }
+  if (req.builds) for (var k in req.builds) {
+    var have = countBuilt(world, k), d = buildingDef(k);
+    ok = have >= req.builds[k];
+    items.push({ label: (d ? d.name : k) + ' ' + Math.min(have, req.builds[k]) + '/' + req.builds[k], ok: ok });
+    all = all && ok;
+  }
+  if (req.res) { var res = totalRes(world); for (var t in req.res) {
+    var nm = { wood: '목재', gold: '금', iron: '철', food: '식량' }[t] || t;
+    ok = (res[t] || 0) >= req.res[t];
+    items.push({ label: nm + ' ' + Math.min(res[t] || 0, req.res[t]) + '/' + req.res[t], ok: ok });
+    all = all && ok;
+  } }
+  return { next: next, items: items, allOk: all };
+}
+export function canAdvanceRank(world, alive) {
+  var s = rankReqStatus(world, alive);
+  return !!(s && s.allOk);
+}
+export function advanceRank(world) {
+  if ((world.rank || 0) + 1 < RANKS.length) world.rank = (world.rank || 0) + 1;
+  return RANKS[world.rank || 0];
+}
+
 export function warehouseTier(b) { return b.tier || 1; }
 
 // 창고 1개가 기여하는 저장 용량 (단계별)

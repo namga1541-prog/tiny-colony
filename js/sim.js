@@ -9,7 +9,7 @@ import { DAY_MIN, RAID, MAP_W, MAP_H } from './config.js';
 import {
   idx, addItem, mulberry32,
   updateSheep, tickTowers, updateEnemies, tickResearch, tickCrops, tickRanches,
-  dailyRegrowth, dailyMineRegen, spawnRaid, seasonDef, seasonIndex,
+  dailyRegrowth, dailyMineRegen, spawnRaid, seasonDef, seasonIndex, maxPop,
 } from './world.js';
 import { updatePawn } from './pawns.js';
 import { checkGoals } from './goals.js';
@@ -71,10 +71,10 @@ export function stepWorld(world, pawns, dtMin, rng, ctx, enemyCbs) {
     for (var mi = 0; mi < minesRegen.length; mi++) {
       if (world.buildings[minesRegen[mi]]) ctx.onBuildingChange(world.buildings[minesRegen[mi]]);
     }
-    // 영입: 3일마다, 인구 8 미만이면 떠돌이 합류 (습격 없는 낮에만)
+    // 영입: 3일마다, 인구가 상한 미만이면 떠돌이 합류 (습격 없는 낮에만)
     var aliveCnt = 0;
     for (var a = 0; a < pawns.length; a++) if (pawns[a].state !== 'dead') aliveCnt++;
-    if (world.day % 3 === 0 && aliveCnt < 8 && !world.raidActive && rng() < 0.7) {
+    if (world.day % 3 === 0 && aliveCnt < maxPop(world) && !world.raidActive && rng() < 0.7) {
       ctx.onRecruit();
     }
     // 계절 갱신

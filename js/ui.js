@@ -1,7 +1,7 @@
 // DOM HUD: 도구·시계·자원·정착민 패널·토스트·커스터마이징 모달·연구/제작 모달
 import { taskLabel } from './pawns.js';
-import { HUMANS, RESEARCH, WEAPONS, SKILL_LABEL, skillLevel, BUILDS, STORAGE, RODS, WAREHOUSE_TIERS, ROLES } from './config.js';
-import { totalRes, warehouseTier, warehouseCap } from './world.js';
+import { HUMANS, RESEARCH, WEAPONS, SKILL_LABEL, skillLevel, BUILDS, STORAGE, RODS, WAREHOUSE_TIERS, ROLES, RANKS, BUILD_MIN_RANK } from './config.js';
+import { totalRes, warehouseTier, warehouseCap, maxPop, rankReqStatus } from './world.js';
 
 export function createUI(handlers) {
   var tool = 'select';
@@ -50,6 +50,19 @@ export function createUI(handlers) {
   if (btnUpg) btnUpg.addEventListener('click', function () {
     if (handlers.onShowUpgrades) handlers.onShowUpgrades();
   });
+  var btnDev = document.getElementById('btnDev');
+  if (btnDev) btnDev.addEventListener('click', showDevelopment);
+  refreshLocks(); // 초기 건물 잠금 표시
+
+  // 발전 단계 미달 건물 버튼 흐리게 표시
+  function refreshLocks() {
+    var rank = world.rank || 0;
+    var btns = document.querySelectorAll('#toolbar .tool[data-tool]');
+    for (var i = 0; i < btns.length; i++) {
+      var k = btns[i].dataset.tool;
+      btns[i].classList.toggle('locked', (BUILD_MIN_RANK[k] || 0) > rank);
+    }
+  }
   var btnHire = document.getElementById('btnHire');
   btnHire.addEventListener('click', function () {
     if (handlers.onHire) handlers.onHire();
@@ -402,6 +415,42 @@ export function createUI(handlers) {
     overlay.querySelector('.rs-close').addEventListener('click', function () { overlay.remove(); });
   }
 
+  // ── 발전 단계 모달 (무리→집단→마을→도시→나라) ──
+  function showDevelopment() {
+    var overlay = openModal('<h2>🏛️ 콜로니 발전</h2><div class="dev-body"></div>' +
+      '<div class="cm-actions"><button class="cm-ok dev-close">닫기</button></div>');
+    var body = overlay.querySelector('.dev-body');
+    function render() {
+      var rank = world.rank || 0;
+      var alive = handlers.getAlive ? handlers.getAlive() : 0;
+      var cur = RANKS[rank];
+      var ladder = RANKS.map(function (r, i) {
+        var cls = i < rank ? 'done' : (i === rank ? 'cur' : 'future');
+        return '<div class="dev-rung ' + cls + '"><span class="dev-ic">' + r.icon + '</span>' + r.name + '</div>';
+      }).join('<span class="dev-arrow">›</span>');
+      var html = '<div class="dev-ladder">' + ladder + '</div>';
+      html += '<p class="dev-cur">현재 단계: <b>' + cur.icon + ' ' + cur.name + '</b> · 인구 상한 ' + maxPop(world) + '명</p>';
+      var st = rankReqStatus(world, alive);
+      if (!st) {
+        html += '<p class="dev-max">🏆 최고 단계에 도달했습니다!</p>';
+        body.innerHTML = html;
+        return;
+      }
+      html += '<h3 class="dev-next">다음 단계 · ' + st.next.icon + ' ' + st.next.name + '</h3>';
+      html += '<ul class="dev-reqs">' + st.items.map(function (it) {
+        return '<li class="' + (it.ok ? 'ok' : 'no') + '">' + (it.ok ? '✅' : '⬜') + ' ' + it.label + '</li>';
+      }).join('') + '</ul>';
+      html += '<button class="dev-advance"' + (st.allOk ? '' : ' disabled') + '>⬆️ 「' + st.next.name + '」(으)로 승급</button>';
+      body.innerHTML = html;
+      var adv = body.querySelector('.dev-advance');
+      if (adv) adv.addEventListener('click', function () {
+        if (handlers.onAdvanceRank && handlers.onAdvanceRank()) render();
+      });
+    }
+    render();
+    overlay.querySelector('.dev-close').addEventListener('click', function () { overlay.remove(); });
+  }
+
   // ── 제작 모달 (무기 + 낚싯대) ──
   function costStr(cost, res) {
     return Object.keys(cost).map(function (t) {
@@ -554,6 +603,8 @@ export function createUI(handlers) {
     showCraft: showCraft,
     showGoals: showGoals,
     showUpgrades: showUpgrades,
+    showDevelopment: showDevelopment,
+    refreshLocks: refreshLocks,
     getTool: function () { return tool; },
     setTool: setTool,
     setHireInfo: setHireInfo,

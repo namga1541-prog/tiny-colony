@@ -3,8 +3,9 @@ var KEY = 'tinyColony.save1';
 
 export function saveGame(world, pawns) {
   var data = {
-    v: 12,
+    v: 13,
     seed: world.seed,
+    rank: world.rank,
     terrain: Array.from(world.terrain),
     objects: world.objects,
     buildings: world.buildings,
@@ -53,7 +54,7 @@ export function loadSaveData() {
     var raw = localStorage.getItem(KEY);
     if (!raw) return null;
     var data = JSON.parse(raw);
-    if (!data || data.v !== 12) return null;
+    if (!data || data.v !== 13) return null;
     return data;
   } catch (e) {
     return null;

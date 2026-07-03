@@ -1,6 +1,6 @@
 // L1 시나리오 스모크 — 시드 고정, 헤드리스. stepWorld 추출이 올바른지 + 결정론 확인.
 import { bootSim, run, runDays, designateChop, give, snapshot } from './harness.mjs';
-import { addBuilding, storageCap, upgradeMult, upgradeAdd } from '../js/world.js';
+import { addBuilding, storageCap, upgradeMult, upgradeAdd, maxPop, rankReqStatus, canAdvanceRank, advanceRank } from '../js/world.js';
 import { findWorkJob } from '../js/jobs.js';
 
 var fails = 0;
@@ -143,6 +143,26 @@ console.log('[sim-smoke] 8) 정착민 역할 특화 — 우선순위 게이트 +
   c.sim.world.sheep = c.sim.world.sheep.filter(function (s) { return !s.hunt; }); // 사냥감 제거
   var jobFallback = findWorkJob(c.sim.world, c.p);
   ok(jobFallback && jobFallback.type === 'gather', '사냥감 없으면 사냥꾼도 일반 작업(벌목)으로 폴백 (' + (jobFallback && jobFallback.type) + ')');
+})();
+
+console.log('[sim-smoke] 9) 발전 단계 — 요건 판정·승급·인구상한·해금 (신규)');
+(function () {
+  var sim = bootSim(1);
+  var w = sim.world;
+  ok(w.rank === 0, '시작은 무리(0) 단계');
+  ok(maxPop(w) === 8, '무리 인구 상한 8');
+  var s0 = rankReqStatus(w, 3);
+  ok(s0 && s0.next.id === 'group' && !s0.allOk, '다음=집단, 시작 시 요건 미달');
+  ok(!canAdvanceRank(w, 3), '인구3·집0 → 승급 불가');
+  addBuilding(w, 'house', 40, 40, { stage: 'built' });
+  addBuilding(w, 'house', 42, 40, { stage: 'built' });
+  ok(canAdvanceRank(w, 5), '집 2채 + 인구 5 → 집단 승급 가능');
+  advanceRank(w);
+  ok(w.rank === 1, '승급 → 집단(1)');
+  ok(maxPop(w) === 12, '집단 인구 상한 12');
+  // 인구 상한 업그레이드가 발전 단계 위에 누적되는지
+  w.upgrades.pop_max1 = true; // +4
+  ok(maxPop(w) === 16, '단계(12) + 인구상한 업그레이드(+4) 누적 = 16');
 })();
 
 console.log('');

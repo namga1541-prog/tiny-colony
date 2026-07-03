@@ -184,6 +184,24 @@ body.touch .touch-only { display: inline-block; }
 .pawn-role button:hover { background: rgba(255, 255, 255, 0.15); }
 .pawn-role button.role-active { background: #2fa96b; border-color: #52d38f; color: #fff; }
 
+/* ── 발전 단계(잠긴 건물 버튼 + 발전 모달) ── */
+.tool.locked { opacity: 0.38; filter: grayscale(0.65); }
+.dev-ladder { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; justify-content: center; margin: 4px 0 12px; }
+.dev-rung { display: flex; align-items: center; gap: 5px; padding: 6px 10px; border-radius: 9px; font-size: 13px; font-weight: 600; border: 1px solid rgba(255, 255, 255, 0.1); background: rgba(255, 255, 255, 0.05); color: #aab2c2; }
+.dev-rung .dev-ic { font-size: 16px; }
+.dev-rung.done { color: #7ee0a6; border-color: rgba(82, 211, 143, 0.4); }
+.dev-rung.cur { color: #ffd98a; border-color: #d8a24a; background: linear-gradient(180deg, #3c3117, #2a2210); box-shadow: 0 0 10px rgba(216, 162, 74, 0.3); }
+.dev-arrow { color: #6b7488; font-size: 16px; }
+.dev-cur { font-size: 13px; color: #cfd6e4; margin-bottom: 10px; }
+.dev-next { font-size: 14px; color: #ffd76e; margin: 6px 0 8px; }
+.dev-reqs { list-style: none; padding: 0; margin: 0 0 14px; display: flex; flex-direction: column; gap: 6px; }
+.dev-reqs li { font-size: 13px; padding: 6px 10px; border-radius: 8px; background: rgba(255, 255, 255, 0.05); }
+.dev-reqs li.ok { color: #9fe7bd; }
+.dev-reqs li.no { color: #c7cede; }
+.dev-advance { width: 100%; padding: 10px; border-radius: 10px; border: 1px solid #52d38f; background: linear-gradient(180deg, #2fa96b, #238a55); color: #fff; font-size: 14px; font-weight: 700; cursor: pointer; font-family: inherit; }
+.dev-advance:disabled { background: rgba(255, 255, 255, 0.06); border-color: rgba(255, 255, 255, 0.12); color: #6b7488; cursor: default; }
+.dev-max { color: #ffd76e; font-size: 15px; font-weight: 700; text-align: center; margin: 12px 0; }
+
 /* ── 토스트 ────────────────────────────── */
 #toastHost {
   position: fixed; top: 62px; left: 50%; transform: translateX(-50%);

@@ -220,6 +220,19 @@ export const ANIMAL_TYPES = ['sheep', 'pig', 'cow', 'chicken'];
 export const HIRE = { base: 25, perPawn: 15, maxPop: 12 };
 export function hireCost(alivePop) { return HIRE.base + HIRE.perPawn * alivePop; }
 
+// ── 콜로니 발전 단계 (문명 성장): 무리 → 집단 → 마을 → 도시 → 나라 ──
+// 각 단계가 인구 상한(popCap)을 올리고 건물을 해금(BUILD_MIN_RANK). 요건 충족 시 발전 패널에서 승급.
+// req: pop=최소 인구, builds={kind:개수}=완공 건물 수, res={type:수량}=보유 재고.
+export const RANKS = [
+  { id: 'band',    name: '무리', icon: '🏕️', popCap: 8,  req: null },
+  { id: 'group',   name: '집단', icon: '🛖', popCap: 12, req: { pop: 5,  builds: { house: 2 } } },
+  { id: 'village', name: '마을', icon: '🏘️', popCap: 18, req: { pop: 9,  builds: { warehouse: 1, smithy: 1 } } },
+  { id: 'city',    name: '도시', icon: '🏙️', popCap: 26, req: { pop: 15, builds: { tower: 1, clinic: 1 } } },
+  { id: 'nation',  name: '나라', icon: '🏛️', popCap: 40, req: { pop: 24, builds: { castle: 1 }, res: { gold: 150 } } },
+];
+// 건물별 최소 해금 단계(RANKS 인덱스). 목록에 없는 건물은 0(무리)부터 건설 가능.
+export const BUILD_MIN_RANK = { smithy: 1, ranch: 1, outpost: 2, tower: 2, clinic: 2, castle: 3 };
+
 // ── 낚시 ──
 // rodTier: 0=맨손, 1=나무, 2=강철, 3=황금. 높을수록 희귀 어종 확률↑·시간↓
 export const FISHING = { work: 18 };
