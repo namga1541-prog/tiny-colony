@@ -16,6 +16,19 @@ import {
 import { updatePawn } from './pawns.js';
 import { checkGoals } from './goals.js';
 
+// 대침공 한 웨이브 스폰 — 여러 종족 혼합(고블린·약탈자·침략전사 + 정복자), 옵션으로 빠른 괴민.
+function spawnInvasionWave(world, rng, sched, waveNo, withGiants) {
+  spawnRaid(world, sched.goblinsPerWave || 0, rng, 'goblin', waveNo);
+  spawnRaid(world, sched.raidersPerWave || 0, rng, 'raider', waveNo);
+  spawnRaid(world, sched.warriorsPerWave || 0, rng, 'warrior', waveNo);
+  spawnRaid(world, sched.warlordsPerWave || 0, rng, 'warlord', waveNo);
+  if (withGiants && sched.giants) {
+    var g0 = world.enemies.length;
+    spawnRaid(world, sched.giants, rng, 'giant', waveNo);
+    for (var gi = g0; gi < world.enemies.length; gi++) world.enemies[gi].fast = true;
+  }
+}
+
 // 게임 세계를 dtMin 게임분 만큼 전진시킨다.
 //   world, pawns : 가변 상태 (직접 변형됨)
 //   dtMin        : 이번 호출로 흘릴 게임분 (내부에서 dt≤1 로 잘게 나눠 처리)
@@ -157,17 +170,10 @@ export function stepWorld(world, pawns, dtMin, rng, ctx, enemyCbs) {
     if (inv.phase === 'countdown' && world.day >= inv.triggerDay && curHour >= INVASION.spawnHour) {
       inv.phase = 'active';
       inv.wave = 1;
-      spawnRaid(world, sched.goblinsPerWave, rng, 'goblin', 1);
-      spawnRaid(world, sched.warlordsPerWave, rng, 'warlord', 1);
-      // 스케줄에 giants 가 있으면 빠른 괴민 추가 투입 (1웨이브 소속으로 태깅)
-      if (sched.giants) {
-        var g0 = world.enemies.length;
-        spawnRaid(world, sched.giants, rng, 'giant', 1);
-        for (var gi = g0; gi < world.enemies.length; gi++) world.enemies[gi].fast = true;
-      }
+      spawnInvasionWave(world, rng, sched, 1, true);
       world.raidActive = true;
-      ctx.onToast('🏴 대침공이 시작되었습니다! 「정복자」가 이끄는 1웨이브 상륙!' + (sched.giants ? ' 빠른 괴민 ' + sched.giants + '체 동반!' : ''), true);
-      ctx.onEvent('🏴 대침공 웨이브 1/' + sched.waves + (sched.giants ? ' (+괴민 ' + sched.giants + ')' : ''));
+      ctx.onToast('🏴 대침공! 배를 타고 침략군(약탈자·전사)이 상륙합니다!' + (sched.giants ? ' 빠른 괴민 ' + sched.giants + '체 동반!' : '') + ' 정복자가 지휘합니다.', true);
+      ctx.onEvent('🏴 대침공 웨이브 1/' + sched.waves + ' — 침략군 상륙' + (sched.giants ? ' (+괴민 ' + sched.giants + ')' : ''));
       ctx.onSfx('alert');
     } else if (inv.phase === 'active') {
       if (aliveNow <= 2) {
@@ -219,8 +225,7 @@ export function stepWorld(world, pawns, dtMin, rng, ctx, enemyCbs) {
       }
     } else if (inv.phase === 'gap' && world.timeMin >= inv.gapUntilMin) {
       var nextWave = inv.wave;
-      spawnRaid(world, sched.goblinsPerWave, rng, 'goblin', nextWave);
-      spawnRaid(world, sched.warlordsPerWave, rng, 'warlord', nextWave);
+      spawnInvasionWave(world, rng, sched, nextWave, false);
       world.invasion = { phase: 'active', schedIndex: inv.schedIndex, wave: nextWave };
       world.raidActive = true;
       ctx.onToast('🏴 ' + nextWave + '웨이브 상륙!', true);

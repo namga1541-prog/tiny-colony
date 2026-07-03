@@ -2,7 +2,7 @@
 import {
   MAP_W, MAP_H, NATURE, STACK_MAX, BUILDS, GOLDMINE, IRONMINE, BRIDGE,
   RESEARCH_RATE_PER_PAWN, ENEMY, RAID, GIANT, GIANT_FAST_MULT, SEASON_DAYS, SEASONS, STORAGE, RANCH, REGROW,
-  ANIMAL_TYPES, WAREHOUSE_TIERS, UPGRADES, RANKS, DEFENSE_TIERS, OUTPOST_BRANCHES, CANNON, RELICS, ISLANDS, CANNIBAL, WARLORD,
+  ANIMAL_TYPES, WAREHOUSE_TIERS, UPGRADES, RANKS, DEFENSE_TIERS, OUTPOST_BRANCHES, CANNON, RELICS, ISLANDS, CANNIBAL, WARLORD, RAIDER, INVWARRIOR,
   T_WATER, T_GRASS, T_SAND,
 } from './config.js';
 
@@ -691,6 +691,8 @@ export function enemyStats(e) {
   if (e && e.kind === 'giant') return GIANT;
   if (e && e.kind === 'cannibal') return CANNIBAL;
   if (e && e.kind === 'warlord') return WARLORD;
+  if (e && e.kind === 'raider') return RAIDER;
+  if (e && e.kind === 'warrior') return INVWARRIOR;
   return ENEMY;
 }
 
@@ -698,6 +700,7 @@ export function enemyStats(e) {
 export function spawnRaid(world, count, rng, kind, waveNo) {
   var isGiant = kind === 'giant';
   var isWarlord = kind === 'warlord';
+  var fixedHp = { warlord: WARLORD.hp, raider: RAIDER.hp, warrior: INVWARRIOR.hp }[kind]; // 고정 체력 종족
   var edges = [];
   for (var y = 1; y < MAP_H - 1; y++) {
     for (var x = 1; x < MAP_W - 1; x++) {
@@ -711,9 +714,9 @@ export function spawnRaid(world, count, rng, kind, waveNo) {
   }
   if (edges.length === 0) return 0;
   var spawned = 0;
-  // 일수에 따라 체력 강화 (거인은 훨씬 튼튼, 정복자는 고정 스탯)
-  var ehp = isWarlord
-    ? WARLORD.hp
+  // 체력: 침략 세력(정복자·약탈자·전사)은 고정, 거인은 훨씬 튼튼, 고블린은 일수 비례 강화
+  var ehp = fixedHp !== undefined
+    ? fixedHp
     : isGiant
       ? GIANT.hp + Math.floor((world.day || 1) * (GIANT.hpPerDay || 0))
       : ENEMY.hp + Math.floor((world.day || 1) * (RAID.hpPerDay || 0));

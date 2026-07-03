@@ -269,6 +269,11 @@ export const RAID = { firstDay: 4, intervalDays: 3, baseCount: 2, perDayExtra: 0
 // 식인종(원정 섬 상주 적) — 고블린보다 강하고 빠름. 습격과 무관하게 섬에 상시 서식.
 export const CANNIBAL = { hp: 60, power: 11, attackCd: 12, moveMinPerTile: 1.2, dropGold: 8, dropIron: 4, name: '식인종' };
 
+// ── 침략 세력(대침공 외부 세력) — 배를 타고 상륙하는 다른 종족의 군대 ──
+// 약탈자: 빠르고 약하지만 떼로 몰려옴(Pawn 도끼병). 침략 전사: 느리지만 튼튼한 기사(Warrior).
+export const RAIDER = { hp: 42, power: 8, attackCd: 13, moveMinPerTile: 1.1, dropGold: 5, dropIron: 1, name: '약탈자' };
+export const INVWARRIOR = { hp: 100, power: 15, attackCd: 16, moveMinPerTile: 1.7, dropGold: 10, dropIron: 4, name: '침략 전사' };
+
 // ── 정복자 「워로드」: 대침공(INVASION) 전용 미니보스. GIANT × 1.3 배율 ──
 export const WARLORD = {
   hp: 390, power: 29, attackCd: 24, moveMinPerTile: 2.8,
@@ -279,9 +284,10 @@ export const WARLORD = {
 // 나라 단계 도달 여부와 무관하게 무조건 발동 — 방어를 못 갖췄어도 시련을 겪는 가혹한 난이도.
 // schedule 순서대로 하나씩 진행되며, 뒤로 갈수록(20일차) 웨이브·적 수·보상이 늘어난다.
 export const INVASION = {
+  // 웨이브마다 여러 종족 혼합 상륙(고블린·약탈자·침략전사 + 정복자). 10일차엔 빠른 괴민도 추가.
   schedule: [
-    { day: 10, waves: 3, goblinsPerWave: 4, warlordsPerWave: 1, relicCount: 1, giants: 3 }, // 10일차: 빠른 괴민 3마리 추가 투입
-    { day: 20, waves: 4, goblinsPerWave: 6, warlordsPerWave: 2, relicCount: 2 },
+    { day: 10, waves: 3, goblinsPerWave: 3, raidersPerWave: 6, warriorsPerWave: 2, warlordsPerWave: 1, relicCount: 1, giants: 3 },
+    { day: 20, waves: 4, goblinsPerWave: 4, raidersPerWave: 8, warriorsPerWave: 3, warlordsPerWave: 2, relicCount: 2 },
   ],
   spawnHour: 20,          // GIANT_RAID/RAID 와 동일 시각대(밤 8시)
   waveGapMin: 90,          // 웨이브 클리어 후 다음 웨이브까지 소강 시간(게임분)

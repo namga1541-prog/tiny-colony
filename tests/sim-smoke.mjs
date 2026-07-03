@@ -1,7 +1,7 @@
 // L1 시나리오 스모크 — 시드 고정, 헤드리스. stepWorld 추출이 올바른지 + 결정론 확인.
 import { bootSim, run, runDays, designateChop, give, snapshot } from './harness.mjs';
 import { addBuilding, storageCap, upgradeMult, upgradeAdd, maxPop, rankReqStatus, canAdvanceRank, advanceRank, defenseStats, tickTowers, enemyStats, spawnRaid, mulberry32, grantRelic, dailyIslandRespawn, checkIslandDiscovery } from '../js/world.js';
-import { GIANT, ENEMY, CANNIBAL, ISLANDS, INVASION, OUTPOST_BRANCHES } from '../js/config.js';
+import { GIANT, ENEMY, CANNIBAL, ISLANDS, INVASION, OUTPOST_BRANCHES, RAIDER, INVWARRIOR } from '../js/config.js';
 import { findWorkJob, releaseAllOf } from '../js/jobs.js';
 
 var fails = 0;
@@ -198,6 +198,8 @@ console.log('[sim-smoke] 11) 무지성 거인 「괴민」 (신규)');
   var w = sim.world;
   ok(enemyStats({ kind: 'giant' }).power === GIANT.power, '거인 종류 스탯 = GIANT');
   ok(enemyStats({ kind: 'goblin' }).power === ENEMY.power, '고블린 종류 스탯 = ENEMY');
+  ok(enemyStats({ kind: 'raider' }).hp === RAIDER.hp && enemyStats({ kind: 'warrior' }).hp === INVWARRIOR.hp,
+    '약탈자·침략전사 종류 스탯 매핑 (RAIDER/INVWARRIOR)');
   ok(GIANT.hp > ENEMY.hp && GIANT.power > ENEMY.power && GIANT.moveMinPerTile > ENEMY.moveMinPerTile,
     '거인은 더 튼튼(HP)·강함(공격)·느림(이동)');
   // 직접 스폰 (결정론 rng)
@@ -354,9 +356,11 @@ console.log('[sim-smoke] 16) 나라의 시련(대침공) — 달력상 10일차�
   var sched0 = INVASION.schedule[0];
   ok(w.invasion.phase === 'active' && w.invasion.wave === 1, '1차 침공 발동 → 1웨이브 active');
   var w1 = w.enemies.filter(function (e) { return e.wave === 1; });
-  ok(w1.length === sched0.goblinsPerWave + sched0.warlordsPerWave + (sched0.giants || 0),
-    '1웨이브 스폰 수 = 고블린+정복자+괴민 (' + w1.length + ')');
+  var expected1 = (sched0.goblinsPerWave || 0) + (sched0.raidersPerWave || 0) + (sched0.warriorsPerWave || 0) + (sched0.warlordsPerWave || 0) + (sched0.giants || 0);
+  ok(w1.length === expected1, '1웨이브 스폰 수 = 혼합군 (' + w1.length + '/' + expected1 + ')');
   ok(w1.some(function (e) { return e.kind === 'warlord'; }), '1웨이브에 정복자 포함');
+  ok(w1.some(function (e) { return e.kind === 'raider'; }) && w1.some(function (e) { return e.kind === 'warrior'; }),
+    '1웨이브에 약탈자·침략전사(외부 세력) 포함');
   var fastGiants = w1.filter(function (e) { return e.kind === 'giant' && e.fast; });
   ok(fastGiants.length === (sched0.giants || 0) && fastGiants.length > 0,
     '10일차 침공에 빠른 괴민 ' + (sched0.giants || 0) + '체 추가 (' + fastGiants.length + ')');

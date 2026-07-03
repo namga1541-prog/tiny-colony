@@ -26,6 +26,7 @@ export function createRenderer(world) {
     'W_Idle', 'G_Idle', 'M_Idle',
     'Goblin', 'Bridge_All', 'Food_Grain',
     'Pig', 'Cow', 'Chicken',
+    'Pawn_Red', 'Warrior_Red', 'Warrior_Purple', // 침략 세력(약탈자·전사·정복자) 적 스프라이트
     'deco03'];
   var base = {};
   SHEETS.forEach(function (n) {
@@ -128,6 +129,23 @@ export function createRenderer(world) {
     goblinWalk.push(tx('Goblin', gf * 192, 192, 192, 192));
     goblinAtk.push(tx('Goblin', gf * 192, 384, 192, 192));
   }
+  // 침략 세력 적 프레임 (Tiny Swords 진영 유닛, 192px 6프레임 · row0 대기 / row1 이동)
+  function enemyFrames(sheet) {
+    var idle = [], walk = [];
+    for (var i = 0; i < 6; i++) { idle.push(tx(sheet, i * 192, 0, 192, 192)); walk.push(tx(sheet, i * 192, 192, 192, 192)); }
+    return { idle: idle, walk: walk };
+  }
+  var fxRaider = enemyFrames('Pawn_Red');        // 약탈자(빨강 도끼병)
+  var fxWarrior = enemyFrames('Warrior_Red');    // 침략 전사(빨강 기사)
+  var fxWarlord = enemyFrames('Warrior_Purple'); // 정복자(보라 기사·미니보스)
+  // 적 종류별 외형: idle/walk 프레임 + 선택적 tint·scale
+  var ENEMY_LOOK = {
+    goblin:   { idle: goblinIdle, walk: goblinWalk },
+    cannibal: { idle: goblinIdle, walk: goblinWalk, tint: 0x8a2020 }, // 식인종=붉은 고블린
+    raider:   { idle: fxRaider.idle, walk: fxRaider.walk },
+    warrior:  { idle: fxWarrior.idle, walk: fxWarrior.walk },
+    warlord:  { idle: fxWarlord.idle, walk: fxWarlord.walk, scale: 1.4 }, // 정복자=보라 기사(크게)
+  };
 
   // 사람 스프라이트 크롭. dir: 0정면 1뒤 2좌 3우.
   // idle: 방향=열(64x16). walk: 방향=행, 프레임=열(64x64). 각 16px.
@@ -845,13 +863,15 @@ export function createRenderer(world) {
         var gf = ((animTime / 0.18) | 0) + en.anim; // 느릿한 걸음
         sp.texture = pawnTex({ human: 'caveman' }, en.moving ? 'walk' : 'idle', gf, d4);
       } else {
+        // 종류별 외형(고블린·식인종·약탈자·전사·정복자). 없으면 고블린으로 폴백.
+        var look = ENEMY_LOOK[en.kind] || ENEMY_LOOK.goblin;
+        var esc = look.scale || 1;
         sp.anchor.set(0.5, 0.72);
         sp.y = (en.py + 0.5) * TILE + 14;
-        sp.scale.set(en.dir < 0 ? -1 : 1, 1);
-        var frames = en.moving ? goblinWalk : goblinIdle;
+        sp.scale.set(esc * (en.dir < 0 ? -1 : 1), esc);
+        var frames = en.moving ? look.walk : look.idle;
         sp.texture = frames[(((animTime / 0.12) | 0) + en.anim) % 6];
-        if (en.kind === 'cannibal') sp.tint = 0x8a2020; // 어두운 핏빛 색조로 고블린과 구분(원정 섬 상주 식인종)
-        if (en.kind === 'warlord') sp.tint = 0x5a1f8a; // 보라색 틴트로 정복자 구분(대침공 미니보스, 고블린 스프라이트 재사용)
+        if (look.tint) sp.tint = look.tint;
       }
       sp.zIndex = sp.y;
       if (isG) { // 이름표 「괴민」 + HP바 (머리 위)
