@@ -35,6 +35,19 @@ export function createRenderer(world) {
   // 건물 전용: Kenney Tiny Town 타일맵(16px, 12x11) — 건물별 고유 스프라이트 크롭용
   base.TinyTown = PIXI.BaseTexture.from('assets/town/Tilemap/tilemap_packed.png');
   base.TinyTown.scaleMode = PIXI.SCALE_MODES.NEAREST;
+  // 공성 병기(LPC Siege Weapons, CC-BY): 특화 초소의 원거리 병기 전용 스프라이트
+  var siegeTex = {
+    catapult: PIXI.Texture.from('assets/siege/catapult.png'),
+    ballista: PIXI.Texture.from('assets/siege/ballista.png'),
+    cannon: PIXI.Texture.from('assets/siege/cannon.png'),
+  };
+  for (var sgk in siegeTex) siegeTex[sgk].baseTexture.scaleMode = PIXI.SCALE_MODES.NEAREST;
+  // 초소 분기 → 병기 스프라이트 + 원본 폭(w: 텍스처 로드 전에도 안전한 스케일 계산용)
+  var BRANCH_SIEGE = {
+    catapult: { tex: siegeTex.catapult, w: 119 }, // 투석기
+    ballista: { tex: siegeTex.ballista, w: 105 }, // 석궁탑
+    rapid:    { tex: siegeTex.cannon,   w: 107 }, // 속사탑 → 캐논
+  };
   // 사람 캐릭터 시트 (Ninja Adventure, 16px 4방향) — 사람별 Idle/Walk
   for (var hk in HUMANS) {
     base['nj_' + hk + '_idle'] = PIXI.BaseTexture.from('assets/ninja/' + HUMANS[hk].dir + '/Idle.png');
@@ -262,6 +275,10 @@ export function createRenderer(world) {
     }
     if (b.kind === 'bridge') return tx('Bridge_All', 0, 0, 192, 64);
     if (b.kind === 'campfire') return fireFrames[0];
+    // 완공된 특화 초소(투석기·석궁탑·속사탑)는 LPC 공성 병기 스프라이트로 표시
+    if (b.kind === 'outpost' && b.stage === 'built' && b.branch && BRANCH_SIEGE[b.branch]) {
+      return BRANCH_SIEGE[b.branch].tex;
+    }
     var def = BUILDS[b.kind];
     if (def.town) { // Tiny Town 고유 건물 스프라이트 (타일맵에서 크롭)
       return tx('TinyTown', def.town.sx, def.town.sy, def.town.sw, def.town.sh);
@@ -347,18 +364,26 @@ export function createRenderer(world) {
       e.texture = buildingTexture(b);
     }
     if (b.kind === 'bridge') { rebuildLights(); return; }
+    // 완공된 특화 초소 = LPC 병기 스프라이트(디테일 원본 그대로, 색조 미적용)
+    var siege = (b.kind === 'outpost' && b.stage === 'built' && b.branch && BRANCH_SIEGE[b.branch]);
     if (b.stage === 'bp') {
       var ready = bpMissing(b) === null;
       e.alpha = ready ? 0.95 : 0.45;
       e.tint = ready ? 0xffffff : 0x9ec7ff;
+    } else if (siege) {
+      e.alpha = 1;
+      e.tint = 0xffffff;
     } else {
       e.alpha = 1;
       // 특화된 초소는 분기별 색조로 구분(가시벽=초록·석궁탑=갈색·투석기=회색·속사탑=파랑)
       var branchTint = (b.branch && OUTPOST_BRANCHES[b.branch]) ? OUTPOST_BRANCHES[b.branch].tint : null;
       e.tint = branchTint || (b.kind === 'ironmine' ? 0xaab4c2 : (def.tint || 0xffffff));
     }
-    // Tiny Town 건물: 소스 크롭을 풋프린트 폭(fw*TILE)에 맞춰 확대 (16px→표시 크기)
-    if (def.town) {
+    // 병기 스프라이트: 원본 폭을 풋프린트(약 2타일)에 맞춰 스케일
+    if (siege) {
+      e.scale.set((def.fw * TILE * 0.94) / BRANCH_SIEGE[b.branch].w);
+    } else if (def.town) {
+      // Tiny Town 건물: 소스 크롭을 풋프린트 폭(fw*TILE)에 맞춰 확대 (16px→표시 크기)
       var tScale = (def.fw * TILE) / def.town.sw;
       if (b.kind === 'warehouse') tScale *= 1 + ((b.tier || 1) - 1) * 0.08; // 창고 단계 확대 유지
       e.scale.set(tScale);
