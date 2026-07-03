@@ -464,6 +464,28 @@ export function createRenderer(world) {
   }
 
   var animTime = 0;
+  var TAU = Math.PI * 2;
+  // 작업별 도구 동작: m=모션(swing 휘두르기/cast 낚시/shake 흔들기/bob 굽히기), p=파티클, rate=주기(회/초)
+  var WORK_MOTION = {
+    mine:        { m: 'swing', p: 'sparks', rate: 2.6 },
+    build:       { m: 'swing', p: 'dust',   rate: 3.0 },
+    craft:       { m: 'swing', p: 'forge',  rate: 3.0 },
+    hunt:        { m: 'swing', p: null,     rate: 3.2 },
+    fish:        { m: 'cast',  p: 'splash', rate: 1.1 },
+    cook:        { m: 'shake', p: 'steam',  rate: 3.6 },
+    plant:       { m: 'bob',   p: null,     rate: 1.6 },
+    harvestCrop: { m: 'bob',   p: 'grain',  rate: 2.0 },
+  };
+  function motionFor(pawn) { // gather 는 대상(나무 vs 버섯)에 따라 도끼질/줍기 구분
+    var j = pawn.job;
+    if (!j) return null;
+    if (j.type === 'gather') {
+      var o = world.objects[j.idx];
+      if (o && o.kind === 'mushroom') return { m: 'bob', p: null, rate: 1.6 };
+      return { m: 'swing', p: 'chips', rate: 2.4 };
+    }
+    return WORK_MOTION[j.type] || null;
+  }
   function updatePawnSprite(pawn) {
     var e = pawnSprites[pawn.id];
     if (!e) return;
@@ -507,11 +529,47 @@ export function createRenderer(world) {
     if (icon) {
       e.tool.text = icon;
       e.tool.visible = true;
-      e.tool.x = wx + (pawn.face < 0 ? -18 : 18);
-      e.tool.y = wy - 6;
       e.tool.zIndex = 999999;
+      var side = pawn.face < 0 ? -1 : 1;
+      var bx = wx + side * 18, by = wy - 6;
+      var mo = motionFor(pawn);
+      if (mo) {
+        var ph = (animTime + e.animOff * 0.13) * mo.rate;
+        var frac = ph - Math.floor(ph);
+        var tx = bx, ty = by, rot = 0;
+        if (mo.m === 'swing') {          // 도끼·곡괭이·망치: 들었다가 내려침
+          var sw = Math.sin(frac * Math.PI); // 0→1→0
+          rot = side * (-0.55 + 1.25 * sw);
+          ty = by + 7 * sw; tx = bx + side * 4 * sw;
+        } else if (mo.m === 'cast') {    // 낚시: 낚싯대 내밀고 잔잔히 까딱
+          var b = Math.sin(ph * TAU);
+          rot = side * (-0.35 + 0.10 * b);
+          ty = by + 3 * b; tx = bx + side * 6;
+        } else if (mo.m === 'shake') {   // 요리: 팬 흔들기
+          var shk = Math.sin(ph * TAU * 2);
+          tx = bx + side * 3 * shk; ty = by - 2; rot = 0.12 * shk;
+        } else if (mo.m === 'bob') {     // 심기·수확·줍기: 굽혔다 폄
+          var bb = Math.sin(frac * Math.PI);
+          ty = by + 8 * bb; rot = side * 0.15 * bb;
+        }
+        e.tool.x = tx; e.tool.y = ty; e.tool.rotation = rot;
+        // 작용(타격) 순간 파티클 방출
+        if (mo.p) {
+          var fire = (mo.m === 'swing' || mo.m === 'bob')
+            ? (e.workPrev !== undefined && e.workPrev < 0.5 && frac >= 0.5) // 스윙 최저점
+            : (e.workBeat !== undefined && Math.floor(ph) !== e.workBeat);   // cast·shake: 비트마다
+          if (fire) spawnWorkFx(mo.p, bx + side * 8, by + (mo.m === 'cast' ? 20 : 8), side);
+        }
+        e.workPrev = frac; e.workBeat = Math.floor(ph);
+        // 몸통 미세 바운스 (힘쓰는 느낌)
+        e.spr.y = wy + 10 + (mo.m === 'swing' ? -2 * Math.sin(frac * Math.PI) : -1 * Math.abs(Math.sin(ph * TAU)));
+      } else {                           // 도구는 있으나 동작 없음(예: 치료 ❤️) — 정적
+        e.tool.x = bx; e.tool.y = by; e.tool.rotation = 0;
+        e.workPrev = undefined; e.workBeat = undefined;
+      }
     } else {
       e.tool.visible = false;
+      e.workPrev = undefined; e.workBeat = undefined;
     }
   }
 
@@ -787,10 +845,60 @@ export function createRenderer(world) {
     }
   }
 
+  // ── 작업 파티클 (벌목 나뭇조각·채굴 불꽃·낚시 물보라·요리 증기 등) ──
+  // render 전용이라 Math.random 사용 무방(시뮬 로직 아님, 헤드리스 하네스 제외).
+  var workFxList = []; // { kind, x, y, vx, vy, life, max, size, color }
+  function pushP(kind, x, y, vx, vy, life, size, color) {
+    workFxList.push({ kind: kind, x: x, y: y, vx: vx, vy: vy, life: life, max: life, size: size, color: color });
+  }
+  function spawnWorkFx(kind, x, y, side) {
+    var i;
+    if (kind === 'chips') { // 나뭇조각 (갈색, 튀어 떨어짐)
+      for (i = 0; i < 4; i++) pushP('grav', x, y, side * (30 + Math.random() * 60), -70 - Math.random() * 80, 0.45, 3 + Math.random() * 2, 0x8a5a2b);
+    } else if (kind === 'grain') { // 곡식 낟알 (금색)
+      for (i = 0; i < 4; i++) pushP('grav', x, y, (Math.random() - 0.5) * 90, -60 - Math.random() * 60, 0.5, 2 + Math.random() * 2, 0xe8c060);
+    } else if (kind === 'sparks') { // 돌 파편 (회백)
+      for (i = 0; i < 5; i++) pushP('grav', x, y, (Math.random() - 0.5) * 150, -80 - Math.random() * 80, 0.3, 2 + Math.random() * 2, 0xe6e6e6);
+    } else if (kind === 'forge') { // 대장간 불똥 (주황)
+      for (i = 0; i < 5; i++) pushP('grav', x, y, (Math.random() - 0.5) * 130, -70 - Math.random() * 80, 0.32, 2 + Math.random() * 2, 0xffb24a);
+    } else if (kind === 'dust') { // 건설 먼지 (링 확산)
+      pushP('ring', x, y, 0, 0, 0.4, 6, 0xcbb089);
+    } else if (kind === 'splash') { // 낚시 물보라 (파란 링 + 물방울)
+      pushP('ring', x, y, 0, 0, 0.5, 5, 0x6db3ff);
+      for (i = 0; i < 3; i++) pushP('grav', x, y, (Math.random() - 0.5) * 90, -70 - Math.random() * 50, 0.4, 2 + Math.random() * 2, 0x9fd0ff);
+    } else if (kind === 'steam') { // 요리 증기 (흰 김, 위로 상승·확산)
+      pushP('rise', x, y, (Math.random() - 0.5) * 14, -24, 0.7, 5, 0xffffff);
+    }
+  }
+  function tickWorkFx(dtSec) { // atkFxList 그린 뒤(fxLayer.clear 후) 이어서 그림 — 별도 clear 없음
+    for (var i = workFxList.length - 1; i >= 0; i--) {
+      var p = workFxList[i];
+      p.life -= dtSec;
+      if (p.life <= 0) { workFxList.splice(i, 1); continue; }
+      var t = p.life / p.max; // 1→0
+      if (p.kind === 'grav') {
+        p.vy += 380 * dtSec; p.x += p.vx * dtSec; p.y += p.vy * dtSec;
+        fxLayer.beginFill(p.color, Math.min(1, t + 0.2));
+        fxLayer.drawRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+        fxLayer.endFill();
+      } else if (p.kind === 'rise') {
+        p.x += p.vx * dtSec; p.y += p.vy * dtSec;
+        fxLayer.beginFill(p.color, 0.28 * t);
+        fxLayer.drawCircle(p.x, p.y, p.size * (1 + (1 - t) * 1.6));
+        fxLayer.endFill();
+      } else if (p.kind === 'ring') {
+        fxLayer.lineStyle(2, p.color, t);
+        fxLayer.drawCircle(p.x, p.y, p.size + (1 - t) * 14);
+        fxLayer.lineStyle(0);
+      }
+    }
+  }
+
   // ── 애니메이션 틱 ──
   function tick(dtSec) {
     animTime += dtSec;
     tickAttackFx(dtSec);
+    tickWorkFx(dtSec);
     var foamF = (animTime / 0.15) | 0;
     for (var n = 0; n < foamSprites.length; n++) {
       var fs = foamSprites[n];
