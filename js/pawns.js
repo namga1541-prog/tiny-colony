@@ -464,8 +464,9 @@ function finishWork(world, pawn, ctx) {
         var fish = catchFish(world.rodTier || 0, ctx.rng || Math.random);
         addItem(world, 0, 'food', fish.food);
         if (fish.gold) addItem(world, 0, 'gold', fish.gold);
-        if (fish.rare >= 2) ctx.onEvent('🎣 ' + pawn.name + ' 이(가) 희귀 어종 "' + fish.name + '" 을(를) 낚았습니다!');
-        else ctx.onEvent('🎣 ' + pawn.name + ' 이(가) ' + fish.name + ' 을(를) 낚았습니다');
+        var fgold = fish.gold ? ' (금 +' + fish.gold + ')' : '';
+        if (fish.rare >= 2) ctx.onEvent('🎣 ' + pawn.name + ' 이(가) 희귀 어종 "' + fish.name + '" 을(를) 낚았습니다!' + fgold);
+        else ctx.onEvent('🎣 ' + pawn.name + ' 이(가) ' + fish.name + ' 을(를) 낚았습니다' + fgold);
       }
     }
     releaseAllOf(world, pawn.id);

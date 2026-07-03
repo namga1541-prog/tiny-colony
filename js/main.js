@@ -36,6 +36,7 @@ if (saved) {
   world.rodTier = saved.rodTier || 0;
   world.fishDesig = saved.fishDesig || {};
   world.rank = saved.rank || 0;
+  world.relics = saved.relics || {};
   world.items = {};
   world.stockpile = saved.stockpile || {};
   world.designations = saved.designations;
@@ -857,6 +858,10 @@ window.addEventListener('keydown', function (e) {
     doInteract();
   }
   if (e.code === 'KeyP') setSpeed(speed === 0 ? lastSpeed : 0);
+  if (e.code === 'KeyF') { // F: 선택한 건물 업그레이드(창고 tier·방어건물 강화·대포) 통일
+    var upBtn = document.querySelector('#buildPanel:not(.hidden) .bp-upgrade button:not([disabled])');
+    if (upBtn) { upBtn.click(); e.preventDefault(); }
+  }
   if (e.code === 'Escape') cancelToSelect();
   if (e.code === 'Digit1') setSpeed(1);
   if (e.code === 'Digit2') setSpeed(2);

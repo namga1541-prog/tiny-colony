@@ -140,7 +140,7 @@ export const ROLE_SPEED_BONUS = 1.15; // 역할 전문 작업 속도 +15%
 
 // 자연물 (단일 타일)
 export const NATURE = {
-  tree:     { work: 20, drops: { wood: 3 } },
+  tree:     { work: 20, drops: { wood: 9 } },
   mushroom: { work: 8,  drops: { food: 1 } },
 };
 
@@ -260,6 +260,21 @@ export const RANKS = [
 ];
 // 건물별 최소 해금 단계(RANKS 인덱스). 목록에 없는 건물은 0(무리)부터 건설 가능.
 export const BUILD_MIN_RANK = { smithy: 1, ranch: 1, outpost: 2, tower: 2, clinic: 2, castle: 3 };
+
+// ── 유물(Relic) — 아이작풍 로그라이트: 습격 격퇴·괴민 처치 시 무작위 획득, 콜로니에 영구 패시브 ──
+// effect.key 는 UPGRADES 와 동일 배율 풀을 공유 → 업그레이드·다른 유물과 자동 시너지(누적).
+// 중복 획득 시 스택(mult 는 거듭제곱, add 는 합). 새 훅 불필요.
+export const RELICS = {
+  worm:     { name: '부지런한 일벌레', icon: '🐛', effect: { key: 'speed_all', mult: 1.12 },       desc: '모든 작업 속도 +12%' },
+  axe:      { name: '요정 도끼',       icon: '🪓', effect: { key: 'speed_woodcutting', mult: 1.4 }, desc: '벌목 속도 +40%' },
+  pick:     { name: '요정 곡괭이',     icon: '⛏️', effect: { key: 'speed_mining', mult: 1.4 },     desc: '채굴 속도 +40%' },
+  totem:    { name: '풍요의 토템',     icon: '🌾', effect: { key: 'speed_farming', mult: 1.4 },    desc: '농사·수확 속도 +40%' },
+  crate:    { name: '요술 창고',       icon: '📦', effect: { key: 'storage', add: 220 },           desc: '저장 용량 +220' },
+  ballista: { name: '고대 발리스타',   icon: '🏹', effect: { key: 'towerpower', mult: 1.3 },       desc: '방어건물 공격력 +30%' },
+  scope:    { name: '매의 눈',         icon: '🦅', effect: { key: 'towerrange', add: 2 },          desc: '방어건물 사거리 +2' },
+  banner:   { name: '정착 깃발',       icon: '🚩', effect: { key: 'maxpop', add: 3 },              desc: '인구 상한 +3' },
+  poultice: { name: '치유의 고약',     icon: '💊', effect: { key: 'healspeed', mult: 1.5 },        desc: '치료소 회복 속도 +50%' },
+};
 
 // ── 낚시 ──
 // rodTier: 0=맨손, 1=나무, 2=강철, 3=황금. 높을수록 희귀 어종 확률↑·시간↓

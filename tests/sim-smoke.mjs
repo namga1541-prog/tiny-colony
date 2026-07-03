@@ -1,6 +1,6 @@
 // L1 시나리오 스모크 — 시드 고정, 헤드리스. stepWorld 추출이 올바른지 + 결정론 확인.
 import { bootSim, run, runDays, designateChop, give, snapshot } from './harness.mjs';
-import { addBuilding, storageCap, upgradeMult, upgradeAdd, maxPop, rankReqStatus, canAdvanceRank, advanceRank, defenseStats, tickTowers, enemyStats, spawnRaid, mulberry32 } from '../js/world.js';
+import { addBuilding, storageCap, upgradeMult, upgradeAdd, maxPop, rankReqStatus, canAdvanceRank, advanceRank, defenseStats, tickTowers, enemyStats, spawnRaid, mulberry32, grantRelic } from '../js/world.js';
 import { GIANT, ENEMY } from '../js/config.js';
 import { findWorkJob } from '../js/jobs.js';
 
@@ -99,6 +99,7 @@ console.log('[sim-smoke] 7) 콜로니 업그레이드 — 효과·저장고·집
   // 벌목속도 업그레이드: 같은 시드·같은 시간에 목재 산출이 더 많아야 함
   function woodAfter(withUpg) {
     var sim = bootSim(555);
+    sim.world.upgrades.log_store1 = true; sim.world.upgrades.log_store2 = true; // 저장고 넉넉히 — 목재9(3배)로 캡에 걸려 속도차가 가려지는 것 방지
     if (withUpg) sim.world.upgrades.prod_wood = true;
     designateChop(sim, 80);   // 넉넉히 지정해 시간 안에 다 못 베도록(나무 수 제한 회피)
     run(sim, 130);            // 짧은 구간: 벌목 속도가 총량을 좌우
@@ -228,6 +229,20 @@ console.log('[sim-smoke] 12) 제작 대기열 — 자재 부족 주문 건너뛰
   ok((w.stock.sword || 0) >= 1, '자재 부족 강철검이 맨 앞이어도 뒤의 검이 제작됨 (검 ' + (w.stock.sword || 0) + ')');
   ok(w.craftQueue.some(function (o) { return o.type === 'ironSword'; }), '살 수 없는 강철검 주문은 대기열에 유지');
   ok(!w.craftQueue.some(function (o) { return o.type === 'sword'; }), '완료된 검 주문은 대기열에서 제거');
+})();
+
+console.log('[sim-smoke] 13) 유물 시스템 — 배율 합산·스택·업그레이드 시너지 (신규)');
+(function () {
+  var w = bootSim(1).world;
+  ok(upgradeMult(w, 'speed_all') === 1, '유물 없으면 배율 1');
+  var got = grantRelic(w, mulberry32(w.seed ^ 0xabc));
+  ok(got && w.relics[got.id] === 1, '유물 획득 → 보유 1');
+  w.relics = { worm: 2 }; // speed_all 1.12
+  ok(Math.abs(upgradeMult(w, 'speed_all') - Math.pow(1.12, 2)) < 1e-9, 'worm ×2 → speed_all 1.12² (mult 스택)');
+  w.relics = { axe: 1 }; w.upgrades = { prod_wood: true }; // 유물 1.4 × 업그레이드 1.3
+  ok(Math.abs(upgradeMult(w, 'speed_woodcutting') - (1.3 * 1.4)) < 1e-9, '업그레이드(1.3)×유물(1.4) 시너지');
+  w.relics = { banner: 2 }; w.upgrades = {}; // maxpop +3 each
+  ok(upgradeAdd(w, 'maxpop') === 6, 'banner ×2 → maxpop +6 (add 스택)');
 })();
 
 console.log('');

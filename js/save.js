@@ -3,9 +3,10 @@ var KEY = 'tinyColony.save1';
 
 export function saveGame(world, pawns) {
   var data = {
-    v: 13,
+    v: 14,
     seed: world.seed,
     rank: world.rank,
+    relics: world.relics,
     terrain: Array.from(world.terrain),
     objects: world.objects,
     buildings: world.buildings,

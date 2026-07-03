@@ -202,6 +202,17 @@ body.touch .touch-only { display: inline-block; }
 .dev-advance:disabled { background: rgba(255, 255, 255, 0.06); border-color: rgba(255, 255, 255, 0.12); color: #6b7488; cursor: default; }
 .dev-max { color: #ffd76e; font-size: 15px; font-weight: 700; text-align: center; margin: 12px 0; }
 
+/* ── 유물 모달 ── */
+.rl-empty { font-size: 13px; color: #aab2c2; line-height: 1.6; margin: 6px 0; }
+.rl-grid { display: flex; flex-direction: column; gap: 8px; margin: 2px 0; }
+.rl-item { display: flex; align-items: center; gap: 11px; padding: 9px 11px; border-radius: 10px;
+  background: linear-gradient(180deg, #2b2416, #211c11); border: 1px solid rgba(216, 162, 74, 0.35); }
+.rl-ic { font-size: 24px; width: 30px; text-align: center; }
+.rl-txt { display: flex; flex-direction: column; gap: 2px; }
+.rl-txt b { font-size: 13.5px; color: #ffd98a; }
+.rl-txt span { font-size: 12px; color: #cfd6e4; }
+.rl-x { color: #ffb24a; font-size: 12px; }
+
 /* ── 토스트 ────────────────────────────── */
 #toastHost {
   position: fixed; top: 62px; left: 50%; transform: translateX(-50%);

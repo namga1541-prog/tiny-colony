@@ -9,7 +9,7 @@ import { DAY_MIN, RAID, GIANT_RAID, MAP_W, MAP_H } from './config.js';
 import {
   idx, addItem, mulberry32,
   updateSheep, tickTowers, updateEnemies, tickResearch, tickCrops, tickRanches,
-  dailyRegrowth, dailyMineRegen, spawnRaid, seasonDef, seasonIndex, maxPop,
+  dailyRegrowth, dailyMineRegen, spawnRaid, seasonDef, seasonIndex, maxPop, grantRelic,
 } from './world.js';
 import { updatePawn } from './pawns.js';
 import { checkGoals } from './goals.js';
@@ -59,6 +59,14 @@ export function stepWorld(world, pawns, dtMin, rng, ctx, enemyCbs) {
     ctx.onToast('🎉 고블린 습격을 격퇴했습니다! 전리품 획득 (금 ' + (RAID.loot.gold * mult) + ' · 철 ' + (RAID.loot.iron * mult) + ')');
     ctx.onEvent('🎉 습격 격퇴 +전리품');
     ctx.onSfx('success');
+    // 유물(아이작풍): 괴민을 잡은 밤이면 확정, 일반 습격은 확률 획득
+    if (world.raidHadGiant || rng() < 0.5) {
+      var got = grantRelic(world, rng);
+      ctx.onToast('🎁 유물 획득: ' + got.def.icon + ' ' + got.def.name + ' — ' + got.def.desc + (got.count > 1 ? ' (x' + got.count + ')' : ''));
+      ctx.onEvent('🎁 유물 ' + got.def.icon + ' ' + got.def.name);
+      ctx.onSfx('coin');
+    }
+    world.raidHadGiant = false;
   }
 
   // 일 넘김 처리
@@ -111,6 +119,7 @@ export function stepWorld(world, pawns, dtMin, rng, ctx, enemyCbs) {
     var gg = spawnRaid(world, gcnt, rng, 'giant');
     if (gg > 0) {
       world.raidActive = true;
+      world.raidHadGiant = true; // 격퇴 시 유물 확정
       ctx.onToast('🧟 무지성 거인 「괴민」 출현! 느리지만 거대하고 강력합니다 — 힘을 합쳐 막으세요!', true);
       ctx.onEvent('🧟 거인 괴민 상륙' + (gg > 1 ? ' (' + gg + '체)' : ''));
       ctx.onSfx('alert');

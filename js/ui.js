@@ -1,6 +1,6 @@
 // DOM HUD: 도구·시계·자원·정착민 패널·토스트·커스터마이징 모달·연구/제작 모달
 import { taskLabel } from './pawns.js';
-import { HUMANS, RESEARCH, WEAPONS, SKILL_LABEL, skillLevel, BUILDS, STORAGE, RODS, WAREHOUSE_TIERS, ROLES, RANKS, BUILD_MIN_RANK, DEFENSE_TIERS } from './config.js';
+import { HUMANS, RESEARCH, WEAPONS, SKILL_LABEL, skillLevel, BUILDS, STORAGE, RODS, WAREHOUSE_TIERS, ROLES, RANKS, BUILD_MIN_RANK, DEFENSE_TIERS, RELICS } from './config.js';
 import { totalRes, warehouseTier, warehouseCap, maxPop, rankReqStatus, defenseStats } from './world.js';
 
 export function createUI(handlers) {
@@ -52,6 +52,8 @@ export function createUI(handlers) {
   });
   var btnDev = document.getElementById('btnDev');
   if (btnDev) btnDev.addEventListener('click', showDevelopment);
+  var btnRelics = document.getElementById('btnRelics');
+  if (btnRelics) btnRelics.addEventListener('click', showRelics);
   var btnCancelAll = document.getElementById('btnCancelAll');
   if (btnCancelAll) btnCancelAll.addEventListener('click', function () {
     if (handlers.onCancelAll) handlers.onCancelAll();
@@ -278,7 +280,7 @@ export function createUI(handlers) {
           return ({ wood: '목재', gold: '금', iron: '철' }[t] || t) + ' ' + next.cost[t];
         }).join(', ');
         var btn = document.createElement('button');
-        btn.textContent = '🔼 업그레이드 (' + costStr2 + ')';
+        btn.textContent = '🔼 업그레이드 (' + costStr2 + ')  ⌨F';
         btn.addEventListener('click', function () {
           if (handlers.onUpgradeWarehouse) handlers.onUpgradeWarehouse(b);
         });
@@ -304,7 +306,7 @@ export function createUI(handlers) {
           btnD.textContent = '🔒 ' + RANKS[nextD.minRank].name + ' 단계 필요' + (nextD.cannon ? ' (대포)' : '');
           btnD.disabled = true;
         } else {
-          btnD.textContent = (nextD.cannon ? '💥 대포 장착 (' : '🔼 강화 (') + cstD + ')';
+          btnD.textContent = (nextD.cannon ? '💥 대포 장착 (' : '🔼 강화 (') + cstD + ')  ⌨F';
           btnD.addEventListener('click', function () {
             if (handlers.onUpgradeBuilding) handlers.onUpgradeBuilding(b);
           });
@@ -482,6 +484,26 @@ export function createUI(handlers) {
     }
     render();
     overlay.querySelector('.dev-close').addEventListener('click', function () { overlay.remove(); });
+  }
+
+  // ── 유물 모달 ──
+  function showRelics() {
+    var relics = world.relics || {};
+    var ids = Object.keys(relics).filter(function (k) { return relics[k] > 0 && RELICS[k]; });
+    var body;
+    if (!ids.length) {
+      body = '<p class="rl-empty">아직 유물이 없습니다. 습격을 격퇴하거나 괴민(거인)을 처치하면 무작위 유물을 얻어 콜로니가 영구 강화됩니다.</p>';
+    } else {
+      body = '<div class="rl-grid">' + ids.map(function (id) {
+        var r = RELICS[id];
+        return '<div class="rl-item"><span class="rl-ic">' + r.icon + '</span>' +
+          '<div class="rl-txt"><b>' + r.name + (relics[id] > 1 ? ' <span class="rl-x">×' + relics[id] + '</span>' : '') + '</b>' +
+          '<span>' + r.desc + (relics[id] > 1 ? ' (누적)' : '') + '</span></div></div>';
+      }).join('') + '</div>';
+    }
+    var overlay = openModal('<h2>🎁 유물</h2><div class="rl-body">' + body + '</div>' +
+      '<div class="cm-actions"><button class="cm-ok rl-close">닫기</button></div>');
+    overlay.querySelector('.rl-close').addEventListener('click', function () { overlay.remove(); });
   }
 
   // ── 제작 모달 (무기 + 낚싯대) ──

@@ -2,7 +2,7 @@
 import {
   MAP_W, MAP_H, NATURE, STACK_MAX, BUILDS, GOLDMINE, IRONMINE, BRIDGE,
   RESEARCH_RATE_PER_PAWN, ENEMY, RAID, GIANT, SEASON_DAYS, SEASONS, STORAGE, RANCH, REGROW,
-  ANIMAL_TYPES, WAREHOUSE_TIERS, UPGRADES, RANKS, DEFENSE_TIERS, CANNON,
+  ANIMAL_TYPES, WAREHOUSE_TIERS, UPGRADES, RANKS, DEFENSE_TIERS, CANNON, RELICS,
   T_WATER, T_GRASS, T_SAND,
 } from './config.js';
 
@@ -15,6 +15,11 @@ export function upgradeMult(world, key) {
     var u = UPGRADES[id];
     if (u && u.effect.key === key && u.effect.mult) m *= u.effect.mult;
   }
+  var R = world.relics || {}; // 유물도 같은 배율 풀에 합산(스택=거듭제곱) → 업그레이드와 시너지
+  for (var rid in R) {
+    var rl = RELICS[rid];
+    if (R[rid] > 0 && rl && rl.effect.key === key && rl.effect.mult) m *= Math.pow(rl.effect.mult, R[rid]);
+  }
   return m;
 }
 export function upgradeAdd(world, key) {
@@ -24,7 +29,20 @@ export function upgradeAdd(world, key) {
     var u = UPGRADES[id];
     if (u && u.effect.key === key && u.effect.add) a += u.effect.add;
   }
+  var R = world.relics || {};
+  for (var rid in R) {
+    var rl = RELICS[rid];
+    if (R[rid] > 0 && rl && rl.effect.key === key && rl.effect.add) a += rl.effect.add * R[rid];
+  }
   return a;
+}
+// 유물 획득 (rng 로 무작위 1개, 중복 시 스택). 반환: {id, def, count}
+export function grantRelic(world, rng) {
+  var ids = Object.keys(RELICS);
+  var id = ids[(rng() * ids.length) | 0];
+  world.relics = world.relics || {};
+  world.relics[id] = (world.relics[id] || 0) + 1;
+  return { id: id, def: RELICS[id], count: world.relics[id] };
 }
 
 function pickAnimalType(rng) {
@@ -100,6 +118,7 @@ export function createWorld(seed) {
     rodTier: 0,         // 낚싯대 등급 (0 맨손 ~ 3 황금)
     fishDesig: {},      // idx -> true (낚시 지정된 물 타일)
     rank: 0,            // 발전 단계 (0 무리 ~ 4 나라) — RANKS 인덱스
+    relics: {},         // 유물 id -> 보유 개수 (스택). 습격 격퇴·괴민 처치로 획득
   };
 
   var coast = makeNoise(rng, 8);
