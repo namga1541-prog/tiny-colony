@@ -27,7 +27,7 @@
 | `canAfford` | js/world.js:657 |
 | `cancelToSelect` | js/main.js:141 |
 | `canPlaceBridge` | js/world.js:405 |
-| `catchFish` | js/config.js:357 |
+| `catchFish` | js/config.js:358 |
 | `centerOn` | js/render.js:1059 |
 | `checkGoals` | js/goals.js:31 |
 | `checkIslandDiscovery` | js/world.js:620 |
@@ -56,7 +56,7 @@
 | `dailyIslandRespawn` | js/world.js:593 |
 | `dailyMineRegen` | js/world.js:638 |
 | `dailyRegrowth` | js/world.js:538 |
-| `defenseStats` | js/world.js:810 |
+| `defenseStats` | js/world.js:811 |
 | `dist` | js/jobs.js:23 |
 | `distB` | js/jobs.js:27 |
 | `doInteract` | js/main.js:934 |
@@ -95,7 +95,7 @@
 | `heapPush` | js/path.js:12 |
 | `hideBuilding` | js/ui.js:388 |
 | `hidePawn` | js/ui.js:180 |
-| `hireCost` | js/config.js:306 |
+| `hireCost` | js/config.js:307 |
 | `idx` | js/world.js:103 |
 | `inMap` | js/world.js:106 |
 | `islandSpot` | js/world.js:245 |
@@ -208,7 +208,7 @@
 | `tickRanches` | js/world.js:505 |
 | `tickResearch` | js/world.js:664 |
 | `tickSelection` | js/render.js:892 |
-| `tickTowers` | js/world.js:826 |
+| `tickTowers` | js/world.js:827 |
 | `tickWorkFx` | js/render.js:1131 |
 | `toast` | js/ui.js:392 |
 | `toggleMute` | js/audio.js:39 |
@@ -228,7 +228,7 @@
 | `updatePawnSprite` | js/render.js:662 |
 | `updateRes` | js/ui.js:106 |
 | `updateRoster` | js/ui.js:124 |
-| `updateSheep` | js/world.js:856 |
+| `updateSheep` | js/world.js:857 |
 | `updateStorage` | js/ui.js:114 |
 | `upgradeAdd` | js/world.js:25 |
 | `upgradeMult` | js/world.js:11 |

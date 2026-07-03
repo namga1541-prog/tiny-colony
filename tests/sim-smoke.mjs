@@ -334,8 +334,13 @@ console.log('[sim-smoke] 16) 나라의 시련(대침공) — 달력상 10일차�
   // "전멸 위기 재도전" 분기가 섞여 들어가 상태기계 검증이 흔들린다 — 여기선 상태 전이만 보는 게 목적이므로
   // 매 스텝 뒤 정착민을 안전하게 유지(다른 파일의 실제 전투 밸런스와는 무관, 테스트 전용 안전장치).
   function safeRun(mins) {
-    run(sim, mins);
-    sim.pawns.forEach(function (p) { if (p.state === 'dead') p.state = 'idle'; p.hp = 100; });
+    // 30분 단위로 잘라 정착민을 자주 살려둠 — 강해진 괴민에 전멸→철수하지 않게(상태 전이만 검증)
+    var left = mins;
+    while (left > 0) {
+      var d = Math.min(30, left); left -= d;
+      run(sim, d);
+      sim.pawns.forEach(function (p) { if (p.state === 'dead') p.state = 'idle'; p.hp = 100; });
+    }
   }
   safeRun(1); // 부팅 직후부터 첫 예정 침공(10일차) 카운트다운이 자동 시작
   ok(w.invasion && w.invasion.phase === 'countdown', '게임 시작과 동시에 카운트다운 시작(나라 단계 요건 없음)');
@@ -349,8 +354,12 @@ console.log('[sim-smoke] 16) 나라의 시련(대침공) — 달력상 10일차�
   var sched0 = INVASION.schedule[0];
   ok(w.invasion.phase === 'active' && w.invasion.wave === 1, '1차 침공 발동 → 1웨이브 active');
   var w1 = w.enemies.filter(function (e) { return e.wave === 1; });
-  ok(w1.length === sched0.goblinsPerWave + sched0.warlordsPerWave, '1웨이브 스폰 수 = 고블린+정복자 (' + w1.length + ')');
+  ok(w1.length === sched0.goblinsPerWave + sched0.warlordsPerWave + (sched0.giants || 0),
+    '1웨이브 스폰 수 = 고블린+정복자+괴민 (' + w1.length + ')');
   ok(w1.some(function (e) { return e.kind === 'warlord'; }), '1웨이브에 정복자 포함');
+  var fastGiants = w1.filter(function (e) { return e.kind === 'giant' && e.fast; });
+  ok(fastGiants.length === (sched0.giants || 0) && fastGiants.length > 0,
+    '10일차 침공에 빠른 괴민 ' + (sched0.giants || 0) + '체 추가 (' + fastGiants.length + ')');
 
   // 정복자만 먼저 처치 → 잔당(고블린)도 함께 퇴각해 웨이브 조기 클리어
   w.enemies.forEach(function (e) { if (e.wave === 1 && e.kind === 'warlord') e.hp = 0; });
@@ -526,6 +535,23 @@ console.log('[sim-smoke] 21) 자동 무장 — 창고에 무기가 있으면 맨
   goblinNear(w3, p3, 2);
   run(sim3, 20);
   ok(!p3.equipped, '무기 재고가 없으면 장착 안 함(맨손 유지)');
+})();
+
+console.log('[sim-smoke] 22) 괴민 강화 — HP 3배 + 빠른 괴민(대침공)이 더 빨리 이동 (신규)');
+(function () {
+  ok(GIANT.hp === 900, '괴민 기본 HP 3배 = 900 (' + GIANT.hp + ')');
+  // 같은 위치의 일반 괴민 vs 빠른 괴민 — 같은 시간 이동 시 빠른 쪽이 더 멀리
+  function giant(w, p, fast) {
+    var x = Math.round(p.px) + 8, y = Math.round(p.py);
+    var e = { id: w.nextEid++, x: x, y: y, px: x, py: y, hp: 999, maxHp: 999, cd: 0, dir: 1, anim: 0, kind: 'giant', wave: 0, fast: !!fast };
+    w.enemies.push(e); return e;
+  }
+  var s = bootSim(55); var w = s.world; var p = w.buildings ? s.pawns[0] : s.pawns[0];
+  var slow = giant(w, p, false), quick = giant(w, p, true);
+  var sx0 = slow.px, qx0 = quick.px;
+  run(s, 30);
+  var slowMoved = Math.abs(slow.px - sx0), quickMoved = Math.abs(quick.px - qx0);
+  ok(quickMoved > slowMoved, '빠른 괴민이 일반 괴민보다 더 멀리 이동 (' + quickMoved.toFixed(2) + ' > ' + slowMoved.toFixed(2) + ')');
 })();
 
 console.log('');

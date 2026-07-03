@@ -818,7 +818,7 @@ export function createRenderer(world) {
       }
       sp.x = (en.px + 0.5) * TILE;
       sp.tint = 0xffffff;
-      var GS = 16; // 거인 스케일(정착민의 ~5배 키 — 압도적이지만 전장이 보이는 크기)
+      var GS = 22; // 거인 스케일(정착민의 ~7배 키 — 더 거대하게)
       if (isG) {
         // 거대 원시인(caveman) — 나체에 가죽 팬티, 주먹으로 부수는 바보 거인
         sp.anchor.set(0.5, 0.9);

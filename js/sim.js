@@ -159,9 +159,15 @@ export function stepWorld(world, pawns, dtMin, rng, ctx, enemyCbs) {
       inv.wave = 1;
       spawnRaid(world, sched.goblinsPerWave, rng, 'goblin', 1);
       spawnRaid(world, sched.warlordsPerWave, rng, 'warlord', 1);
+      // 스케줄에 giants 가 있으면 빠른 괴민 추가 투입 (1웨이브 소속으로 태깅)
+      if (sched.giants) {
+        var g0 = world.enemies.length;
+        spawnRaid(world, sched.giants, rng, 'giant', 1);
+        for (var gi = g0; gi < world.enemies.length; gi++) world.enemies[gi].fast = true;
+      }
       world.raidActive = true;
-      ctx.onToast('🏴 대침공이 시작되었습니다! 「정복자」가 이끄는 1웨이브 상륙!', true);
-      ctx.onEvent('🏴 대침공 웨이브 1/' + sched.waves);
+      ctx.onToast('🏴 대침공이 시작되었습니다! 「정복자」가 이끄는 1웨이브 상륙!' + (sched.giants ? ' 빠른 괴민 ' + sched.giants + '체 동반!' : ''), true);
+      ctx.onEvent('🏴 대침공 웨이브 1/' + sched.waves + (sched.giants ? ' (+괴민 ' + sched.giants + ')' : ''));
       ctx.onSfx('alert');
     } else if (inv.phase === 'active') {
       if (aliveNow <= 2) {

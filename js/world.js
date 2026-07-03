@@ -1,7 +1,7 @@
 // v0.3 월드: 바다 위의 섬 + 다중타일 건물(풋프린트) + 금광 + 양
 import {
   MAP_W, MAP_H, NATURE, STACK_MAX, BUILDS, GOLDMINE, IRONMINE, BRIDGE,
-  RESEARCH_RATE_PER_PAWN, ENEMY, RAID, GIANT, SEASON_DAYS, SEASONS, STORAGE, RANCH, REGROW,
+  RESEARCH_RATE_PER_PAWN, ENEMY, RAID, GIANT, GIANT_FAST_MULT, SEASON_DAYS, SEASONS, STORAGE, RANCH, REGROW,
   ANIMAL_TYPES, WAREHOUSE_TIERS, UPGRADES, RANKS, DEFENSE_TIERS, OUTPOST_BRANCHES, CANNON, RELICS, ISLANDS, CANNIBAL, WARLORD,
   T_WATER, T_GRASS, T_SAND,
 } from './config.js';
@@ -782,9 +782,10 @@ export function updateEnemies(world, pawns, dtMin, cb) {
           }
         }
       } else {
-        // 접근 (그리디 1스텝, 물/벽 회피)
+        // 접근 (그리디 1스텝, 물/벽 회피). 빠른 괴민(e.fast)은 이동 소요시간 단축
         e.moving = true;
-        var step = dtMin / st.moveMinPerTile;
+        var mmpt = e.fast ? st.moveMinPerTile * GIANT_FAST_MULT : st.moveMinPerTile;
+        var step = dtMin / mmpt;
         var vx = Math.sign(tgt.px - e.px), vy = Math.sign(tgt.py - e.py);
         if (vx !== 0) e.dir = vx;
         // 우선 큰 축 이동

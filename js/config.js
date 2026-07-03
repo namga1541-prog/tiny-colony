@@ -259,9 +259,10 @@ export const ENEMY = { hp: 45, power: 8, attackCd: 14, moveMinPerTile: 1.4, drop
 // ── 무지성 거인 「괴민」: 5일밤마다 상륙. 덩치 크고 HP·공격력 높지만 느리고 아둔함(진격의 거인풍) ──
 // moveMinPerTile 이 클수록 느림(2.8 = 고블린의 2배 느림). rng 미사용 → 결정론 유지.
 export const GIANT = {
-  hp: 300, power: 22, attackCd: 24, moveMinPerTile: 2.8,
+  hp: 900, power: 22, attackCd: 24, moveMinPerTile: 2.8, // hp 3배(300→900) — 훨씬 튼튼한 탱커
   dropGold: 30, dropIron: 15, hpPerDay: 8, name: '괴민',
 };
+export const GIANT_FAST_MULT = 0.55; // 빠른 괴민(대침공 추가 투입): 이동 소요시간 ×0.55 → 약 1.8배 빠름
 export const GIANT_RAID = { everyDays: 5, spawnHour: 20, baseCount: 1 }; // 5·10·15…일 밤 8시
 export const RAID = { firstDay: 4, intervalDays: 3, baseCount: 2, perDayExtra: 0.4, spawnHour: 20,
   perPop: 0.4, hpPerDay: 1.5, loot: { gold: 4, iron: 2 } };
@@ -279,7 +280,7 @@ export const WARLORD = {
 // schedule 순서대로 하나씩 진행되며, 뒤로 갈수록(20일차) 웨이브·적 수·보상이 늘어난다.
 export const INVASION = {
   schedule: [
-    { day: 10, waves: 3, goblinsPerWave: 4, warlordsPerWave: 1, relicCount: 1 },
+    { day: 10, waves: 3, goblinsPerWave: 4, warlordsPerWave: 1, relicCount: 1, giants: 3 }, // 10일차: 빠른 괴민 3마리 추가 투입
     { day: 20, waves: 4, goblinsPerWave: 6, warlordsPerWave: 2, relicCount: 2 },
   ],
   spawnHour: 20,          // GIANT_RAID/RAID 와 동일 시각대(밤 8시)
