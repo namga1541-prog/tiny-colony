@@ -108,7 +108,24 @@ export const BUILDS = {
     town: { sx: 0, sy: 64, sw: 64, sh: 64 }, tint: 0xdfeaff, // 회색집 + 청백색조(치료소=청결·의료)
     desc: '부상당한 정착민이 찾아와 빠르게 회복합니다.',
   },
+  // ── 일꾼 오두막: 자원 옆에 붙여 지어 자동 채광·농사(친구 피드백). 비쌈. ──
+  minerLodge: {
+    name: '광부 오두막', cost: { wood: 25, gold: 15 }, work: 90, hp: 90,
+    fw: 2, fh: 2, solid: true, light: true, requireMineAdjacent: true,
+    img: 'House', imgC: 'House_C', pw: 128, ph: 192,
+    town: { sx: 0, sy: 64, sw: 64, sh: 64 }, tint: 0xc9a24a, // 광석빛 황금
+    desc: '금광·철광에 붙여 지으면 그 광산을 고갈·재생과 무관하게 자동으로 계속 채굴합니다.',
+  },
+  farmLodge: {
+    name: '농부 오두막', cost: { wood: 25, gold: 10 }, work: 90, hp: 90,
+    fw: 2, fh: 2, solid: true, light: true, requireFarming: true,
+    img: 'House', imgC: 'House_C', pw: 128, ph: 192,
+    town: { sx: 64, sy: 64, sw: 64, sh: 64 }, tint: 0x8fca5a, // 초록(농경)
+    desc: '완공 시 주변 잔디를 자동으로 농사 구역으로 만들어 계속 재배합니다. (농업 연구 필요)',
+  },
 };
+// 농부 오두막이 자동 농사 구역으로 만드는 주변 반경(풋프린트 바깥 타일)
+export const LODGE_FARM_RADIUS = 3;
 export const BUILDING_HP_DEFAULT = 100; // hp 미지정 건물종류(에셋팩 신규 추가 등) 폴백
 
 // ── 저장고 용량 (2): 기본 + 창고당 증가. 초과분은 저장 불가(폐기) ──
@@ -371,6 +388,7 @@ export const RANKS = [
 // 건물별 최소 해금 단계(RANKS 인덱스). 목록에 없는 건물은 0(무리)부터 건설 가능.
 export const BUILD_MIN_RANK = {
   smithy: 1, ranch: 1, outpost: 2, tower: 2, clinic: 2, castle: 3,
+  minerLodge: 1, farmLodge: 1, // 일꾼 오두막(집단 단계부터)
   shipHull: 4, shipEngine: 4, shipReactor: 4, // 나라 단계 전용(main.js 에서 대침공 완전 격퇴도 추가로 요구)
 };
 

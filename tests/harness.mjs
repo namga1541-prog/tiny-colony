@@ -41,6 +41,7 @@ export function bootSim(seed) {
     onRecruit: function () { headlessRecruit(world, pawns, ambient); counters.recruit++; },
     onSeasonTint: function () {},
     onGoddessDescend: function () {},
+    onZonesChanged: function () {},
   };
   var enemyCbs = {
     onHit: function () {},

@@ -7,7 +7,7 @@ import {
   createWorld, mulberry32, idx, ix, iy, isWalkable, footprintClear,
   addBuilding, removeBuilding, buildingDef, addItem, totalRes, dailyRegrowth,
   updateSheep, tickResearch, tickCrops, updateEnemies, spawnRaid,
-  canPlaceBridge, fishSpotTier, footprintTouchesWater, consumeGlobal, seasonDef, seasonIndex,
+  canPlaceBridge, fishSpotTier, footprintTouchesWater, footprintAdjacentMine, consumeGlobal, seasonDef, seasonIndex,
   tickRanches, storageCap, totalStored, dailyMineRegen, tickTowers, canAfford,
   upgradeAdd, maxPop, canAdvanceRank, advanceRank, defenseStats,
 } from './world.js';
@@ -468,6 +468,7 @@ var ctx = {
   onRecruit: function () { recruitWanderer(); },
   onSeasonTint: function (tint, a) { R.setSeasonTint(tint, a); },
   onGoddessDescend: function (x, y) { R.spawnGoddessFx(x, y); },
+  onZonesChanged: function () { R.refreshZones(); }, // 오두막 자동 지정 등으로 구역이 바뀜
 };
 
 // ── 도구 적용 ──
@@ -691,6 +692,10 @@ function applyTool(tool, a, b) {
       UI.toast('🔒 ' + def.name + ' 은(는) 대침공을 완전히 격퇴해야 해금됩니다', true);
     } else if (def.requireCoast && !footprintTouchesWater(world, px, py, def.fw, def.fh)) {
       UI.toast('⚠️ ' + def.name + ' 은(는) 물과 접한 곳에만 지을 수 있습니다', true);
+    } else if (def.requireMineAdjacent && !footprintAdjacentMine(world, px, py, def.fw, def.fh)) {
+      UI.toast('⚠️ ' + def.name + ' 은(는) 금광·철광에 붙여서만 지을 수 있습니다', true);
+    } else if (def.requireFarming && !world.research.unlocked.farming) {
+      UI.toast('🔒 ' + def.name + ' 은(는) "농업" 연구 후 지을 수 있습니다', true);
     } else if (!footprintClear(world, px, py, def.fw, def.fh, false)) {
       UI.toast('⚠️ 그 위치에는 지을 수 없습니다 (' + def.fw + '×' + def.fh + ' 필요)', true);
     } else if (!canAfford(world, def.cost)) {

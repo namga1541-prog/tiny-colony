@@ -3,7 +3,7 @@ import {
   MAP_W, MAP_H, NATURE, STACK_MAX, BUILDS, BUILDING_HP_DEFAULT, GOLDMINE, IRONMINE, BRIDGE,
   RESEARCH_RATE_PER_PAWN, ENEMY, RAID, GIANT, GIANT_FAST_MULT, GIANT_JUMP, SEASON_DAYS, SEASONS, STORAGE, RANCH, REGROW,
   ANIMAL_TYPES, WAREHOUSE_TIERS, UPGRADES, RANKS, DEFENSE_TIERS, OUTPOST_BRANCHES, CANNON, RELICS, ISLANDS, CANNIBAL, WARLORD, RAIDER, INVWARRIOR, ZOMBIE, SKELETON,
-  ARMOR, FISH_PLATFORM,
+  ARMOR, FISH_PLATFORM, LODGE_FARM_RADIUS,
   T_WATER, T_GRASS, T_SAND,
 } from './config.js';
 import { findPath } from './path.js';
@@ -703,6 +703,70 @@ export function dailyMineRegen(world) {
     if ((b.charges || 0) >= max) continue;
     b.charges = Math.min(max, (b.charges || 0) + regen);
     if (b.charges > 0 && b.depleted) { b.depleted = false; changed.push(+id); }
+  }
+  return changed;
+}
+
+// ── 일꾼 오두막: 자원에 붙여 지어 자동 채광·농사 ──
+// 건물 풋프린트 바깥 한 겹(대각 포함)에서 광산 건물 하나 반환(없으면 null).
+export function adjacentMine(world, b) {
+  var def = buildingDef(b.kind);
+  for (var dy = -1; dy <= def.fh; dy++) {
+    for (var dx = -1; dx <= def.fw; dx++) {
+      if (dx >= 0 && dx < def.fw && dy >= 0 && dy < def.fh) continue; // 내부 제외
+      var tx = b.x + dx, ty = b.y + dy;
+      if (!inMap(tx, ty)) continue;
+      var bid = world.occupancy[idx(tx, ty)];
+      if (bid !== undefined) {
+        var nb = world.buildings[bid];
+        if (nb && isMine(nb.kind) && nb.stage === 'built') return nb;
+      }
+    }
+  }
+  return null;
+}
+// (배치 게이트용) x,y 풋프린트 바깥 한 겹에 광산이 있는지
+export function footprintAdjacentMine(world, x, y, fw, fh) {
+  for (var dy = -1; dy <= fh; dy++) {
+    for (var dx = -1; dx <= fw; dx++) {
+      if (dx >= 0 && dx < fw && dy >= 0 && dy < fh) continue;
+      var tx = x + dx, ty = y + dy;
+      if (!inMap(tx, ty)) continue;
+      var bid = world.occupancy[idx(tx, ty)];
+      if (bid !== undefined) { var nb = world.buildings[bid]; if (nb && isMine(nb.kind)) return true; }
+    }
+  }
+  return false;
+}
+// 매 진행마다: 광부 오두막은 인접 광산을 자동 채굴 지정, 농부 오두막은 주변 잔디를 자동 농사 구역화.
+// 바뀐 게 있으면 true(호출부에서 구역 오버레이 갱신). 정착민 배치·소유 개념 없이 "지정"만 자동화.
+export function autoDesignateLodges(world) {
+  var changed = false;
+  for (var id in world.buildings) {
+    var b = world.buildings[id];
+    if (b.stage !== 'built') continue;
+    if (b.kind === 'minerLodge') {
+      var mine = adjacentMine(world, b);
+      if (mine && !mine.depleted && (mine.charges || 0) > 0 && !world.mineDesig[mine.id]) {
+        world.mineDesig[mine.id] = true; changed = true;
+      }
+    } else if (b.kind === 'farmLodge') {
+      if (!world.research || !world.research.unlocked || !world.research.unlocked.farming) continue;
+      var def = buildingDef(b.kind);
+      var R = LODGE_FARM_RADIUS;
+      for (var dy = -R; dy < def.fh + R; dy++) {
+        for (var dx = -R; dx < def.fw + R; dx++) {
+          if (dx >= 0 && dx < def.fw && dy >= 0 && dy < def.fh) continue; // 오두막 자리 제외
+          var tx = b.x + dx, ty = b.y + dy;
+          if (!inMap(tx, ty)) continue;
+          var i = idx(tx, ty);
+          if (world.farmZone[i] || world.orchardZone[i]) continue;
+          if (!isWalkable(world, tx, ty)) continue;
+          if (world.occupancy[i] !== undefined || world.objects[i] || world.stockpile[i]) continue;
+          world.farmZone[i] = true; changed = true;
+        }
+      }
+    }
   }
   return changed;
 }

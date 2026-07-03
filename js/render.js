@@ -246,6 +246,8 @@ export function createRenderer(world) {
     tower:     { icon: '🏹', color: 0x556070 },
     outpost:   { icon: '🛡️', color: 0x8a7444 },
     castle:    { icon: '👑', color: 0x7a5a20 },
+    minerLodge: { icon: '⛏️', color: 0x8a6a2a },
+    farmLodge:  { icon: '🌾', color: 0x4e8a3a },
     shipHull:    { icon: '🚀', color: 0x5a6674 },
     shipEngine:  { icon: '🔥', color: 0xb05a2a },
     shipReactor: { icon: '⚡', color: 0x2a8a64 },

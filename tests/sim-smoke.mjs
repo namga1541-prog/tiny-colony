@@ -1,6 +1,6 @@
 // L1 시나리오 스모크 — 시드 고정, 헤드리스. stepWorld 추출이 올바른지 + 결정론 확인.
 import { bootSim, run, runDays, designateChop, give, snapshot, DAY_MIN, MAP_W } from './harness.mjs';
-import { addBuilding, storageCap, upgradeMult, upgradeAdd, maxPop, rankReqStatus, canAdvanceRank, advanceRank, defenseStats, tickTowers, enemyStats, spawnRaid, mulberry32, grantRelic, dailyIslandRespawn, checkIslandDiscovery, updateEnemies, idx, shipComplete, fishSpotTier, footprintTouchesWater, canPlaceBridge, isWalkable } from '../js/world.js';
+import { addBuilding, storageCap, upgradeMult, upgradeAdd, maxPop, rankReqStatus, canAdvanceRank, advanceRank, defenseStats, tickTowers, enemyStats, spawnRaid, mulberry32, grantRelic, dailyIslandRespawn, checkIslandDiscovery, updateEnemies, idx, shipComplete, fishSpotTier, footprintTouchesWater, canPlaceBridge, isWalkable, autoDesignateLodges, footprintAdjacentMine } from '../js/world.js';
 import { GIANT, ENEMY, CANNIBAL, ISLANDS, INVASION, OUTPOST_BRANCHES, RAIDER, INVWARRIOR, ZOMBIE, SKELETON, GIANT_JUMP, ARMOR, FRUITTREE, FISH, catchFish, GODDESS, TRADER, BUILDS, BUILD_MIN_RANK, FISH_PLATFORM } from '../js/config.js';
 import { findWorkJob, releaseAllOf } from '../js/jobs.js';
 
@@ -861,6 +861,40 @@ console.log('[sim-smoke] 33) 적 길찾기 — 장애물 우회 + 완전 차단 
     addBuilding(w3, 'bridge', bx, by, { stage: 'built' });
     ok(isWalkable(w3, bx, by), '다리 위는 통행 가능 — 길찾기가 다리를 경유할 수 있음');
   } else { ok(true, '(다리 설치 위치 없음 — 스킵)'); }
+})();
+
+console.log('[sim-smoke] 34) 일꾼 오두막 — 광부(인접 광산 자동 채굴)·농부(주변 자동 농사 구역) (신규)');
+(function () {
+  // (a) 광부 오두막: 인접 광산을 자동 채굴 지정
+  var w = bootSim(1001).world;
+  var mine = addBuilding(w, 'goldmine', 40, 40, { natural: true, stage: 'built', charges: 20 });
+  ok(footprintAdjacentMine(w, 43, 40, 2, 2) === true, '광산 오른쪽에 붙인 자리 = 광산 인접(배치 허용)');
+  ok(footprintAdjacentMine(w, 60, 60, 2, 2) === false, '광산과 먼 자리 = 인접 아님(배치 거부)');
+  var lodge = addBuilding(w, 'minerLodge', 43, 40, { stage: 'built' });
+  ok(!w.mineDesig[mine.id], '오두막만 지었을 뿐 아직 자동 지정 전');
+  var changed = autoDesignateLodges(w);
+  ok(w.mineDesig[mine.id] === true, '광부 오두막이 인접 광산을 자동 채굴 지정함');
+  ok(changed === true, '지정 변경 시 true 반환(구역 갱신 신호)');
+  // 고갈 후에도(재생되면) 다시 자동 지정 — 고갈 상태면 지정 안 함
+  mine.charges = 0; mine.depleted = true; delete w.mineDesig[mine.id];
+  autoDesignateLodges(w);
+  ok(!w.mineDesig[mine.id], '고갈된 광산은 자동 지정하지 않음');
+  mine.charges = 10; mine.depleted = false;
+  autoDesignateLodges(w);
+  ok(w.mineDesig[mine.id] === true, '재생(충전>0)되면 다시 자동 채굴 지정');
+
+  // (b) 농부 오두막: 농업 연구 후 주변 잔디를 자동 농사 구역화
+  var w2 = bootSim(1002).world;
+  // 개활지 확보
+  for (var yy = 44; yy <= 56; yy++) for (var xx = 44; xx <= 56; xx++) { delete w2.objects[idx(xx, yy)]; }
+  var flodge = addBuilding(w2, 'farmLodge', 50, 50, { stage: 'built' });
+  ok(Object.keys(w2.farmZone).length === 0, '초기 농사 구역 없음');
+  autoDesignateLodges(w2);
+  ok(Object.keys(w2.farmZone).length === 0, '농업 연구 전에는 자동 농사 구역 생성 안 함');
+  w2.research.unlocked.farming = true;
+  autoDesignateLodges(w2);
+  ok(Object.keys(w2.farmZone).length > 0, '농업 연구 후 주변 잔디가 자동 농사 구역이 됨 (' + Object.keys(w2.farmZone).length + '칸)');
+  ok(!w2.farmZone[idx(50, 50)], '오두막 자리 자체는 농사 구역에서 제외');
 })();
 
 console.log('');
