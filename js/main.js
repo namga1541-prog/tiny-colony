@@ -1052,8 +1052,16 @@ function manualMove(pawn, gameMin) {
 }
 
 // ── 전투 콜백 (적→정착민) ──
+var lastHitSfxMin = -999; // 피격 효과음 스팸 방지(게임분 기준 스로틀)
+function hitSfx() {
+  if (world.timeMin - lastHitSfxMin >= 3) { lastHitSfxMin = world.timeMin; Audio2.play('attack'); }
+}
 var enemyCbs = {
-  onHit: function (pawn) { /* 데미지는 world 에서 처리 */ },
+  onHit: function (pawn, dmg) { // 정착민 피격: 타격 스파크 + 데미지 숫자 + 빨간 플래시 + 효과음
+    R.spawnHitFx(pawn.px, pawn.py, dmg);
+    R.flashPawn(pawn.id);
+    hitSfx();
+  },
   onPawnDeath: function (pawn) {
     releaseAllOf(world, pawn.id);
     var ci = controlled.indexOf(pawn);
@@ -1078,7 +1086,13 @@ var enemyCbs = {
     R.spawnBoomFx(tgt.x, tgt.y);
     Audio2.play('attack');
   },
-  onBuildingHit: function (b, dmg) { /* 잦은 이벤트라 파괴 시에만 알림(아래) */ },
+  onBuildingHit: function (b, dmg) { // 건물 피격: 타격 스파크 + 데미지 숫자 + 머리 위 체력바 표시
+    var def = BUILDS[b.kind] || buildingDef(b.kind);
+    var cx = b.x + ((def.fw || 1) - 1) / 2, cy = b.y + ((def.fh || 1) - 1) / 2;
+    R.spawnHitFx(cx, cy, dmg);
+    R.updateBuildingHp(b);
+    hitSfx();
+  },
   onBuildingDestroyed: function (b) {
     var def = BUILDS[b.kind];
     R.spawnBoomFx(b.x, b.y);

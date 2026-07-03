@@ -193,7 +193,8 @@ export function createRenderer(world) {
   var selGfx = new PIXI.Graphics();
   var dragGfx = new PIXI.Graphics();
   var fxLayer = new PIXI.Graphics(); // 방어건물 공격 이펙트(투사체 궤적·타격 섬광)
-  camera.addChild(waterLayer, foamLayer, landLayer, groundDecor, zoneGfx, itemLayer, objLayer, fxLayer, selGfx, dragGfx);
+  var overlayLayer = new PIXI.Container(); // 전투 피드백: 데미지 숫자·건물 체력바 (항상 최상단)
+  camera.addChild(waterLayer, foamLayer, landLayer, groundDecor, zoneGfx, itemLayer, objLayer, fxLayer, overlayLayer, selGfx, dragGfx);
 
   var seasonOverlay = new PIXI.Graphics(); // 계절 색보정 (밤보다 아래)
   app.stage.addChild(seasonOverlay);
@@ -467,6 +468,7 @@ export function createRenderer(world) {
     if (e) { objLayer.removeChild(e); e.destroy(); delete bSprites[bid]; }
     var bg = bBadges[bid];
     if (bg) { objLayer.removeChild(bg); bg.destroy({ children: true }); delete bBadges[bid]; }
+    removeBuildingHp(bid);
     rebuildLights();
   }
 
@@ -731,6 +733,7 @@ export function createRenderer(world) {
     return tex;
   }
 
+  function flashPawn(pawnId) { var e = pawnSprites[pawnId]; if (e) e.flashUntil = animTime + 0.28; }
   function updatePawnSprite(pawn) {
     var e = pawnSprites[pawn.id];
     if (!e) return;
@@ -752,9 +755,11 @@ export function createRenderer(world) {
       e.spr.texture = pawnTex(pawn.look, 'idle', 0, 0);
       e.spr.alpha = 0.5; e.spr.tint = 0x888888; e.spr.angle = 90; // 회색·쓰러짐
     } else {
-      e.spr.alpha = 1; e.spr.tint = 0xffffff; e.spr.angle = 0;
+      var flashing = e.flashUntil !== undefined && animTime < e.flashUntil;
+      e.spr.alpha = 1; e.spr.tint = flashing ? 0xff5a5a : 0xffffff; e.spr.angle = 0; // 피격 시 빨간 플래시
       var frame = ((animTime / 0.15) | 0) + e.animOff;
       e.spr.texture = pawnTex(pawn.look, pose === 'walk' ? 'walk' : 'idle', frame, e.dir);
+      if (flashing) { e.spr.x += (Math.random() - 0.5) * 4; } // 짧은 흔들림(움찔)
     }
 
     if (e.name.text !== pawn.name) e.name.text = pawn.name;
@@ -908,7 +913,18 @@ export function createRenderer(world) {
         sp.scale.set(esc * (en.dir < 0 ? -1 : 1), esc);
         var frames = en.moving ? look.walk : look.idle;
         sp.texture = frames[(((animTime / 0.12) | 0) + en.anim) % 6];
+        // 고블린·식인종은 공격 프레임(내려치기)을 재생 — 때리는 게 분명히 보이도록
+        if (en.atkT > 0 && (en.kind === 'goblin' || en.kind === 'cannibal')) {
+          sp.texture = goblinAtk[(((animTime / 0.07) | 0) + en.anim) % 6];
+        }
         if (look.tint) sp.tint = look.tint;
+      }
+      // 공격 찌르기: 목표 방향으로 쭉 뻗었다 되돌아오는 잽(모든 적 공통)
+      if (en.atkT > 0) {
+        var ap = Math.sin((1 - en.atkT / 9) * Math.PI); // 0→1→0
+        var amp = isG ? 26 : 11;
+        sp.x += (en.atkDX || en.dir || 1) * ap * amp;
+        sp.y += (en.atkDY || 0) * ap * amp;
       }
       sp.zIndex = sp.y;
       if (isG) { // 이름표 「괴민」 + HP바 (머리 위)
@@ -1202,6 +1218,60 @@ export function createRenderer(world) {
       pushP('grav', x, y, (Math.random() - 0.5) * 240, -110 - Math.random() * 130, 0.5, 3 + Math.random() * 2, 0xffcf6a);
     }
   }
+
+  // ── 전투 피드백: 적이 정착민·건물을 때릴 때 타격 스파크 + 떠오르는 데미지 숫자 ──
+  var dmgTexts = []; // { txt(PIXI.Text), life, max, vy }
+  function spawnHitFx(tileX, tileY, dmg) {
+    var x = (tileX + 0.5) * TILE, y = (tileY + 0.5) * TILE - 6;
+    // 붉은 타격 링 + 하얀 불꽃 파편(피격이 분명히 보이도록)
+    workFxList.push({ kind: 'ring', x: x, y: y, life: 0.28, max: 0.28, size: 4, color: 0xff5a5a, grow: TILE * 0.8, lw: 3 });
+    for (var i = 0; i < 6; i++) {
+      pushP('grav', x, y, (Math.random() - 0.5) * 160, -60 - Math.random() * 90, 0.35, 2 + Math.random() * 2, i % 2 ? 0xffd0d0 : 0xff6a6a);
+    }
+    if (dmg && dmg > 0) {
+      var t = new PIXI.Text('-' + Math.round(dmg), {
+        fontFamily: 'Malgun Gothic', fontSize: 30, fill: 0xff5252, fontWeight: '800',
+        stroke: 0x2a0808, strokeThickness: 5,
+      });
+      t.anchor.set(0.5, 1); t.scale.set(0.7);
+      t.x = x + (Math.random() - 0.5) * 10; t.y = y - 18;
+      overlayLayer.addChild(t);
+      dmgTexts.push({ txt: t, life: 0.8, max: 0.8, vy: -34 });
+    }
+  }
+  function tickDmgTexts(dtSec) {
+    for (var i = dmgTexts.length - 1; i >= 0; i--) {
+      var d = dmgTexts[i];
+      d.life -= dtSec;
+      if (d.life <= 0) { overlayLayer.removeChild(d.txt); d.txt.destroy(); dmgTexts.splice(i, 1); continue; }
+      d.txt.y += d.vy * dtSec;
+      var f = d.life / d.max;
+      d.txt.alpha = Math.min(1, f * 1.6);           // 끝에서 페이드아웃
+      d.txt.scale.set(0.7 + (1 - f) * 0.15);         // 살짝 커지며 사라짐
+    }
+  }
+
+  // ── 건물 체력바: 손상된(비자연) 건물 머리 위에 표시 (온전하면 숨김) ──
+  var bHpBars = {};
+  function updateBuildingHp(b) {
+    if (!b || !world.buildings[b.id]) { removeBuildingHp(b && b.id); return; }
+    var damaged = (b.maxHp != null) && (b.hp != null) && b.hp < b.maxHp && b.hp > 0;
+    if (!damaged) { removeBuildingHp(b.id); return; }
+    var def = buildingDef(b.kind);
+    var bar = bHpBars[b.id];
+    if (!bar) { bar = new PIXI.Graphics(); bar.zIndex = 1500000; overlayLayer.addChild(bar); bHpBars[b.id] = bar; }
+    var cx = (b.x + def.fw / 2) * TILE;
+    var topY = b.y * TILE - 6;
+    var bw = Math.max(30, def.fw * TILE * 0.7), bh = 6;
+    var frac = Math.max(0, b.hp / b.maxHp);
+    bar.clear();
+    bar.beginFill(0x000000, 0.55); bar.drawRect(cx - bw / 2 - 1, topY - 1, bw + 2, bh + 2); bar.endFill();
+    bar.beginFill(frac > 0.5 ? 0x6fd44b : (frac > 0.25 ? 0xffcf4a : 0xff4d4d));
+    bar.drawRect(cx - bw / 2, topY, bw * frac, bh); bar.endFill();
+  }
+  function removeBuildingHp(id) {
+    if (id != null && bHpBars[id]) { overlayLayer.removeChild(bHpBars[id]); bHpBars[id].destroy(); delete bHpBars[id]; }
+  }
   // ── 섬의 수호신 「아보랑카도」 강림 연출 ──
   // 48x64 셀 3열(걷기 프레임)×4행(N/W/S/E), 2행=정면(남쪽) — CC-BY: Angels by AntumDeluge(원작 Svetlana Kushnariova), OpenGameArt.org
   var goddessBase = PIXI.BaseTexture.from('assets/goddess/angel-f-001.png');
@@ -1273,6 +1343,7 @@ export function createRenderer(world) {
     tickAttackFx(dtSec);
     tickWorkFx(dtSec);
     tickGoddessFx(dtSec);
+    tickDmgTexts(dtSec);
     var foamF = (animTime / 0.15) | 0;
     for (var n = 0; n < foamSprites.length; n++) {
       var fs = foamSprites[n];
@@ -1327,5 +1398,8 @@ export function createRenderer(world) {
     spawnAttackFx: spawnAttackFx,
     spawnBoomFx: spawnBoomFx,
     spawnGoddessFx: spawnGoddessFx,
+    spawnHitFx: spawnHitFx,
+    flashPawn: flashPawn,
+    updateBuildingHp: updateBuildingHp,
   };
 }

@@ -914,6 +914,7 @@ export function updateEnemies(world, pawns, dtMin, cb) {
       if (cb.onEnemyDown) cb.onEnemyDown(e);
       continue;
     }
+    if (e.atkT) e.atkT = Math.max(0, e.atkT - dtMin); // 공격 찌르기 모션 타이머(렌더 전용)
     // 괴민 점프: 쿨다운마다 목표 방향으로 도약(통행 불가 지형 무시) → 벽·숲에 막혀도 뚫고 진행 + 착지 지점 광역 파괴
     if (e.kind === 'giant') {
       e.jumpCd = (e.jumpCd === undefined ? GIANT_JUMP.cooldown : e.jumpCd) - dtMin;
@@ -974,6 +975,8 @@ export function updateEnemies(world, pawns, dtMin, cb) {
         e.moving = false;
         if (e.cd <= 0) {
           e.cd = st.attackCd;
+          e.atkT = 9; e.atkDX = Math.sign(tgt.x - e.px); e.atkDY = Math.sign(tgt.y - e.py); // 찌르기 모션
+          if (e.atkDX !== 0) e.dir = e.atkDX;
           if (tgt.kind === 'pawn') {
             var pw = tgt.ref;
             var pdmg = Math.max(1, st.power - armorDefense(pw));
