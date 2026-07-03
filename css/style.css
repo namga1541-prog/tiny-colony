@@ -59,42 +59,71 @@ body.touch .touch-only { display: inline-block; }
 #speedBox button:hover, #sysBox button:hover { background: rgba(255, 255, 255, 0.15); }
 #speedBox button.active { background: #4a7dff; color: #fff; }
 
-/* ── 하단 도구모음 ─────────────────────── */
+/* ── 하단 커맨드 바 (스팀 콜로니 게임풍: 스톤 프레임 + 앰버 액센트) ── */
 #toolbar {
-  bottom: 12px; left: 50%; transform: translateX(-50%);
-  display: flex; align-items: center; gap: 10px;
-  padding: 8px 12px;
-  max-width: calc(100vw - 24px);
-  flex-wrap: wrap;
-  justify-content: center;
+  bottom: 46px; left: 50%; transform: translateX(-50%); /* 좌하단 힌트 위로 띄움(겹침 방지) */
+  display: flex; flex-direction: column; align-items: stretch; gap: 6px;
+  padding: 10px 14px 11px;
+  width: max-content; max-width: calc(100vw - 24px); /* 가장 넓은 선반(건설) 기준 폭 → 각 행 한 줄 */
+  background: linear-gradient(180deg, #2a303c 0%, #1c212b 55%, #14181f 100%);
+  border: 1px solid #0b0d12;
+  border-radius: 13px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    inset 0 -2px 6px rgba(0, 0, 0, 0.35),
+    0 10px 30px rgba(0, 0, 0, 0.55);
 }
-.tool-section { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
-.tool-sep { width: 1px; height: 26px; background: rgba(255, 255, 255, 0.14); }
-
-.tool {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: #dde2ee;
-  border-radius: 9px;
-  padding: 7px 11px;
-  font-size: 13px;
-  cursor: pointer;
-  transition: background 0.12s;
+#toolbar::before { /* 상단 앰버 장식선 */
+  content: ''; position: absolute; left: 14px; right: 14px; top: 4px; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(216, 162, 74, 0.5), transparent);
+  pointer-events: none;
 }
-.tool:hover { background: rgba(255, 255, 255, 0.14); }
-.tool.active { background: #4a7dff; border-color: #6d97ff; color: #fff; }
+/* 라벨 있는 선반(shelf) 행: 왼쪽 카테고리 라벨 + 오른쪽 버튼들 */
+.tool-section { display: flex; flex-direction: row; align-items: center; gap: 5px; flex-wrap: wrap; justify-content: flex-start; }
+.tool-section + .tool-section { /* 행 사이 새겨진 구분선 */
+  border-top: 1px solid rgba(0, 0, 0, 0.4);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  padding-top: 7px;
+}
+.tool-cap { /* 카테고리 라벨 (도구·건설·관리) — 왼쪽 고정 거터 */
+  flex: 0 0 auto; min-width: 34px; text-align: right; margin-right: 8px;
+  font-size: 10px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase;
+  color: #c19a55; white-space: nowrap; user-select: none;
+}
+.tool-sep { display: none; } /* 카테고리 라벨이 구분 역할을 대체 */
 
-.tool-action {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: #dde2ee;
-  border-radius: 9px;
+.tool, .tool-action { /* 돌출된 버튼: 상단 하이라이트 + 하단 그림자 */
+  background: linear-gradient(180deg, #333b49, #262c37);
+  border: 1px solid #10131a;
+  color: #d7dcea;
+  border-radius: 8px;
   padding: 7px 11px;
-  font-size: 13px;
+  font-size: 13px; font-weight: 600;
   cursor: pointer;
   font-family: inherit;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 1px 2px rgba(0, 0, 0, 0.4);
+  transition: background 0.12s, box-shadow 0.12s, color 0.12s, transform 0.08s;
 }
-.tool-action:hover { background: rgba(255, 255, 255, 0.14); }
+.tool:hover, .tool-action:hover { /* 살짝 떠오르며 밝아짐 */
+  background: linear-gradient(180deg, #424b5d, #2f3644);
+  color: #fff;
+  transform: translateY(-1px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.11), 0 3px 7px rgba(0, 0, 0, 0.45);
+}
+.tool:active, .tool-action:active { /* 눌리는 느낌 */
+  transform: translateY(0);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+.tool.active { /* 선택된 도구: 파랑 대신 앰버 음각 + 발광 */
+  background: linear-gradient(180deg, #3c3117, #2a2210);
+  border-color: #d8a24a;
+  color: #ffd98a;
+  text-shadow: 0 0 7px rgba(255, 196, 90, 0.45);
+  box-shadow:
+    inset 0 1px 4px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(216, 162, 74, 0.4),
+    0 0 12px rgba(216, 162, 74, 0.28);
+}
 
 /* ── 정착민 패널 ───────────────────────── */
 #pawnPanel {
@@ -370,17 +399,20 @@ body.touch #toolbar {
   left: 0; right: 0; bottom: 0; transform: none;
   width: 100%; max-width: 100%;
   border-radius: 0; border-width: 1px 0 0 0;
+  flex-direction: row; /* 모바일: 가로 한 줄 스크롤 (데스크톱 세로 선반 → 가로 복귀) */
   flex-wrap: nowrap; justify-content: flex-start;
   gap: 6px;
   overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch;
   padding: 8px 10px;
 }
 body.touch #toolbar .tool-section { flex: 0 0 auto; flex-wrap: nowrap; gap: 6px; }
+body.touch #toolbar .tool-section + .tool-section { border-top: none; box-shadow: none; padding-top: 0; }
 body.touch #toolbar .tool,
 body.touch #toolbar .tool-action {
   flex: 0 0 auto; padding: 9px 12px; font-size: 13px; white-space: nowrap;
 }
 body.touch #toolbar .tool-sep { display: none; } /* 구분선 숨김 — 스크롤 폭 절약 */
+body.touch #toolbar .tool-cap { display: none; } /* 카테고리 라벨 숨김 — 스크롤 폭 절약 */
 body.touch #hint { display: none; }
 
 #vJoyPad, #btnActionTouch { display: none; }
