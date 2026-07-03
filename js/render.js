@@ -455,8 +455,7 @@ export function createRenderer(world) {
     name.scale.set(0.62);
     var carry = new PIXI.Sprite();
     carry.visible = false;
-    var tool = new PIXI.Text('', { fontSize: 22 });
-    tool.anchor.set(0.5, 0.5);
+    var tool = new PIXI.Sprite(); // 코드로 그린 픽셀 도구(도끼·곡괭이·낚싯대 등)
     tool.visible = false;
     pawnSprites[pawn.id] = { spr: s, name: name, carry: carry, tool: tool, animOff: pawn.id * 2 };
     objLayer.addChild(s); objLayer.addChild(name); objLayer.addChild(carry); objLayer.addChild(tool);
@@ -486,12 +485,85 @@ export function createRenderer(world) {
     }
     return WORK_MOTION[j.type] || null;
   }
+
+  // ── 코드로 그린 픽셀 도구 (이모지 대체 — 오른손잡이 기준으로 그리고 좌향 시 좌우반전) ──
+  var WOOD = 0x7a5230, WOOD_D = 0x553921, STEEL = 0xc2cad6, STEEL_D = 0x8b93a0;
+  function drawTool(g, kind) {
+    if (kind === 'axe') {
+      g.beginFill(WOOD); g.drawRect(6, 5, 2.2, 12); g.endFill();           // 자루
+      g.beginFill(STEEL); g.drawPolygon([3, 3, 11, 6, 10, 10, 4, 8]); g.endFill(); // 날
+      g.beginFill(STEEL_D); g.drawPolygon([10.5, 7, 11, 6, 10, 10, 9.6, 9]); g.endFill();
+    } else if (kind === 'pickaxe') {
+      g.beginFill(WOOD); g.drawRect(6, 5, 2.2, 12); g.endFill();
+      g.beginFill(STEEL); g.drawPolygon([1, 4, 7, 6.5, 13, 4, 12.5, 5.5, 7, 8, 1.5, 5.5]); g.endFill();
+    } else if (kind === 'hammer') {
+      g.beginFill(WOOD); g.drawRect(6, 5, 2.2, 12); g.endFill();
+      g.beginFill(STEEL); g.drawRect(3, 2, 8, 4.5); g.endFill();
+      g.beginFill(STEEL_D); g.drawRect(3, 2, 8, 1.4); g.endFill();
+    } else if (kind === 'rod') {
+      g.lineStyle(1.8, WOOD); g.moveTo(4, 17); g.lineTo(12, 2); g.lineStyle(0); // 낚싯대
+      g.lineStyle(0.8, 0xdfe6ef); g.moveTo(12, 2); g.lineTo(12.2, 11); g.lineStyle(0); // 줄
+      g.beginFill(0xff5b5b); g.drawCircle(12.2, 11.5, 1.6); g.endFill(); // 찌(위 빨강)
+      g.beginFill(0xffffff); g.drawRect(10.9, 11.5, 2.6, 1.1); g.endFill();
+    } else if (kind === 'pan') {
+      g.beginFill(WOOD); g.drawRect(8, 8.4, 6, 2); g.endFill();            // 손잡이
+      g.beginFill(STEEL_D); g.drawCircle(5, 9.4, 4); g.endFill();
+      g.beginFill(0x2b2f37); g.drawCircle(5, 9.4, 2.6); g.endFill();
+    } else if (kind === 'bow') {
+      g.lineStyle(1.8, WOOD); g.moveTo(9, 3); g.arc(4, 9, 6.3, -0.95, 0.95); g.lineStyle(0);
+      g.lineStyle(0.7, 0xe8e2cf); g.moveTo(9, 3); g.lineTo(9, 15); g.lineStyle(0); // 시위
+    } else if (kind === 'sickle') {
+      g.beginFill(WOOD); g.drawRect(6.5, 10, 2, 7); g.endFill();
+      g.lineStyle(2, STEEL); g.moveTo(7.5, 10.5); g.arc(4, 8, 4.2, 0.7, -1.8, true); g.lineStyle(0);
+    } else if (kind === 'trowel') {
+      g.beginFill(WOOD); g.drawRect(6.2, 9, 2.4, 7); g.endFill();
+      g.beginFill(STEEL); g.drawPolygon([4, 2, 9, 2, 7, 10]); g.endFill();
+    } else if (kind === 'basket') {
+      g.beginFill(0x9a6b3a); g.drawPolygon([3, 8, 11, 8, 9.5, 15, 4.5, 15]); g.endFill();
+      g.beginFill(WOOD_D); g.drawRect(2.5, 7.2, 9, 1.6); g.endFill();       // 테두리
+    } else if (kind === 'heart') {
+      g.beginFill(0xff5b6e); g.drawCircle(4.6, 5.4, 2.7); g.drawCircle(8.4, 5.4, 2.7);
+      g.drawPolygon([2, 6.6, 11, 6.6, 6.5, 12]); g.endFill();
+    }
+  }
+  var TOOL_ANCHOR = { // 회전 피벗(손 위치)
+    axe: [0.5, 0.92], pickaxe: [0.5, 0.92], hammer: [0.5, 0.92], sickle: [0.5, 0.92],
+    trowel: [0.5, 0.92], basket: [0.5, 0.9], rod: [0.32, 0.92], pan: [0.86, 0.55],
+    bow: [0.5, 0.5], heart: [0.5, 0.5],
+  };
+  var toolTexCache = {};
+  function toolTex(kind) {
+    if (toolTexCache[kind]) return toolTexCache[kind];
+    var g = new PIXI.Graphics();
+    drawTool(g, kind);
+    var tex = app.renderer.generateTexture(g, { scaleMode: PIXI.SCALE_MODES.NEAREST, resolution: 3 });
+    g.destroy();
+    toolTexCache[kind] = tex;
+    return tex;
+  }
+  function toolKindFor(pawn) { // 작업/상태 → 도구 종류
+    if (pawn.state === 'resting') return 'heart';
+    if (pawn.state !== 'working' || !pawn.job) return null;
+    switch (pawn.job.type) {
+      case 'gather': var o = world.objects[pawn.job.idx]; return (o && o.kind === 'mushroom') ? 'basket' : 'axe';
+      case 'mine': return 'pickaxe';
+      case 'build': case 'craft': return 'hammer';
+      case 'hunt': return 'bow';
+      case 'fish': return 'rod';
+      case 'cook': return 'pan';
+      case 'plant': return 'trowel';
+      case 'harvestCrop': return 'sickle';
+      default: return null;
+    }
+  }
+
   function updatePawnSprite(pawn) {
     var e = pawnSprites[pawn.id];
     if (!e) return;
     var wx = (pawn.px + 0.5) * TILE, wy = (pawn.py + 0.5) * TILE;
     e.spr.x = wx; e.spr.y = wy + 10;
     e.spr.zIndex = wy + TILE * 0.5;
+    e.spr.scale.set(3.2); e.spr.angle = 0; // 매 프레임 기본값(작업 시 아래에서 스쿼시·젖힘으로 override)
 
     // 이동 방향(0정면 1뒤 2좌 3우) — px/py 델타로 추정
     var dpx = pawn.px - (e.lastPx === undefined ? pawn.px : e.lastPx);
@@ -525,48 +597,68 @@ export function createRenderer(world) {
       e.carry.visible = false;
     }
 
-    var icon = toolIconOf(world, pawn);
-    if (icon) {
-      e.tool.text = icon;
+    // ── 작업 동작: 본체 물리 애니메이션(스쿼시·젖힘·반동) + 픽셀 도구 ──
+    var tk = toolKindFor(pawn);
+    if (tk) {
+      if (e.toolKind !== tk) { // 도구가 바뀔 때만 텍스처·앵커 갱신
+        e.tool.texture = toolTex(tk);
+        var an = TOOL_ANCHOR[tk] || [0.5, 0.5];
+        e.tool.anchor.set(an[0], an[1]);
+        e.toolKind = tk;
+      }
       e.tool.visible = true;
-      e.tool.zIndex = 999999;
+      e.tool.zIndex = 1000000;
       var side = pawn.face < 0 ? -1 : 1;
-      var bx = wx + side * 18, by = wy - 6;
+      var TS = 1.3;
       var mo = motionFor(pawn);
+      var hx = wx + side * 11, hy = wy - 15, rot = 0;
       if (mo) {
         var ph = (animTime + e.animOff * 0.13) * mo.rate;
         var frac = ph - Math.floor(ph);
-        var tx = bx, ty = by, rot = 0;
-        if (mo.m === 'swing') {          // 도끼·곡괭이·망치: 들었다가 내려침
-          var sw = Math.sin(frac * Math.PI); // 0→1→0
-          rot = side * (-0.55 + 1.25 * sw);
-          ty = by + 7 * sw; tx = bx + side * 4 * sw;
-        } else if (mo.m === 'cast') {    // 낚시: 낚싯대 내밀고 잔잔히 까딱
-          var b = Math.sin(ph * TAU);
-          rot = side * (-0.35 + 0.10 * b);
-          ty = by + 3 * b; tx = bx + side * 6;
-        } else if (mo.m === 'shake') {   // 요리: 팬 흔들기
+        var sx = 1, sy = 1, ang = 0, bdx = 0, bdy = 0;
+        if (mo.m === 'swing') {                 // 도끼·곡괭이·망치·활: 들었다 내려치며 몸 눌림
+          var sw = Math.sin(frac * Math.PI);    // 0→1→0
+          var squash = sw * sw * sw * sw;       // 타격 순간 급격
+          ang = side * 8 * sw; bdx = side * 3 * sw; bdy = -2 * sw;
+          sy = 1 - 0.15 * squash; sx = 1 + 0.13 * squash;
+          rot = -0.65 + 1.4 * sw;               // 오른손 기준(좌향은 좌우반전으로 처리)
+          hx = wx + side * (11 + 4 * sw); hy = wy - 15;
+        } else if (mo.m === 'cast') {           // 낚시: 잔잔히 대기하다 비트마다 챔질
+          var swy = Math.sin(ph * TAU);
+          var jerk = Math.max(0, 1 - frac * 3);
+          ang = side * (2.5 * swy - 12 * jerk); bdx = -side * 5 * jerk;
+          rot = -0.5 + 0.12 * swy - 0.5 * jerk;
+          hx = wx + side * 9; hy = wy - 17;
+        } else if (mo.m === 'shake') {          // 요리: 팬 흔들기
           var shk = Math.sin(ph * TAU * 2);
-          tx = bx + side * 3 * shk; ty = by - 2; rot = 0.12 * shk;
-        } else if (mo.m === 'bob') {     // 심기·수확·줍기: 굽혔다 폄
-          var bb = Math.sin(frac * Math.PI);
-          ty = by + 8 * bb; rot = side * 0.15 * bb;
+          ang = 2 * shk; bdx = side * 2 * shk; sy = 1 - 0.03 * Math.abs(shk);
+          rot = 0.18 * shk; hx = wx + side * 13; hy = wy - 13;
+        } else if (mo.m === 'bob') {            // 심기·수확·줍기: 굽혔다 폄
+          var dn = Math.sin(frac * Math.PI);
+          bdy = 6 * dn; sy = 1 - 0.13 * dn; sx = 1 + 0.08 * dn; ang = side * 3 * dn;
+          rot = 0.3 * dn; hx = wx + side * 10; hy = wy - 12 + 6 * dn;
         }
-        e.tool.x = tx; e.tool.y = ty; e.tool.rotation = rot;
-        // 작용(타격) 순간 파티클 방출
-        if (mo.p) {
+        e.spr.scale.set(3.2 * sx, 3.2 * sy);    // 본체 스쿼시·스트레치
+        e.spr.angle = ang;                      // 젖힘/기울임
+        e.spr.x = wx + bdx; e.spr.y = wy + 10 + bdy; // 반동/굽힘
+        if (mo.p) {                             // 타격/작용 순간 파티클
           var fire = (mo.m === 'swing' || mo.m === 'bob')
-            ? (e.workPrev !== undefined && e.workPrev < 0.5 && frac >= 0.5) // 스윙 최저점
-            : (e.workBeat !== undefined && Math.floor(ph) !== e.workBeat);   // cast·shake: 비트마다
-          if (fire) spawnWorkFx(mo.p, bx + side * 8, by + (mo.m === 'cast' ? 20 : 8), side);
+            ? (e.workPrev !== undefined && e.workPrev < 0.5 && frac >= 0.5)
+            : (e.workBeat !== undefined && Math.floor(ph) !== e.workBeat);
+          if (fire) {
+            var fxx = wx + side * (mo.m === 'cast' ? 22 : 14);
+            var fxy = wy + (mo.m === 'cast' ? 4 : (mo.m === 'shake' ? -20 : 2));
+            spawnWorkFx(mo.p, fxx, fxy, side);
+          }
         }
         e.workPrev = frac; e.workBeat = Math.floor(ph);
-        // 몸통 미세 바운스 (힘쓰는 느낌)
-        e.spr.y = wy + 10 + (mo.m === 'swing' ? -2 * Math.sin(frac * Math.PI) : -1 * Math.abs(Math.sin(ph * TAU)));
-      } else {                           // 도구는 있으나 동작 없음(예: 치료 ❤️) — 정적
-        e.tool.x = bx; e.tool.y = by; e.tool.rotation = 0;
+      } else {                                  // 정적(치료 하트 등)
+        hx = wx + side * 13; hy = wy - 22; rot = 0;
         e.workPrev = undefined; e.workBeat = undefined;
       }
+      e.tool.scale.set(TS * side, TS);          // 좌향 시 좌우반전
+      e.tool.rotation = rot;
+      e.tool.x = hx; e.tool.y = hy;
     } else {
       e.tool.visible = false;
       e.workPrev = undefined; e.workBeat = undefined;
