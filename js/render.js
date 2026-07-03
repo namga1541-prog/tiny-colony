@@ -171,20 +171,6 @@ export function createRenderer(world) {
   // ── 자연물·건물 (동적) ──
   var objSprites = {};    // idx -> sprite (tree/mushroom)
   var stumpSprites = {};  // idx -> sprite
-  var dugSprites = {};    // idx -> sprite (삽으로 판 흙)
-  var dugTex = null;
-  function getDugTex() {
-    if (dugTex) return dugTex;
-    var g = new PIXI.Graphics();
-    g.beginFill(0x6f4d2c); g.drawRect(0, 0, TILE, TILE); g.endFill();      // 흙 바탕
-    g.beginFill(0x5a3d21, 0.9);
-    for (var k = 0; k < 10; k++) g.drawRect((k * 13) % (TILE - 6), (k * 19) % (TILE - 5), 6, 4); // 갈아엎은 결
-    g.beginFill(0x82603b, 0.7);
-    for (var m = 0; m < 6; m++) g.drawRect((m * 17 + 4) % (TILE - 5), (m * 23 + 6) % (TILE - 4), 4, 3);
-    dugTex = app.renderer.generateTexture(g, { scaleMode: PIXI.SCALE_MODES.NEAREST });
-    g.destroy();
-    return dugTex;
-  }
   var bSprites = {};      // buildingId -> sprite
   var bBadges = {};       // buildingId -> 기능 배지(이모지) 텍스트
   var treeList = [];      // 흔들림 애니용
@@ -235,16 +221,6 @@ export function createRenderer(world) {
       groundDecor.removeChild(stumpSprites[i]);
       stumpSprites[i].destroy();
       delete stumpSprites[i];
-    }
-    // 삽으로 판 흙 (오브젝트 없는 파낸 땅에 표시)
-    var wantDug = !!(world.dug && world.dug[i]) && !o;
-    if (wantDug && !dugSprites[i]) {
-      var dg = new PIXI.Sprite(getDugTex());
-      dg.x = ix(i) * TILE; dg.y = iy(i) * TILE; dg.zIndex = -1;
-      groundDecor.addChild(dg);
-      dugSprites[i] = dg;
-    } else if (!wantDug && dugSprites[i]) {
-      groundDecor.removeChild(dugSprites[i]); dugSprites[i].destroy(); delete dugSprites[i];
     }
   }
 
