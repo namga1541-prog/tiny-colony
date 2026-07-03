@@ -16,7 +16,7 @@
 | `applyCamera` | js/render.js:1024 |
 | `applyTool` | js/main.js:459 |
 | `at` | js/world.js:90 |
-| `autoAttackTick` | js/pawns.js:659 |
+| `autoAttackTick` | js/pawns.js:684 |
 | `bpMissing` | js/jobs.js:290 |
 | `buildingAtTile` | js/main.js:135 |
 | `buildingDef` | js/world.js:299 |
@@ -43,7 +43,7 @@
 | `collectHaul` | js/jobs.js:200 |
 | `collectHunt` | js/jobs.js:181 |
 | `collectMine` | js/jobs.js:135 |
-| `consider` | js/pawns.js:828 |
+| `consider` | js/pawns.js:853 |
 | `consumeGlobal` | js/world.js:653 |
 | `costStr` | js/ui.js:623 |
 | `countBuilt` | js/goals.js:10 |
@@ -86,9 +86,10 @@
 | `grantRelic` | js/world.js:40 |
 | `greedyStep` | js/pawns.js:606 |
 | `groundTex` | js/render.js:56 |
-| `handleCombat` | js/pawns.js:621 |
+| `handleCombat` | js/pawns.js:635 |
 | `hasSave` | js/save.js:69 |
 | `hasStockpileSpace` | js/jobs.js:310 |
+| `hasStockWeapon` | js/pawns.js:621 |
 | `hasUpgrade` | js/world.js:10 |
 | `heapPop` | js/path.js:23 |
 | `heapPush` | js/path.js:12 |
@@ -108,7 +109,7 @@
 | `landAt` | js/render.js:147 |
 | `loadSaveData` | js/save.js:57 |
 | `makeNoise` | js/world.js:87 |
-| `manualInteract` | js/pawns.js:796 |
+| `manualInteract` | js/pawns.js:821 |
 | `manualMove` | js/main.js:969 |
 | `maxPop` | js/world.js:447 |
 | `mineDrops` | js/world.js:309 |
@@ -200,7 +201,7 @@
 | `syncEnemies` | js/render.js:782 |
 | `syncSheep` | js/render.js:747 |
 | `taskLabel` | js/pawns.js:58 |
-| `think` | js/pawns.js:894 |
+| `think` | js/pawns.js:919 |
 | `tick` | js/render.js:1131 |
 | `tickAttackFx` | js/render.js:1055 |
 | `tickCrops` | js/world.js:673 |
@@ -217,11 +218,12 @@
 | `totalRes` | js/world.js:428 |
 | `totalStored` | js/world.js:498 |
 | `touchXY` | js/main.js:817 |
+| `tryAutoArm` | js/pawns.js:626 |
 | `tx` | js/render.js:47 |
 | `updateBuildingBadge` | js/render.js:275 |
 | `updateClock` | js/ui.js:97 |
 | `updateEnemies` | js/world.js:748 |
-| `updatePawn` | js/pawns.js:673 |
+| `updatePawn` | js/pawns.js:698 |
 | `updatePawnPanel` | js/ui.js:183 |
 | `updatePawnSprite` | js/render.js:637 |
 | `updateRes` | js/ui.js:106 |
@@ -236,4 +238,4 @@
 | `worldObjTex` | js/render.js:610 |
 | `yieldJob` | js/pawns.js:141 |
 
-_총 230개 함수 · 12개 파일_
+_총 232개 함수 · 12개 파일_

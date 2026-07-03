@@ -617,15 +617,40 @@ function greedyStep(world, pawn, tx, ty, dtMin, spd) {
   pawn.x = Math.round(pawn.px); pawn.y = Math.round(pawn.py);
 }
 
+// 창고에 장착 가능한 무기가 있는지 (강한 순서 판단용)
+function hasStockWeapon(world) {
+  var s = world.stock || {};
+  return (s.ironSword || 0) + (s.ironBow || 0) + (s.sword || 0) + (s.bow || 0) > 0;
+}
+// 창고의 무기를 강한 순서로 자동 장착 (성공 시 무기 id 반환). 제작만 해두면 습격 때 알아서 듦.
+function tryAutoArm(world, pawn) {
+  var order = ['ironSword', 'ironBow', 'sword', 'bow'];
+  for (var i = 0; i < order.length; i++) {
+    if (consumeGlobal(world, order[i], 1) >= 1) { pawn.equipped = order[i]; return order[i]; }
+  }
+  return null;
+}
+
 // 적 대응. 교전/도주하면 true(이번 틱 작업 스킵)
 function handleCombat(world, pawn, dtMin, ctx) {
   var armed = !!pawn.equipped;
+  // 미장착이라도 창고에 무기가 있으면 곧 집어들 것이므로 무장한 것처럼 넓게 감지(도망 대신 대응)
+  var willArm = !armed && hasStockWeapon(world);
   var range = pawnRange(pawn);
-  var senseR = armed ? range + 4 : 2;
+  var senseR = (armed || willArm) ? range + 4 : 2;
   var near = nearestEnemy(world, pawn.px, pawn.py, senseR);
   if (!near) {
     if (pawn.combat) { pawn.combat = false; if (pawn.state === 'attacking') pawn.state = 'idle'; }
     return false;
+  }
+  // 맨손인데 창고에 무기가 있으면 즉시 무장 (도망치지 않고 싸우도록)
+  if (!armed) {
+    var got = tryAutoArm(world, pawn);
+    if (got) {
+      armed = true;
+      range = pawnRange(pawn);
+      if (ctx && ctx.onToast) ctx.onToast('🗡️ ' + pawn.name + ' 이(가) ' + WEAPONS[got].name + ' 을(를) 들고 맞섭니다!');
+    }
   }
   // 기존 작업 취소하고 전투 개입
   if (pawn.job) { releaseAllOf(world, pawn.id); pawn.job = null; pawn.path = null; }

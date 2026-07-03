@@ -497,6 +497,37 @@ console.log('[sim-smoke] 20) 초소 특화 분기 — 근접(가시벽)·원거�
   ok(w4.enemies.filter(function (e) { return e.hp < 100; }).length >= 2, '가시벽 근접 광역 → 곁의 적 다수 피해');
 })();
 
+console.log('[sim-smoke] 21) 자동 무장 — 창고에 무기가 있으면 맨손 정착민이 집어들고 싸움 (버그 수정)');
+(function () {
+  function goblinNear(w, p, dx) {
+    var x = Math.round(p.px) + dx, y = Math.round(p.py);
+    var e = { id: w.nextEid++, x: x, y: y, px: x, py: y, hp: 100, maxHp: 100, cd: 0, dir: 1, anim: 0, kind: 'goblin', wave: 0 };
+    w.enemies.push(e); return e;
+  }
+  // 창고에 검이 있으면: 맨손 정착민이 자동 장착 후 공격 (도망 X)
+  var sim = bootSim(101); var w = sim.world; var p = sim.pawns[0];
+  p.manual = false; p.equipped = null; w.stock.sword = 3;
+  var e1 = goblinNear(w, p, 2);
+  run(sim, 40);
+  ok(p.equipped === 'sword', '맨손 정착민이 창고의 검을 자동 장착 (equipped=' + p.equipped + ')');
+  ok((w.stock.sword || 0) < 3, '장착 시 검 재고 소비됨 (남은 ' + (w.stock.sword || 0) + ')');
+  ok(e1.hp < 100, '자동 무장 후 적을 공격 (HP ' + e1.hp + ')');
+
+  // 강한 무기 우선: 강철검이 있으면 그것을 집음
+  var sim2 = bootSim(102); var w2 = sim2.world; var p2 = sim2.pawns[0];
+  p2.manual = false; p2.equipped = null; w2.stock.sword = 1; w2.stock.ironSword = 1;
+  goblinNear(w2, p2, 2);
+  run(sim2, 20);
+  ok(p2.equipped === 'ironSword', '강한 무기(강철검) 우선 장착 (equipped=' + p2.equipped + ')');
+
+  // 창고에 무기가 전혀 없으면: 여전히 맨손 도주(장착 안 됨)
+  var sim3 = bootSim(103); var w3 = sim3.world; var p3 = sim3.pawns[0];
+  p3.manual = false; p3.equipped = null; // 무기 재고 0
+  goblinNear(w3, p3, 2);
+  run(sim3, 20);
+  ok(!p3.equipped, '무기 재고가 없으면 장착 안 함(맨손 유지)');
+})();
+
 console.log('');
 if (fails) { console.log('❌ sim-smoke 실패 ' + fails + '건'); process.exit(1); }
 console.log('✅ sim-smoke 전체 통과');
