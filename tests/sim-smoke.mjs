@@ -437,11 +437,12 @@ console.log('[sim-smoke] 18) 작업취소 회피(avoidJobType) — 취소한 정
   ok(job3 && job3.type === 'gather', '회피 해제 후엔 다시 벌목 작업을 잡음');
 })();
 
-console.log('[sim-smoke] 19) 자동공격 토글(⚔️) — 직접 조종 중에도 켜면 사거리 내 적을 자동 공격 (신규)');
+console.log('[sim-smoke] 19) 자동공격 토글(⚔️) — 기본 ON, 끄면 정지 (신규)');
 (function () {
   var sim = bootSim(444);
   var w = sim.world;
   var p = sim.pawns[0];
+  ok(p.autoAttack === true, '무기 든 정착민 자동공격 기본값 ON');
   p.manual = true;
   p.equipped = 'sword';
   var target = {
@@ -449,11 +450,14 @@ console.log('[sim-smoke] 19) 자동공격 토글(⚔️) — 직접 조종 중�
     hp: 50, maxHp: 50, cd: 0, dir: 1, anim: 0, kind: 'goblin', wave: 0,
   };
   w.enemies.push(target); // 섬 상주 적 등 기존 world.enemies 뒤에 추가되므로 인덱스가 아닌 참조로 추적
+  // 자동공격 끄면 조종 중 공격 안 함
+  p.autoAttack = false;
   run(sim, 1);
-  ok(target.hp === 50, '자동공격 꺼짐 상태 — 조종 중인 정착민은 사거리 안에 있어도 공격 안 함');
+  ok(target.hp === 50, '자동공격 OFF → 조종 중 정착민이 사거리 안에 있어도 공격 안 함');
+  // 다시 켜면(기본값) 공격
   p.autoAttack = true;
   run(sim, 1);
-  ok(target.hp < 50, '자동공격 켜짐 — 사거리 내 적을 자동으로 공격(HP ' + target.hp + ')');
+  ok(target.hp < 50, '자동공격 ON → 사거리 내 적을 자동으로 공격(HP ' + target.hp + ')');
 })();
 
 console.log('[sim-smoke] 20) 초소 특화 분기 — 근접(가시벽)·원거리(석궁/투석기/속사) 스탯·광역·연사 (신규)');

@@ -30,6 +30,7 @@ export function createPawn(id, def, x, y, rng) {
     skills: def.skills || {},   // {woodcutting, mining, construction, farming, combat} → xp
     role: def.role || 'none',   // 특화 역할 (config.ROLES 키). 'none' = 자유
     equipped: def.equipped || null, // 'sword' | 'bow' | null
+    autoAttack: true,    // 무기 든 채 직접 조종 중에도 사거리 내 적 자동 공격(기본 ON, ⚔️로 끔)
     face: 1,             // 1 우 / -1 좌
     x: x, y: y,
     px: x, py: y,
