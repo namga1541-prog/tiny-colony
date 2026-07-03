@@ -1,6 +1,6 @@
 // L1 시나리오 스모크 — 시드 고정, 헤드리스. stepWorld 추출이 올바른지 + 결정론 확인.
 import { bootSim, run, runDays, designateChop, give, snapshot, DAY_MIN, MAP_W } from './harness.mjs';
-import { addBuilding, storageCap, upgradeMult, upgradeAdd, maxPop, rankReqStatus, canAdvanceRank, advanceRank, defenseStats, tickTowers, enemyStats, spawnRaid, mulberry32, grantRelic, dailyIslandRespawn, checkIslandDiscovery, updateEnemies, idx, shipComplete, fishSpotTier, footprintTouchesWater, canPlaceBridge, isWalkable, autoDesignateLodges, footprintAdjacentMine } from '../js/world.js';
+import { addBuilding, storageCap, upgradeMult, upgradeAdd, maxPop, rankReqStatus, canAdvanceRank, advanceRank, defenseStats, tickTowers, enemyStats, spawnRaid, mulberry32, grantRelic, dailyIslandRespawn, checkIslandDiscovery, updateEnemies, idx, shipComplete, fishSpotTier, footprintTouchesWater, canPlaceBridge, isWalkable, autoDesignateLodges, footprintAdjacentMine, ensureBossIsland } from '../js/world.js';
 import { GIANT, ENEMY, CANNIBAL, ISLANDS, INVASION, OUTPOST_BRANCHES, RAIDER, INVWARRIOR, ZOMBIE, SKELETON, GIANT_JUMP, ARMOR, FRUITTREE, FISH, catchFish, GODDESS, TRADER, BUILDS, BUILD_MIN_RANK, FISH_PLATFORM, DEMON } from '../js/config.js';
 import { findWorkJob, releaseAllOf } from '../js/jobs.js';
 
@@ -983,6 +983,49 @@ console.log('[sim-smoke] 37) 악마후배 광역 레이저 — 쿨다운마다 �
   var armored = { id: 0, state: 'idle', px: 51, py: 50, x: 51, y: 50, hp: 100, armor: 'ironArmor' };
   updateEnemies(w2, [armored], 1, {});
   ok(armored.hp === 100 - Math.max(1, DEMON.laser.damage - ARMOR.ironArmor.defense), '레이저도 방어구로 경감됨 (' + armored.hp + ')');
+})();
+
+console.log('[sim-smoke] 38) 악마후배 — 앞을 막은 건물을 부수며 직진 + 구버전 세이브 마이그레이션 (신규)');
+(function () {
+  // (a) 정착민과 악마 사이에 건물벽 → 악마가 우회 대신 부수며 직진
+  var w = bootSim(1401).world;
+  w.enemies = [];
+  for (var yy = 40; yy <= 58; yy++) for (var xx = 40; xx <= 58; xx++) delete w.objects[idx(xx, yy)];
+  var b1 = addBuilding(w, 'house', 48, 47, { stage: 'built' });
+  var b2 = addBuilding(w, 'house', 50, 47, { stage: 'built' });
+  var demon = { id: w.nextEid++, x: 49, y: 50, px: 49, py: 50, hp: 9000, maxHp: 9000, cd: 0, dir: -1, anim: 0, kind: 'demon', boss: true, laserCd: 999 };
+  w.enemies = [demon];
+  var pawn = { id: 0, state: 'idle', px: 49, py: 44, x: 49, y: 44, hp: 100 }; // 벽 너머(악마의 목표)
+  var destroyed = 0;
+  var cb = { onBuildingDestroyed: function () { destroyed++; }, onBuildingHit: function () {}, onHit: function () {} };
+  for (var t = 0; t < 40; t++) updateEnemies(w, [pawn], 5, cb);
+  ok(!w.buildings[b1.id] && !w.buildings[b2.id], '악마가 앞을 막은 건물벽(2채)을 부수며 돌파함');
+  ok(destroyed >= 2, '파괴 콜백 발생(' + destroyed + '건)');
+  ok(Math.round(demon.py) < 50, '건물을 부순 뒤 정착민 쪽으로 전진함 (y ' + Math.round(demon.py) + ')');
+
+  // (b) 옆(목표 반대 방향) 건물은 부수지 않음 — 앞만 부숨
+  var w2 = bootSim(1402).world;
+  w2.enemies = [];
+  for (var y2 = 40; y2 <= 58; y2++) for (var x2 = 40; x2 <= 58; x2++) delete w2.objects[idx(x2, y2)];
+  var side = addBuilding(w2, 'house', 46, 50, { stage: 'built' }); // 악마 왼쪽(목표는 위쪽)
+  var demon2 = { id: w2.nextEid++, x: 49, y: 50, px: 49, py: 50, hp: 9000, maxHp: 9000, cd: 0, dir: -1, anim: 0, kind: 'demon', boss: true, laserCd: 999 };
+  w2.enemies = [demon2];
+  var pawn2 = { id: 0, state: 'idle', px: 49, py: 42, x: 49, y: 42, hp: 100 }; // 위쪽 목표(옆 건물과 무관)
+  updateEnemies(w2, [pawn2], 3, {});
+  ok(!!w2.buildings[side.id], '목표 방향이 아닌 옆 건물은 부수지 않음(직진만)');
+
+  // (c) 구버전 세이브 마이그레이션: 보스 없으면 ensureBossIsland 로 스폰
+  var w3 = bootSim(1403).world;
+  w3.enemies = w3.enemies.filter(function (e) { return e.kind !== 'demon'; }); // 구버전처럼 보스 제거
+  ok(!w3.enemies.some(function (e) { return e.kind === 'demon'; }), '마이그레이션 전: 보스 없음');
+  var added = ensureBossIsland(w3);
+  ok(added === true, 'ensureBossIsland 가 보스를 추가함');
+  ok(w3.enemies.filter(function (e) { return e.kind === 'demon'; }).length === 1, '보스 1체 스폰');
+  var added2 = ensureBossIsland(w3);
+  ok(added2 === false, '이미 있으면 중복 스폰 안 함');
+  w3.bossDefeated = true;
+  w3.enemies = w3.enemies.filter(function (e) { return e.kind !== 'demon'; });
+  ok(ensureBossIsland(w3) === false, '이미 격파한 경우엔 다시 스폰하지 않음');
 })();
 
 console.log('');

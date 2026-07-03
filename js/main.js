@@ -7,7 +7,7 @@ import {
   createWorld, mulberry32, idx, ix, iy, isWalkable, footprintClear,
   addBuilding, removeBuilding, buildingDef, addItem, totalRes, dailyRegrowth,
   updateSheep, tickResearch, tickCrops, updateEnemies, spawnRaid,
-  canPlaceBridge, fishSpotTier, footprintTouchesWater, footprintAdjacentMine, consumeGlobal, seasonDef, seasonIndex,
+  canPlaceBridge, fishSpotTier, footprintTouchesWater, footprintAdjacentMine, ensureBossIsland, consumeGlobal, seasonDef, seasonIndex,
   tickRanches, storageCap, totalStored, dailyMineRegen, tickTowers, canAfford,
   upgradeAdd, maxPop, canAdvanceRank, advanceRank, defenseStats,
 } from './world.js';
@@ -79,6 +79,8 @@ if (saved) {
     if (p.dead) pw.state = 'dead';
     return pw;
   });
+  // 구버전 세이브 마이그레이션: 악마후배 섬·보스가 없으면 지형을 새기고 스폰(신규 게임엔 무영향)
+  ensureBossIsland(world);
 } else {
   // 시드: ?seed=123 URL 파라미터가 있으면 사용(테스트·재현용), 없으면 무작위
   var urlSeed = null;

@@ -703,6 +703,47 @@ export function checkIslandDiscovery(world, pawns) {
   return found;
 }
 
+// 저장 게임 마이그레이션: 악마후배 섬·보스가 없으면(구버전 세이브) 지형을 새기고 보스를 스폰.
+// 이미 악마가 있거나(신규 게임) 격파했으면 아무것도 하지 않음. 반환: 무언가 추가했으면 true.
+export function ensureBossIsland(world) {
+  if (world.bossDefeated) return false;
+  for (var i = 0; i < world.enemies.length; i++) if (world.enemies[i].kind === 'demon') return false; // 이미 존재
+  var def = null;
+  for (var k = 0; k < ISLANDS.length; k++) if (ISLANDS[k].theme === 'boss') def = ISLANDS[k];
+  if (!def) return false;
+  var cx = MAP_W * def.cxf, cy = MAP_H * def.cyf, r = MAP_W * def.rf;
+  // 섬 지형 새김(물 → 잔디). 육지가 이미 있으면 그대로 둠.
+  for (var y = 0; y < MAP_H; y++) {
+    for (var x = 0; x < MAP_W; x++) {
+      var nx = (x - cx) / r, ny = (y - cy) / r;
+      if (Math.sqrt(nx * nx + ny * ny) < 0.84) {
+        var ii = idx(x, y);
+        if (world.terrain[ii] === T_WATER) world.terrain[ii] = T_GRASS;
+      }
+    }
+  }
+  // 섬 메타 없으면 추가(대개 createWorld 가 이미 넣어둠)
+  world.islands = world.islands || [];
+  var hasMeta = false;
+  for (var m = 0; m < world.islands.length; m++) if (world.islands[m].theme === 'boss') hasMeta = true;
+  if (!hasMeta) {
+    world.islands.push({ id: def.id, name: def.name, icon: def.icon, theme: def.theme,
+      cx: Math.round(cx), cy: Math.round(cy), r: Math.round(r), discovered: false, cap: 0, boss: true });
+  }
+  // 악마 스폰(섬 중앙, 통행 가능 지점)
+  var bx = Math.round(cx), by = Math.round(cy), placed = isWalkable(world, bx, by);
+  for (var rr = 1; rr < r + 2 && !placed; rr++) {
+    for (var dy = -rr; dy <= rr && !placed; dy++) {
+      for (var dx = -rr; dx <= rr && !placed; dx++) {
+        if (isWalkable(world, bx + dx, by + dy)) { bx += dx; by += dy; placed = true; }
+      }
+    }
+  }
+  world.enemies.push({ id: world.nextEid++, x: bx, y: by, px: bx, py: by,
+    hp: DEMON.hp, maxHp: DEMON.hp, cd: 0, dir: -1, anim: 0, kind: 'demon', boss: true });
+  return true;
+}
+
 // 매일 아침: 광산 매장량 회복 (재생 자원화). 변경된 광산 id 배열 반환
 export function dailyMineRegen(world) {
   var changed = [];
@@ -923,19 +964,46 @@ function armorDefense(pawn) {
   return (pawn.armor && ARMOR[pawn.armor]) ? ARMOR[pawn.armor].defense : 0;
 }
 
+// 4방향(상하좌우)을 목표 방향(dx,dy)에 가까운 순으로 정렬해 반환. 한 축이 0이어도 항상 4방향 모두 포함.
+function dirsTowardTarget(dx, dy) {
+  var dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+  dirs.sort(function (a, b) { return (b[0] * dx + b[1] * dy) - (a[0] * dx + a[1] * dy); });
+  return dirs;
+}
+
+// 보스(데몬) 전용: 목표 "앞쪽"(다가가는 방향)으로 인접한 나무·솔리드 건물을 하나 찾음.
+// 우회(A*) 대신 앞을 막은 건물을 부수며 직진하게 하려는 용도. 옆·뒤 건물은 무시, 다리·좌대(통행 가능)도 제외.
+function adjacentBlocker(world, e, tgt) {
+  var ex = Math.round(e.px), ey = Math.round(e.py);
+  var dx = tgt.x - e.px, dy = tgt.y - e.py;
+  var order = dirsTowardTarget(dx, dy);
+  for (var k = 0; k < order.length; k++) {
+    var ox = order[k][0], oy = order[k][1];
+    if (ox * dx + oy * dy <= 0) break; // 목표에서 멀어지는 방향(옆·뒤)은 검사하지 않음
+    var ax = ex + ox, ay = ey + oy;
+    if (!inMap(ax, ay)) continue;
+    var ai = idx(ax, ay);
+    var o = world.objects[ai];
+    if (o && o.kind === 'tree') return { kind: 'tree', x: ax, y: ay };
+    var abid = world.occupancy[ai];
+    if (abid !== undefined) {
+      var ab = world.buildings[abid];
+      if (ab && ab.stage === 'built' && !ab.natural && ab.kind !== 'bridge' && ab.kind !== 'fishPlatform') {
+        return { kind: 'building', ref: ab, x: ax, y: ay };
+      }
+    }
+  }
+  return null;
+}
+
 // 길이 완전히 막혔을 때(A* 경로 없음) 목표 방향의 인접 장애물을 부수고 돌파.
 // 나무→그루터기, 다리·좌대→즉시 제거(얇은 판자), 일반 건물→st.power 만큼 피해. 부쉈으면 true.
 // e.cd 로 속도 제어되며(호출부), 부술 게 없으면 false(호출부에서 그리디 셔플로 폴백).
 function breakThrough(world, e, tgt, st, cb) {
   var ex = Math.round(e.px), ey = Math.round(e.py);
-  var tvx = Math.sign(tgt.x - e.px), tvy = Math.sign(tgt.y - e.py);
-  // 목표 방향(큰 축 우선)으로 정렬한 4방향
-  var order = (Math.abs(tgt.x - e.px) >= Math.abs(tgt.y - e.py))
-    ? [[tvx, 0], [0, tvy], [0, -tvy], [-tvx, 0]]
-    : [[0, tvy], [tvx, 0], [-tvx, 0], [0, -tvy]];
+  var order = dirsTowardTarget(tgt.x - e.px, tgt.y - e.py); // 항상 4방향 검사(목표 방향 우선)
   for (var k = 0; k < order.length; k++) {
     var ox = order[k][0], oy = order[k][1];
-    if (ox === 0 && oy === 0) continue;
     var ax = ex + ox, ay = ey + oy;
     if (!inMap(ax, ay)) continue;
     var ai = idx(ax, ay);
@@ -1111,6 +1179,30 @@ export function updateEnemies(world, pawns, dtMin, cb) {
           }
         }
       } else {
+        // 보스(데몬)는 앞을 막은 나무·건물을 우회하지 않고 부수며 직진 — 파괴자다운 압박
+        if (e.kind === 'demon') {
+          var blk = adjacentBlocker(world, e, tgt);
+          if (blk) {
+            e.moving = false;
+            e.cd -= dtMin;
+            if (e.cd <= 0) {
+              e.cd = st.attackCd;
+              e.atkT = 9; e.atkDX = Math.sign(blk.x - Math.round(e.px)); e.atkDY = Math.sign(blk.y - Math.round(e.py));
+              if (e.atkDX !== 0) e.dir = e.atkDX;
+              if (blk.kind === 'tree') {
+                world.objects[idx(blk.x, blk.y)] = { kind: 'stump' };
+                if (cb.onObstacleBreak) cb.onObstacleBreak(blk.x, blk.y);
+              } else {
+                var sb = blk.ref;
+                sb.hp = Math.max(0, (sb.hp != null ? sb.hp : BUILDING_HP_DEFAULT) - st.power);
+                if (sb.hp <= 0) { if (cb.onBuildingDestroyed) cb.onBuildingDestroyed(sb); removeBuilding(world, sb); }
+                else if (cb.onBuildingHit) cb.onBuildingHit(sb, st.power);
+              }
+            }
+            alive.push(e);
+            continue; // 부수는 중 — 이번 틱 이동 생략
+          }
+        }
         // 접근: A* 경로 추종(막히면 우회) → 경로가 아예 없으면 앞을 막은 장애물 파괴. 빠른 괴민은 이동 단축.
         e.moving = true;
         var mmpt = e.fast ? st.moveMinPerTile * GIANT_FAST_MULT : st.moveMinPerTile;
