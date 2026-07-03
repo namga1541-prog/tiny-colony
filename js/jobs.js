@@ -103,9 +103,14 @@ function collectDeliver(world, pawn) {
 function collectCraft(world, pawn) {
   var cands = [];
   if (!world.research.unlocked.blacksmith || world.craftQueue.length === 0) return cands;
-  var order = world.craftQueue[0];
-  var wdef = WEAPONS[order.type];
-  if (!wdef || !canAfford(world, wdef.cost) || world.reserved['craft'] !== undefined) return cands;
+  if (world.reserved['craft'] !== undefined) return cands;
+  // 대기열에서 '살 수 있는' 첫 주문 선택 — 맨 앞이 자재 부족(예: 철 없는 강철검)이어도 뒤 주문은 진행.
+  var order = null;
+  for (var qi = 0; qi < world.craftQueue.length; qi++) {
+    var o = world.craftQueue[qi], wd = WEAPONS[o.type];
+    if (wd && canAfford(world, wd.cost)) { order = o; break; }
+  }
+  if (!order) return cands;
   var smithyFront = null;
   for (var id in world.buildings) {
     var b = world.buildings[id];

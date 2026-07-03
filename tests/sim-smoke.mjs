@@ -213,6 +213,23 @@ console.log('[sim-smoke] 11) 무지성 거인 「괴민」 (신규)');
   ok(sim2.world.enemies.some(function (e) { return e.kind === 'giant'; }), '5일밤 → 괴민 자동 상륙(sim 트리거)');
 })();
 
+console.log('[sim-smoke] 12) 제작 대기열 — 자재 부족 주문 건너뛰기 (회귀가드)');
+(function () {
+  // 회귀: 맨 앞 주문(강철검, 철 0)이 뒤의 검 제작을 막던 버그.
+  var sim = bootSim(4242);
+  var w = sim.world;
+  addBuilding(w, 'smithy', 51, 48, { stage: 'built' });
+  give(sim, { wood: 500, gold: 500 }); // 철 0 → 강철검 불가, 검·활은 가능
+  w.research.unlocked.blacksmith = true;
+  w.craftQueue.push({ type: 'ironSword' }); // 맨 앞: 살 수 없음
+  w.craftQueue.push({ type: 'sword' });      // 뒤: 살 수 있음
+  designateChop(sim, 40);
+  run(sim, 220);
+  ok((w.stock.sword || 0) >= 1, '자재 부족 강철검이 맨 앞이어도 뒤의 검이 제작됨 (검 ' + (w.stock.sword || 0) + ')');
+  ok(w.craftQueue.some(function (o) { return o.type === 'ironSword'; }), '살 수 없는 강철검 주문은 대기열에 유지');
+  ok(!w.craftQueue.some(function (o) { return o.type === 'sword'; }), '완료된 검 주문은 대기열에서 제거');
+})();
+
 console.log('');
 if (fails) { console.log('❌ sim-smoke 실패 ' + fails + '건'); process.exit(1); }
 console.log('✅ sim-smoke 전체 통과');

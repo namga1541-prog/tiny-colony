@@ -304,10 +304,10 @@ function onArrive(world, pawn, ctx) {
       break;
     }
     case 'craft': {
-      var order = world.craftQueue[0];
-      if (!order || order !== j.order) return abandonJob(world, pawn);
+      var order = j.order;
+      if (!order || world.craftQueue.indexOf(order) < 0) return abandonJob(world, pawn);
       var wdef = WEAPONS[order.type];
-      if (!wdef) return abandonJob(world, pawn);
+      if (!wdef || !canAfford(world, wdef.cost)) return abandonJob(world, pawn);
       pawn.state = 'working';
       pawn.workLeft = wdef.work;
       break;
@@ -532,8 +532,9 @@ function finishWork(world, pawn, ctx) {
   }
 
   if (j.type === 'craft') {
-    var pending = world.craftQueue[0];
-    if (pending) {
+    var pending = j.order;
+    var qi = pending ? world.craftQueue.indexOf(pending) : -1;
+    if (qi >= 0) {
       var wdef = WEAPONS[pending.type];
       if (wdef && canAfford(world, wdef.cost)) {
         for (var rt in wdef.cost) consumeGlobal(world, rt, wdef.cost[rt]);
@@ -541,7 +542,7 @@ function finishWork(world, pawn, ctx) {
         addItem(world, dropIdx, pending.type, 1);
         ctx.onItemChange(dropIdx);
         ctx.onEvent(pawn.name + '이(가) ' + wdef.name + ' 제작을 완료했습니다');
-        world.craftQueue.shift();
+        world.craftQueue.splice(qi, 1); // 완료한 그 주문만 제거(맨 앞이 아니어도)
       }
     }
     releaseAllOf(world, pawn.id);
