@@ -171,7 +171,7 @@ export function createRenderer(world) {
     warlord:  { idle: fxWarlord.idle, walk: fxWarlord.walk, scale: 1.4 }, // 정복자=보라 기사(크게)
     zombie:   { idle: fxZombie, walk: fxZombie, scale: 2.1, anchorY: 0.94 },     // 좀비(느린 살덩이) — 고블린과 비슷한 시각 크기
     skeleton: { idle: fxSkeleton, walk: fxSkeleton, scale: 2.0, anchorY: 0.94 }, // 스켈레톤(걷기 사이클) — 고블린과 비슷한 시각 크기
-    demon:    { idle: demonFrames, walk: demonFrames, scale: 10.5, anchorY: 0.97 }, // 최종 보스=붉은 뿔 악마(괴민만큼 거대)
+    demon:    { idle: demonFrames, walk: demonFrames, scale: 15.75, anchorY: 0.97 }, // 최종 보스=붉은 뿔 악마(괴민의 1.5배 — 압도적 거대)
   };
 
   // 사람 스프라이트 크롭. dir: 0정면 1뒤 2좌 3우.
@@ -948,7 +948,7 @@ export function createRenderer(world) {
           objLayer.addChild(lbl); objLayer.addChild(bar);
           dec = enemyDecor[en.id] = { lbl: lbl, bar: bar };
         }
-        var topY = isBoss ? sp.y - 360 : sp.y - GS * 15; // 머리 위(보스는 거대 스프라이트 위)
+        var topY = isBoss ? sp.y - 540 : sp.y - GS * 15; // 머리 위(보스는 거대 스프라이트 위)
         dec.lbl.x = sp.x; dec.lbl.y = topY - 8; dec.lbl.zIndex = 1000001;
         var bw = isBoss ? 110 : 70, bh = isBoss ? 9 : 7, frac = Math.max(0, (en.hp || 0) / (en.maxHp || 1));
         dec.bar.zIndex = 1000001;
