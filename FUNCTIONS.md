@@ -31,7 +31,7 @@
 | `canAfford` | js/world.js:790 |
 | `cancelToSelect` | js/main.js:149 |
 | `canPlaceBridge` | js/world.js:438 |
-| `catchFish` | js/config.js:458 |
+| `catchFish` | js/config.js:460 |
 | `centerOn` | js/render.js:1158 |
 | `checkGoals` | js/goals.js:32 |
 | `checkIslandDiscovery` | js/world.js:689 |
@@ -61,7 +61,7 @@
 | `dailyIslandRespawn` | js/world.js:662 |
 | `dailyMineRegen` | js/world.js:707 |
 | `dailyRegrowth` | js/world.js:607 |
-| `defenseStats` | js/world.js:1121 |
+| `defenseStats` | js/world.js:1156 |
 | `dist` | js/jobs.js:23 |
 | `distB` | js/jobs.js:27 |
 | `doInteract` | js/main.js:1006 |
@@ -92,7 +92,7 @@
 | `freeGrass` | js/world.js:612 |
 | `gainSkill` | js/pawns.js:610 |
 | `glowTexture` | js/render.js:1008 |
-| `goddessTex` | js/render.js:1288 |
+| `goddessTex` | js/render.js:1307 |
 | `goTo` | js/pawns.js:177 |
 | `grantLegendaryRelic` | js/world.js:51 |
 | `grantRelic` | js/world.js:42 |
@@ -108,7 +108,7 @@
 | `heapPush` | js/path.js:12 |
 | `hideBuilding` | js/ui.js:428 |
 | `hidePawn` | js/ui.js:207 |
-| `hireCost` | js/config.js:383 |
+| `hireCost` | js/config.js:385 |
 | `hitSfx` | js/main.js:1070 |
 | `idx` | js/world.js:116 |
 | `inMap` | js/world.js:119 |
@@ -153,7 +153,7 @@
 | `rankReqStatus` | js/world.js:521 |
 | `reachable` | js/jobs.js:31 |
 | `rebuildLights` | js/render.js:1024 |
-| `recruitWanderer` | js/main.js:1135 |
+| `recruitWanderer` | js/main.js:1140 |
 | `refreshAll` | js/render.js:573 |
 | `refreshBuilding` | js/render.js:401 |
 | `refreshCrop` | js/render.js:314 |
@@ -165,7 +165,7 @@
 | `release` | js/main.js:987 |
 | `releaseAllOf` | js/jobs.js:17 |
 | `removeBuilding` | js/world.js:378 |
-| `removeBuildingHp` | js/render.js:1281 |
+| `removeBuildingHp` | js/render.js:1300 |
 | `removeBuildingSprite` | js/render.js:473 |
 | `removeItem` | js/world.js:487 |
 | `removePawn` | js/render.js:609 |
@@ -210,8 +210,9 @@
 | `skillMult` | js/config.js:205 |
 | `spawnAttackFx` | js/render.js:1172 |
 | `spawnBoomFx` | js/render.js:1222 |
-| `spawnGoddessFx` | js/render.js:1291 |
-| `spawnHitFx` | js/render.js:1233 |
+| `spawnDemonLaserFx` | js/render.js:1232 |
+| `spawnGoddessFx` | js/render.js:1310 |
+| `spawnHitFx` | js/render.js:1252 |
 | `spawnInvasionWave` | js/sim.js:20 |
 | `spawnRaid` | js/world.js:836 |
 | `spawnWorkFx` | js/render.js:1202 |
@@ -225,16 +226,16 @@
 | `syncSheep` | js/render.js:856 |
 | `taskLabel` | js/pawns.js:69 |
 | `think` | js/pawns.js:965 |
-| `tick` | js/render.js:1350 |
+| `tick` | js/render.js:1375 |
 | `tickAttackFx` | js/render.js:1179 |
 | `tickCrops` | js/world.js:806 |
-| `tickDmgTexts` | js/render.js:1251 |
-| `tickGoddessFx` | js/render.js:1304 |
+| `tickDmgTexts` | js/render.js:1270 |
+| `tickGoddessFx` | js/render.js:1323 |
 | `tickRanches` | js/world.js:574 |
 | `tickResearch` | js/world.js:797 |
 | `tickSelection` | js/render.js:991 |
-| `tickTowers` | js/world.js:1137 |
-| `tickWorkFx` | js/render.js:1325 |
+| `tickTowers` | js/world.js:1172 |
+| `tickWorkFx` | js/render.js:1344 |
 | `toast` | js/ui.js:432 |
 | `toggleMute` | js/audio.js:39 |
 | `toolIconOf` | js/pawns.js:112 |
@@ -249,7 +250,7 @@
 | `undeadFrames` | js/render.js:157 |
 | `updateAutoEquipBtn` | js/ui.js:80 |
 | `updateBuildingBadge` | js/render.js:357 |
-| `updateBuildingHp` | js/render.js:1265 |
+| `updateBuildingHp` | js/render.js:1284 |
 | `updateClock` | js/ui.js:124 |
 | `updateEnemies` | js/world.js:981 |
 | `updatePawn` | js/pawns.js:739 |
@@ -257,7 +258,7 @@
 | `updatePawnSprite` | js/render.js:744 |
 | `updateRes` | js/ui.js:133 |
 | `updateRoster` | js/ui.js:151 |
-| `updateSheep` | js/world.js:1167 |
+| `updateSheep` | js/world.js:1202 |
 | `updateStorage` | js/ui.js:141 |
 | `upgradeAdd` | js/world.js:27 |
 | `upgradeMult` | js/world.js:13 |
@@ -267,4 +268,4 @@
 | `worldObjTex` | js/render.js:716 |
 | `yieldJob` | js/pawns.js:152 |
 
-_총 261개 함수 · 12개 파일_
+_총 262개 함수 · 12개 파일_

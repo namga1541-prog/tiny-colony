@@ -348,6 +348,8 @@ export const DEMON = {
   hp: GIANT.hp * 10, // 9000 (괴민 900의 10배)
   power: 60, attackCd: 18, moveMinPerTile: 2.4,
   dropGold: 2000, dropIron: 800, name: '악마후배',
+  // 광역 레이저: 쿨다운마다 사거리 내 목표가 있으면 반경 전체에 강력한 피해(일반 공격과 별개)
+  laser: { cooldown: 240, range: 14, radius: 6, damage: 45 },
 };
 
 // ── 나라의 시련(대침공): 달력상 고정된 날짜(10일차·20일차)에 파도식 습격. 정복자가 각 웨이브를 이끈다.

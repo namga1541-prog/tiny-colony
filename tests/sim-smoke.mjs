@@ -950,6 +950,41 @@ console.log('[sim-smoke] 36) 자동 무장 토글 — 켜면 유휴 정착민이
   ok((w.stock.sword || 0) < 3, '장착한 만큼 창고 무기 소비됨 (남은 ' + (w.stock.sword || 0) + ')');
 })();
 
+console.log('[sim-smoke] 37) 악마후배 광역 레이저 — 쿨다운마다 반경 내 전체 강타 (신규)');
+(function () {
+  ok(DEMON.laser && DEMON.laser.damage > 0 && DEMON.laser.radius > 0, '레이저 스탯 정의(피해·반경)');
+  var w = bootSim(1301).world;
+  w.enemies = []; // 기존 보스 제거 후 통제된 배치
+  var demon = { id: w.nextEid++, x: 50, y: 50, px: 50, py: 50, hp: 9000, maxHp: 9000, cd: 999, dir: -1, anim: 0, kind: 'demon', boss: true, laserCd: 0 };
+  w.enemies = [demon];
+  // 반경 안 3명 + 반경 밖 1명
+  var pIn = [
+    { id: 0, state: 'idle', px: 51, py: 50, x: 51, y: 50, hp: 100 },
+    { id: 1, state: 'idle', px: 50, py: 53, x: 50, y: 53, hp: 100 },
+    { id: 2, state: 'idle', px: 48, py: 49, x: 48, y: 49, hp: 100 },
+  ];
+  var pOut = { id: 3, state: 'idle', px: 50, py: 80, x: 50, y: 80, hp: 100 }; // 반경(6) 밖 + 사거리 밖
+  var pawns = pIn.concat([pOut]);
+  var lasered = [];
+  updateEnemies(w, pawns, 1, { onDemonLaser: function (e, tx, ty) { lasered.push({ tx: tx, ty: ty }); } });
+  ok(lasered.length === 1, '사거리 내 목표가 있으면 레이저 발사(콜백 1회)');
+  ok(pIn.every(function (p) { return p.hp < 100; }), '반경 내 정착민 전원 피해');
+  ok(pIn.every(function (p) { return p.hp === 100 - DEMON.laser.damage; }), '피해량 = DEMON.laser.damage (' + pIn[0].hp + ')');
+  ok(pOut.hp === 100, '반경 밖 정착민은 무사');
+  ok(demon.laserCd === DEMON.laser.cooldown, '발사 후 쿨다운 재설정');
+  // 쿨다운 동안 재발사 안 함
+  var again = [];
+  updateEnemies(w, pawns, 1, { onDemonLaser: function () { again.push(1); } });
+  ok(again.length === 0, '쿨다운 중에는 재발사 안 함');
+  // 방어구 착용 시 레이저 피해 경감
+  var w2 = bootSim(1302).world;
+  var demon2 = { id: w2.nextEid++, x: 50, y: 50, px: 50, py: 50, hp: 9000, maxHp: 9000, cd: 999, dir: -1, anim: 0, kind: 'demon', boss: true, laserCd: 0 };
+  w2.enemies = [demon2];
+  var armored = { id: 0, state: 'idle', px: 51, py: 50, x: 51, y: 50, hp: 100, armor: 'ironArmor' };
+  updateEnemies(w2, [armored], 1, {});
+  ok(armored.hp === 100 - Math.max(1, DEMON.laser.damage - ARMOR.ironArmor.defense), '레이저도 방어구로 경감됨 (' + armored.hp + ')');
+})();
+
 console.log('');
 if (fails) { console.log('❌ sim-smoke 실패 ' + fails + '건'); process.exit(1); }
 console.log('✅ sim-smoke 전체 통과');

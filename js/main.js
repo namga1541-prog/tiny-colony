@@ -1125,6 +1125,11 @@ var enemyCbs = {
     R.refreshTile(idx(x, y));
     R.spawnBoomFx(x, y);
   },
+  onDemonLaser: function (e, tx, ty) { // 악마후배 광역 레이저
+    R.spawnDemonLaserFx(e.x, e.y, tx, ty);
+    Audio2.play('alert');
+    UI.toast('☄️ 악마후배가 광역 레이저를 발사했습니다!', true);
+  },
 };
 
 // 계절 초기 표시 (prevSeason 은 stepWorld 가 world.prevSeason 으로 추적)

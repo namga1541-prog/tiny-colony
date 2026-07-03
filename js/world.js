@@ -977,7 +977,7 @@ function greedyStepEnemy(world, e, tx, ty, step) {
 // 적 이동·공격 (정착민 공격은 pawns.js 에서). 이동은 A* 경로 추종(막히면 우회)이며,
 // 경로가 아예 없으면 앞을 막은 나무·건물·다리를 부수고 돌파한다. cb: {onHit(pawn,dmg),
 //   onPawnDeath(pawn), onEnemyGone, onBuildingDestroyed(b), onCropDestroyed(idx),
-//   onGiantJump(e,x,y), onObstacleBreak(x,y)}
+//   onGiantJump(e,x,y), onObstacleBreak(x,y), onDemonLaser(e,tx,ty)}
 export function updateEnemies(world, pawns, dtMin, cb) {
   var alive = [];
   for (var n = 0; n < world.enemies.length; n++) {
@@ -992,6 +992,41 @@ export function updateEnemies(world, pawns, dtMin, cb) {
       continue;
     }
     if (e.atkT) e.atkT = Math.max(0, e.atkT - dtMin); // 공격 찌르기 모션 타이머(렌더 전용)
+    // 최종 보스 「악마후배」 광역 레이저: 쿨다운마다 사거리 내 목표가 있으면 반경 전체에 강력한 피해
+    if (e.kind === 'demon') {
+      e.laserCd = (e.laserCd === undefined ? DEMON.laser.cooldown : e.laserCd) - dtMin;
+      if (e.laserCd <= 0) {
+        var ltgt = nearestAttackable(world, pawns, e.px, e.py);
+        if (ltgt && ltgt.dist <= DEMON.laser.range) {
+          e.laserCd = DEMON.laser.cooldown;
+          var lrad = DEMON.laser.radius, ldmg = DEMON.laser.damage;
+          for (var zp = 0; zp < pawns.length; zp++) { // 반경 내 정착민
+            var zpw = pawns[zp];
+            if (zpw.state === 'dead') continue;
+            if (Math.abs(zpw.px - e.px) + Math.abs(zpw.py - e.py) <= lrad) {
+              var zdmg = Math.max(1, ldmg - armorDefense(zpw));
+              zpw.hp = Math.max(0, zpw.hp - zdmg);
+              if (cb.onHit) cb.onHit(zpw, zdmg);
+              if (zpw.hp <= 0 && zpw.state !== 'dead') { zpw.state = 'dead'; zpw.job = null; if (cb.onPawnDeath) cb.onPawnDeath(zpw); }
+            }
+          }
+          for (var zid in world.buildings) { // 반경 내 건물
+            var zb = world.buildings[zid];
+            if (zb.stage !== 'built' || zb.natural || zb.kind === 'bridge') continue;
+            var zdef = buildingDef(zb.kind);
+            var zpt = closestPointOnBuilding(e.px, e.py, zb, zdef);
+            if (Math.abs(zpt.x - e.px) + Math.abs(zpt.y - e.py) <= lrad) {
+              zb.hp = Math.max(0, (zb.hp != null ? zb.hp : BUILDING_HP_DEFAULT) - ldmg);
+              if (zb.hp <= 0) { if (cb.onBuildingDestroyed) cb.onBuildingDestroyed(zb); removeBuilding(world, zb); }
+              else if (cb.onBuildingHit) cb.onBuildingHit(zb, ldmg);
+            }
+          }
+          if (cb.onDemonLaser) cb.onDemonLaser(e, ltgt.x, ltgt.y);
+          alive.push(e);
+          continue; // 이번 틱은 레이저로 소모 — 일반 이동/공격 생략
+        }
+      }
+    }
     // 괴민 점프: 쿨다운마다 목표 방향으로 도약(통행 불가 지형 무시) → 벽·숲에 막혀도 뚫고 진행 + 착지 지점 광역 파괴
     if (e.kind === 'giant') {
       e.jumpCd = (e.jumpCd === undefined ? GIANT_JUMP.cooldown : e.jumpCd) - dtMin;

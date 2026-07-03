@@ -171,7 +171,7 @@ export function createRenderer(world) {
     warlord:  { idle: fxWarlord.idle, walk: fxWarlord.walk, scale: 1.4 }, // 정복자=보라 기사(크게)
     zombie:   { idle: fxZombie, walk: fxZombie, scale: 2.1, anchorY: 0.94 },     // 좀비(느린 살덩이) — 고블린과 비슷한 시각 크기
     skeleton: { idle: fxSkeleton, walk: fxSkeleton, scale: 2.0, anchorY: 0.94 }, // 스켈레톤(걷기 사이클) — 고블린과 비슷한 시각 크기
-    demon:    { idle: demonFrames, walk: demonFrames, scale: 4.6, anchorY: 0.96 }, // 최종 보스=붉은 뿔 악마(전용 스프라이트, 크게)
+    demon:    { idle: demonFrames, walk: demonFrames, scale: 10.5, anchorY: 0.97 }, // 최종 보스=붉은 뿔 악마(괴민만큼 거대)
   };
 
   // 사람 스프라이트 크롭. dir: 0정면 1뒤 2좌 3우.
@@ -948,7 +948,7 @@ export function createRenderer(world) {
           objLayer.addChild(lbl); objLayer.addChild(bar);
           dec = enemyDecor[en.id] = { lbl: lbl, bar: bar };
         }
-        var topY = isBoss ? sp.y - 150 : sp.y - GS * 15; // 머리 위
+        var topY = isBoss ? sp.y - 360 : sp.y - GS * 15; // 머리 위(보스는 거대 스프라이트 위)
         dec.lbl.x = sp.x; dec.lbl.y = topY - 8; dec.lbl.zIndex = 1000001;
         var bw = isBoss ? 110 : 70, bh = isBoss ? 9 : 7, frac = Math.max(0, (en.hp || 0) / (en.maxHp || 1));
         dec.bar.zIndex = 1000001;
@@ -1228,6 +1228,25 @@ export function createRenderer(world) {
     }
   }
 
+  // ── 최종 보스 광역 레이저: 악마 중심에서 사방으로 뻗는 붉은 광선 + 확산 충격파 ──
+  function spawnDemonLaserFx(demonTileX, demonTileY, tgtTileX, tgtTileY) {
+    var cxp = (demonTileX + 0.5) * TILE, cyp = (demonTileY + 0.5) * TILE - 40; // 몸통 중앙쯤
+    // 광역 충격파 링(레이저 반경 ~6타일)
+    workFxList.push({ kind: 'ring', x: cxp, y: cyp, life: 0.6, max: 0.6, size: 8, color: 0xff2a2a, grow: TILE * 6, lw: 6 });
+    workFxList.push({ kind: 'ring', x: cxp, y: cyp, life: 0.45, max: 0.45, size: 5, color: 0xffd0d0, grow: TILE * 4, lw: 3 });
+    // 사방 12방향으로 뻗는 붉은 광선
+    for (var a = 0; a < 12; a++) {
+      var ang = (a / 12) * Math.PI * 2;
+      var ex = cxp + Math.cos(ang) * TILE * 6.5, ey = cyp + Math.sin(ang) * TILE * 6.5;
+      workFxList.push({ kind: 'beam', x: cxp, y: cyp, x2: ex, y2: ey, life: 0.35, max: 0.35, color: 0xff3030, lw: 5 });
+    }
+    // 목표 지점에 강한 폭발
+    spawnBoomFx(tgtTileX, tgtTileY);
+    for (var p = 0; p < 20; p++) {
+      pushP('grav', cxp, cyp, (Math.random() - 0.5) * 380, -140 - Math.random() * 160, 0.55, 3 + Math.random() * 3, p % 2 ? 0xff5a5a : 0xffd0d0);
+    }
+  }
+
   // ── 전투 피드백: 적이 정착민·건물을 때릴 때 타격 스파크 + 떠오르는 데미지 숫자 ──
   var dmgTexts = []; // { txt(PIXI.Text), life, max, vy }
   function spawnHitFx(tileX, tileY, dmg) {
@@ -1342,6 +1361,12 @@ export function createRenderer(world) {
         fxLayer.lineStyle(p.lw || 2, p.color, t);
         fxLayer.drawCircle(p.x, p.y, p.size + (1 - t) * (p.grow || 14));
         fxLayer.lineStyle(0);
+      } else if (p.kind === 'beam') { // 뻗어나가는 광선 (0→전체 길이로 신장하며 페이드)
+        var ext = 1 - t; // 0→1
+        var bx2 = p.x + (p.x2 - p.x) * ext, by2 = p.y + (p.y2 - p.y) * ext;
+        fxLayer.lineStyle(p.lw || 4, p.color, Math.min(1, t * 1.4));
+        fxLayer.moveTo(p.x, p.y); fxLayer.lineTo(bx2, by2);
+        fxLayer.lineStyle(0);
       }
     }
   }
@@ -1410,5 +1435,6 @@ export function createRenderer(world) {
     spawnHitFx: spawnHitFx,
     flashPawn: flashPawn,
     updateBuildingHp: updateBuildingHp,
+    spawnDemonLaserFx: spawnDemonLaserFx,
   };
 }
