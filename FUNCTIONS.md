@@ -28,7 +28,7 @@
 | `canAfford` | js/world.js:713 |
 | `cancelToSelect` | js/main.js:147 |
 | `canPlaceBridge` | js/world.js:425 |
-| `catchFish` | js/config.js:432 |
+| `catchFish` | js/config.js:433 |
 | `centerOn` | js/render.js:1133 |
 | `checkGoals` | js/goals.js:32 |
 | `checkIslandDiscovery` | js/world.js:676 |

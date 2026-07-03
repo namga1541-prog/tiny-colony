@@ -413,17 +413,18 @@ export const RODS = [
 ];
 // rare: 0 흔함 → 3 전설. weight 는 기본 확률, 낚싯대 등급이 높을수록 rare 가중.
 // 금은 초희귀 '황금 잉어'(weight 1.0 ≈ 약 1%)에서만 나옴 — 나머지 어종은 고기(식량) 전용.
+// food 는 밸런싱을 위해 기존값의 절반으로 하향(낚시가 식량을 과다 공급하던 문제). 금 산출은 유지.
 export const FISH = [
-  { name: '멸치',       food: 2,  gold: 0,  weight: 42, rare: 0 },
-  { name: '붕어',       food: 4,  gold: 0,  weight: 30, rare: 0 },
-  { name: '농어',       food: 7,  gold: 0,  weight: 16, rare: 1 },
-  { name: '연어',       food: 11, gold: 0,  weight: 9,  rare: 1 },
-  { name: '금붕어',     food: 9,  gold: 0,  weight: 3,  rare: 2 },
-  { name: '전설의 잉어', food: 17, gold: 0,  weight: 0.7, rare: 3 },
-  { name: '황금 잉어',   food: 8,  gold: 30, weight: 1.0, rare: 3 }, // 유일한 금 산출 어종(초희귀, ≈1%)
-  { name: '심해 아귀왕', food: 20, gold: 0,  weight: 0.6, rare: 3 },
-  { name: '오색 산천어', food: 14, gold: 0,  weight: 0.8, rare: 3 },
-  { name: '인어의 눈물고기', food: 12, gold: 0, weight: 0.5, rare: 3 },
+  { name: '멸치',       food: 1,  gold: 0,  weight: 42, rare: 0 },
+  { name: '붕어',       food: 2,  gold: 0,  weight: 30, rare: 0 },
+  { name: '농어',       food: 4,  gold: 0,  weight: 16, rare: 1 },
+  { name: '연어',       food: 6,  gold: 0,  weight: 9,  rare: 1 },
+  { name: '금붕어',     food: 5,  gold: 0,  weight: 3,  rare: 2 },
+  { name: '전설의 잉어', food: 9,  gold: 0,  weight: 0.7, rare: 3 },
+  { name: '황금 잉어',   food: 4,  gold: 30, weight: 1.0, rare: 3 }, // 유일한 금 산출 어종(초희귀, ≈1%)
+  { name: '심해 아귀왕', food: 10, gold: 0,  weight: 0.6, rare: 3 },
+  { name: '오색 산천어', food: 7,  gold: 0,  weight: 0.8, rare: 3 },
+  { name: '인어의 눈물고기', food: 6, gold: 0, weight: 0.5, rare: 3 },
 ];
 // 낚시터 등급별 희귀 보정 — 낚싯대(rodTier)와 같은 방식으로 합산(둘 다 있으면 시너지).
 // 0=해안(기본), 1=좌대(FISH_PLATFORM) 인접, 2=선착장(DOCK) 인접. world.js 의 fishSpotTier() 가 판정.
