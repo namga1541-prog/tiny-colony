@@ -175,10 +175,16 @@ export function createRenderer(world) {
   var bBadges = {};       // buildingId -> 기능 배지(이모지) 텍스트
   var treeList = [];      // 흔들림 애니용
 
-  // 건물 기능 배지 — 외형이 비슷한 건물을 기능으로 구분 (스프라이트가 3종뿐이라 이모지로 보강)
-  var BUILDING_BADGE = {
-    house: '🏠', smithy: '⚒️', warehouse: '📦', clinic: '🏥', ranch: '🐑',
-    tower: '🏹', outpost: '🛡️', castle: '👑',
+  // 건물 기능 명패 — 지붕 위 색 명패 + 아이콘으로 건물 종류를 한눈에 구분(에셋이 비슷해 보강).
+  var BUILDING_SIGN = {
+    house:     { icon: '🏠', color: 0x6b4a2f },
+    smithy:    { icon: '⚒️', color: 0x455066 },
+    warehouse: { icon: '📦', color: 0xb5732a },
+    clinic:    { icon: '🏥', color: 0xd94a52 },
+    ranch:     { icon: '🐑', color: 0x4e8a3a },
+    tower:     { icon: '🏹', color: 0x556070 },
+    outpost:   { icon: '🛡️', color: 0x8a7444 },
+    castle:    { icon: '👑', color: 0x7a5a20 },
   };
 
   function refreshTile(i) {
@@ -267,25 +273,47 @@ export function createRenderer(world) {
   }
 
   function updateBuildingBadge(b, def) {
-    // 완공된 건물에만 기능 배지 표시 (설계도·모닥불·다리·광산 제외)
-    var want = (b.stage === 'built') ? BUILDING_BADGE[b.kind] : null;
-    // 특화된 초소는 분기 배지로 교체(가시벽🧱·석궁탑🎯·투석기💣·속사탑⚡)
-    if (b.stage === 'built' && b.branch && OUTPOST_BRANCHES[b.branch]) want = OUTPOST_BRANCHES[b.branch].badge;
+    // 완공된 건물에만 명패 표시 (설계도·모닥불·다리·광산 제외)
+    var sign = (b.stage === 'built') ? BUILDING_SIGN[b.kind] : null;
+    var icon = sign ? sign.icon : null;
+    var color = sign ? sign.color : 0x333a48;
+    // 특화된 초소는 분기 아이콘·색으로 교체(가시벽🧱·석궁탑🎯·투석기💣·속사탑⚡)
+    if (b.stage === 'built' && b.branch && OUTPOST_BRANCHES[b.branch]) {
+      icon = OUTPOST_BRANCHES[b.branch].badge;
+      color = OUTPOST_BRANCHES[b.branch].tint;
+    }
     var badge = bBadges[b.id];
-    if (!want) {
-      if (badge) { objLayer.removeChild(badge); badge.destroy(); delete bBadges[b.id]; }
+    if (!icon) {
+      if (badge) { objLayer.removeChild(badge); badge.destroy({ children: true }); delete bBadges[b.id]; }
       return;
     }
     if (!badge) {
-      badge = new PIXI.Text(want, { fontSize: 30 });
-      badge.anchor.set(0.5, 1);
+      badge = new PIXI.Container();
+      badge.plate = new PIXI.Graphics();
+      badge.txt = new PIXI.Text('', { fontSize: 26 });
+      badge.txt.anchor.set(0.5, 0.5);
+      badge.addChild(badge.plate); badge.addChild(badge.txt);
       objLayer.addChild(badge);
       bBadges[b.id] = badge;
     }
-    if (badge.text !== want) badge.text = want;
+    if (badge.txt.text !== icon) badge.txt.text = icon;
+    if (badge.signColor !== color) {
+      badge.signColor = color;
+      var W = 40, H = 34, r = 9;
+      badge.plate.clear();
+      badge.plate.lineStyle(3, 0x15171d, 1);
+      badge.plate.beginFill(color, 0.96);
+      badge.plate.drawRoundedRect(-W / 2, -H / 2, W, H, r);
+      badge.plate.endFill();
+      // 지붕에 꽂힌 팻말 느낌의 작은 기둥
+      badge.plate.lineStyle(0);
+      badge.plate.beginFill(0x15171d, 0.9);
+      badge.plate.drawRect(-2.5, H / 2 - 1, 5, 9);
+      badge.plate.endFill();
+    }
     badge.x = (b.x + def.fw / 2) * TILE;
-    badge.y = b.y * TILE - 2; // 건물 풋프린트 바로 위
-    badge.zIndex = 1000000;   // 항상 건물 위
+    badge.y = b.y * TILE - 14; // 지붕 위로 명패를 띄움
+    badge.zIndex = 2000000;    // 항상 건물 위
   }
 
   function refreshBuilding(b) {
@@ -293,7 +321,7 @@ export function createRenderer(world) {
     if (!b || !world.buildings[b.id]) {
       if (e) { objLayer.removeChild(e); e.destroy(); delete bSprites[b.id]; }
       var bg = bBadges[b.id];
-      if (bg) { objLayer.removeChild(bg); bg.destroy(); delete bBadges[b.id]; }
+      if (bg) { objLayer.removeChild(bg); bg.destroy({ children: true }); delete bBadges[b.id]; }
       return;
     }
     var def = buildingDef(b.kind);
@@ -349,7 +377,7 @@ export function createRenderer(world) {
     var e = bSprites[bid];
     if (e) { objLayer.removeChild(e); e.destroy(); delete bSprites[bid]; }
     var bg = bBadges[bid];
-    if (bg) { objLayer.removeChild(bg); bg.destroy(); delete bBadges[bid]; }
+    if (bg) { objLayer.removeChild(bg); bg.destroy({ children: true }); delete bBadges[bid]; }
     rebuildLights();
   }
 

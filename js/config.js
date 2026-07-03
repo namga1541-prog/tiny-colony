@@ -16,14 +16,14 @@ export const BUILDS = {
     name: '집', cost: { wood: 10 }, work: 60,
     fw: 2, fh: 2, solid: true, light: true,
     img: 'House', imgC: 'House_C', pw: 128, ph: 192,
-    town: { sx: 0, sy: 64, sw: 64, sh: 64 }, // Tiny Town 회색지붕 집
+    town: { sx: 0, sy: 64, sw: 64, sh: 64 }, tint: 0xe6d2b0, // 회색지붕 집 + 따뜻한 크림색조(집=거주)
     desc: '정착촌의 기본 건물입니다.',
   },
   smithy: {
     name: '대장간', cost: { wood: 12, gold: 4 }, work: 70,
     fw: 2, fh: 2, solid: true, light: true,
     img: 'House', imgC: 'House_C', pw: 128, ph: 192,
-    town: { sx: 0, sy: 64, sw: 64, sh: 64 }, tint: 0x8f96a8, // 회색집 + 강철색조(대장간)
+    town: { sx: 0, sy: 64, sw: 64, sh: 64 }, tint: 0x7f8aa6, // 회색집 + 강철 청회색(대장간)
     craftHere: true, // 이 건물에서 무기 제작
     desc: '검·활 등 무기를 제작하는 곳입니다. 제작 주문은 대장간에서 처리됩니다.',
   },
@@ -31,7 +31,7 @@ export const BUILDS = {
     name: '창고', cost: { wood: 12 }, work: 55,
     fw: 2, fh: 2, solid: true,
     img: 'House', imgC: 'House_C', pw: 128, ph: 192,
-    town: { sx: 64, sy: 64, sw: 64, sh: 64 }, // Tiny Town 빨간지붕 석조집
+    town: { sx: 64, sy: 64, sw: 64, sh: 64 }, tint: 0xd99a4e, // 빨간지붕집 + 나무·호박색조(창고=물류)
     desc: '저장 용량을 크게 늘립니다.',
   },
   tower: {
@@ -75,7 +75,7 @@ export const BUILDS = {
     name: '치료소', cost: { wood: 10, gold: 3 }, work: 60,
     fw: 2, fh: 2, solid: true, light: true,
     img: 'House', imgC: 'House_C', pw: 128, ph: 192,
-    town: { sx: 0, sy: 64, sw: 64, sh: 64 }, tint: 0xffb3c2, // 회색집 + 분홍조(치료소)
+    town: { sx: 0, sy: 64, sw: 64, sh: 64 }, tint: 0xdfeaff, // 회색집 + 청백색조(치료소=청결·의료)
     desc: '부상당한 정착민이 찾아와 빠르게 회복합니다.',
   },
 };
@@ -84,10 +84,13 @@ export const BUILDS = {
 export const STORAGE = { base: 120, perWarehouse: 180 };
 
 // ── 창고 업그레이드 단계: 인덱스 0 = 1단계(건설 시 기본), cap 은 STORAGE.perWarehouse 대신 사용 ──
+// 땅이 한정적이라 창고 1채가 담는 양을 단계로 크게 늘림(최대 1300 = 초기의 7배 이상).
 export const WAREHOUSE_TIERS = [
-  { cap: 180, cost: null },                          // 1단계: 건설 비용에 포함, 추가 비용 없음
-  { cap: 320, cost: { wood: 20, gold: 8 } },          // 2단계
-  { cap: 500, cost: { wood: 35, gold: 18 } },         // 3단계
+  { cap: 180,  cost: null },                                  // 1단계: 건설 비용에 포함
+  { cap: 340,  cost: { wood: 20, gold: 8 } },                  // 2단계
+  { cap: 560,  cost: { wood: 35, gold: 18 } },                 // 3단계
+  { cap: 850,  cost: { wood: 55, gold: 30, iron: 12 } },       // 4단계 (철 필요)
+  { cap: 1300, cost: { wood: 85, gold: 50, iron: 28 } },       // 5단계 (대형 물류창고)
 ];
 
 // ── 방어건물 업그레이드 tier: 공격 스탯(power·range·cd) + 업그레이드 비용 ──
