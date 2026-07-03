@@ -89,7 +89,9 @@ export function createUI(handlers) {
   var timeLabel = document.getElementById('timeLabel');
   var resWood = document.getElementById('resWood');
   var resGold = document.getElementById('resGold');
+  var resIron = document.getElementById('resIron');
   var resFood = document.getElementById('resFood');
+  var resMeal = document.getElementById('resMeal');
   var resPop = document.getElementById('resPop');
 
   function updateClock(day, timeMin) {
@@ -104,7 +106,9 @@ export function createUI(handlers) {
   function updateRes(sum, alivePawns) {
     resWood.textContent = sum.wood || 0;
     resGold.textContent = sum.gold || 0;
+    if (resIron) resIron.textContent = sum.iron || 0;
     resFood.textContent = sum.food || 0;
+    if (resMeal) resMeal.textContent = sum.meal || 0;
     resPop.textContent = alivePawns;
   }
   function updateStorage(used, cap) {

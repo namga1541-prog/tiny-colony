@@ -43,6 +43,7 @@ body.touch .touch-only { display: inline-block; }
 
 .res { display: inline-flex; align-items: center; gap: 3px; font-size: 13px; cursor: default; }
 .res img { width: 18px; height: 18px; image-rendering: pixelated; }
+.res img.res-iron-img { filter: grayscale(1) brightness(1.3) contrast(1.05); } /* 금 아이콘을 은빛으로 → 철(인게임 철 색조와 동일) */
 .res-ic { font-size: 15px; }
 .res-lbl { color: #aeb6c6; font-size: 12px; }
 .res b { min-width: 18px; font-variant-numeric: tabular-nums; font-weight: 700; }
