@@ -6,6 +6,7 @@ import {
   ARMOR, FISH_PLATFORM,
   T_WATER, T_GRASS, T_SAND,
 } from './config.js';
+import { findPath } from './path.js';
 
 // ── 콜로니 업그레이드 효과 조회 (구매한 업그레이드들을 집계) ──
 export function hasUpgrade(world, id) { return !!(world.upgrades && world.upgrades[id]); }
@@ -46,8 +47,9 @@ export function grantRelic(world, rng) {
   return { id: id, def: RELICS[id], count: world.relics[id] };
 }
 // 대침공(INVASION) 승리 전용 전설급 유물 확정 지급. rarity==='legendary' 후보 중 rng 로 선택.
+// goddessOnly(여신 강림 전용) 유물은 제외 — 대침공 보상으로 여신 축복이 나오는 건 어색하므로.
 export function grantLegendaryRelic(world, rng) {
-  var ids = Object.keys(RELICS).filter(function (id) { return RELICS[id].rarity === 'legendary'; });
+  var ids = Object.keys(RELICS).filter(function (id) { return RELICS[id].rarity === 'legendary' && !RELICS[id].goddessOnly; });
   if (ids.length === 0) return grantRelic(world, rng); // 안전망(전설급 미정의 시)
   var id = ids[(rng() * ids.length) | 0];
   world.relics = world.relics || {};
@@ -845,8 +847,61 @@ function armorDefense(pawn) {
   return (pawn.armor && ARMOR[pawn.armor]) ? ARMOR[pawn.armor].defense : 0;
 }
 
-// 적 이동·공격 (정착민 공격은 pawns.js 에서). cb: {onHit(pawn,dmg), onPawnDeath(pawn), onEnemyGone,
-//   onBuildingDestroyed(b), onCropDestroyed(idx), onGiantJump(e,x,y)}
+// 길이 완전히 막혔을 때(A* 경로 없음) 목표 방향의 인접 장애물을 부수고 돌파.
+// 나무→그루터기, 다리·좌대→즉시 제거(얇은 판자), 일반 건물→st.power 만큼 피해. 부쉈으면 true.
+// e.cd 로 속도 제어되며(호출부), 부술 게 없으면 false(호출부에서 그리디 셔플로 폴백).
+function breakThrough(world, e, tgt, st, cb) {
+  var ex = Math.round(e.px), ey = Math.round(e.py);
+  var tvx = Math.sign(tgt.x - e.px), tvy = Math.sign(tgt.y - e.py);
+  // 목표 방향(큰 축 우선)으로 정렬한 4방향
+  var order = (Math.abs(tgt.x - e.px) >= Math.abs(tgt.y - e.py))
+    ? [[tvx, 0], [0, tvy], [0, -tvy], [-tvx, 0]]
+    : [[0, tvy], [tvx, 0], [-tvx, 0], [0, -tvy]];
+  for (var k = 0; k < order.length; k++) {
+    var ox = order[k][0], oy = order[k][1];
+    if (ox === 0 && oy === 0) continue;
+    var ax = ex + ox, ay = ey + oy;
+    if (!inMap(ax, ay)) continue;
+    var ai = idx(ax, ay);
+    var o = world.objects[ai];
+    if (o && o.kind === 'tree') { world.objects[ai] = { kind: 'stump' }; if (cb.onObstacleBreak) cb.onObstacleBreak(ax, ay); return true; }
+    var abid = world.occupancy[ai];
+    if (abid !== undefined) {
+      var ab = world.buildings[abid];
+      if (ab && ab.stage === 'built' && !ab.natural) {
+        if (ab.kind === 'bridge' || ab.kind === 'fishPlatform') { // 얇은 판자 — 한 방에 부숨
+          if (cb.onBuildingDestroyed) cb.onBuildingDestroyed(ab); removeBuilding(world, ab); return true;
+        }
+        ab.hp = Math.max(0, (ab.hp != null ? ab.hp : BUILDING_HP_DEFAULT) - st.power);
+        if (ab.hp <= 0) { if (cb.onBuildingDestroyed) cb.onBuildingDestroyed(ab); removeBuilding(world, ab); }
+        else if (cb.onBuildingHit) cb.onBuildingHit(ab, st.power);
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+// 목표(tx,ty)를 향해 통행 가능한 방향으로 그리디 1스텝(우회 겸 폴백). 이동했으면 true.
+function greedyStepEnemy(world, e, tx, ty, step) {
+  var vx = Math.sign(tx - e.px), vy = Math.sign(ty - e.py);
+  if (vx !== 0) e.dir = vx;
+  var moved = false;
+  if (Math.abs(tx - e.px) >= Math.abs(ty - e.py)) {
+    if (vx !== 0 && isWalkable(world, Math.round(e.px + vx), Math.round(e.py))) { e.px += vx * step; moved = true; }
+    else if (vy !== 0 && isWalkable(world, Math.round(e.px), Math.round(e.py + vy))) { e.py += vy * step; moved = true; }
+  } else {
+    if (vy !== 0 && isWalkable(world, Math.round(e.px), Math.round(e.py + vy))) { e.py += vy * step; moved = true; }
+    else if (vx !== 0 && isWalkable(world, Math.round(e.px + vx), Math.round(e.py))) { e.px += vx * step; moved = true; }
+  }
+  if (moved) { e.x = Math.round(e.px); e.y = Math.round(e.py); }
+  return moved;
+}
+
+// 적 이동·공격 (정착민 공격은 pawns.js 에서). 이동은 A* 경로 추종(막히면 우회)이며,
+// 경로가 아예 없으면 앞을 막은 나무·건물·다리를 부수고 돌파한다. cb: {onHit(pawn,dmg),
+//   onPawnDeath(pawn), onEnemyGone, onBuildingDestroyed(b), onCropDestroyed(idx),
+//   onGiantJump(e,x,y), onObstacleBreak(x,y)}
 export function updateEnemies(world, pawns, dtMin, cb) {
   var alive = [];
   for (var n = 0; n < world.enemies.length; n++) {
@@ -941,22 +996,38 @@ export function updateEnemies(world, pawns, dtMin, cb) {
           }
         }
       } else {
-        // 접근 (그리디 1스텝, 물/벽 회피). 빠른 괴민(e.fast)은 이동 소요시간 단축
+        // 접근: A* 경로 추종(막히면 우회) → 경로가 아예 없으면 앞을 막은 장애물 파괴. 빠른 괴민은 이동 단축.
         e.moving = true;
         var mmpt = e.fast ? st.moveMinPerTile * GIANT_FAST_MULT : st.moveMinPerTile;
         var step = dtMin / mmpt;
-        var vx = Math.sign(tgt.x - e.px), vy = Math.sign(tgt.y - e.py);
-        if (vx !== 0) e.dir = vx;
-        // 우선 큰 축 이동
-        var movedAxis = false;
-        if (Math.abs(tgt.x - e.px) >= Math.abs(tgt.y - e.py)) {
-          if (vx !== 0 && isWalkable(world, Math.round(e.px + vx), Math.round(e.py))) { e.px += vx * step; movedAxis = true; }
-          else if (vy !== 0 && isWalkable(world, Math.round(e.px), Math.round(e.py + vy))) { e.py += vy * step; movedAxis = true; }
-        } else {
-          if (vy !== 0 && isWalkable(world, Math.round(e.px), Math.round(e.py + vy))) { e.py += vy * step; movedAxis = true; }
-          else if (vx !== 0 && isWalkable(world, Math.round(e.px + vx), Math.round(e.py))) { e.px += vx * step; movedAxis = true; }
+        var ex0 = Math.round(e.px), ey0 = Math.round(e.py);
+        var gx = Math.round(tgt.x), gy = Math.round(tgt.y);
+        // 경로 재계산: 미보유/쿨다운 만료/목표가 크게 이동 시 (적별 지터로 동시 폭주 방지)
+        e.pathCd = (e.pathCd || 0) - dtMin;
+        var goalMoved = !e.pathGoal || (Math.abs(e.pathGoal.x - gx) + Math.abs(e.pathGoal.y - gy) > 2);
+        if (e.path === undefined || e.pathCd <= 0 || goalMoved) {
+          e.path = findPath(world, ex0, ey0, gx, gy, true);
+          e.pathGoal = { x: gx, y: gy };
+          e.pathCd = 30 + (e.id % 20);
         }
-        if (movedAxis) { e.x = Math.round(e.px); e.y = Math.round(e.py); }
+        if (e.path === null) {
+          // 경로 없음(물·벽으로 완전 차단) → 인접 장애물을 부수고 돌파, 없으면 셔플
+          e.cd -= dtMin;
+          if (e.cd <= 0) {
+            e.cd = st.attackCd;
+            if (!breakThrough(world, e, tgt, st, cb)) greedyStepEnemy(world, e, tgt.x, tgt.y, step);
+          } else {
+            greedyStepEnemy(world, e, tgt.x, tgt.y, step);
+          }
+        } else if (e.path.length > 0) {
+          // 다음 웨이포인트(인접·통행가능)로 이동, 그 타일에 올라서면 팝(반올림 기준 — 스텝이 커도 진동 없이 진행)
+          var wp = e.path[0];
+          greedyStepEnemy(world, e, wp.x, wp.y, step);
+          if (Math.round(e.px) === wp.x && Math.round(e.py) === wp.y) e.path.shift();
+        } else {
+          // 경로 == [] (격자상 이미 목표 인접) → 목표를 향해 직접 그리디
+          greedyStepEnemy(world, e, tgt.x, tgt.y, step);
+        }
       }
     }
     alive.push(e);

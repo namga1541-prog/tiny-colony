@@ -390,7 +390,7 @@ export const RELICS = {
   // 대침공(INVASION) 승리 전용 확정 보상 — rarity 필드로 구분, grantLegendaryRelic 에서만 선택됨.
   crown:    { name: '정복자의 왕관',   icon: '👑', rarity: 'legendary', effect: { key: 'speed_all', mult: 1.25 }, desc: '모든 작업 속도 +25% (전설)' },
   // 섬의 수호신 「아보랑카도」가 GODDESS.day 일밤에 내리는 축복 — 전투 없이 확정 지급(sim.js).
-  avorlancado: { name: '아보랑카도의 축복', icon: '🌺', rarity: 'legendary', effect: { key: 'speed_all', mult: 1.2 }, desc: '섬의 수호신이 내린 축복 — 모든 작업 속도 +20% (전설)' },
+  avorlancado: { name: '아보랑카도의 축복', icon: '🌺', rarity: 'legendary', goddessOnly: true, effect: { key: 'speed_all', mult: 1.2 }, desc: '섬의 수호신이 내린 축복 — 모든 작업 속도 +20% (전설)' },
 };
 
 // ── 섬의 수호신 「아보랑카도」: GODDESS.day 일 밤, 전투 없이 마을에 강림해 축복(RELICS.avorlancado)을 내리고 떠난다 ──

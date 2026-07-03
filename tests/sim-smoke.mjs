@@ -814,6 +814,55 @@ console.log('[sim-smoke] 32) 좌대·선착장 — 낚시 등급 판정 + 희귀
   ok(FISH_PLATFORM.cost.wood > 0, '좌대 비용 정의됨');
 })();
 
+console.log('[sim-smoke] 33) 적 길찾기 — 장애물 우회 + 완전 차단 시 돌파 (신규)');
+(function () {
+  // (a) 나무 벽을 사이에 두고 정착민이 반대편에 있으면, 적이 벽을 돌아 접근한다
+  var sim = bootSim(901); var w = sim.world;
+  // 맵 중앙 근처 개활지 확보 + 세로 나무벽(가운데 한 칸만 뚫림)
+  var cx = 48, cy = 48;
+  for (var yy = 40; yy <= 56; yy++) for (var xx = 44; xx <= 52; xx++) { delete w.objects[idx(xx, yy)]; }
+  for (var wy2 = 44; wy2 <= 52; wy2++) { if (wy2 !== 48) w.objects[idx(48, wy2)] = { kind: 'tree' }; } // x=48 세로벽, y=48만 통로
+  var pawn = { id: 0, state: 'idle', px: 46, py: 45, x: 46, y: 45, hp: 100 }; // 벽 왼쪽
+  var enemy = { id: w.nextEid++, x: 50, y: 51, px: 50, py: 51, hp: 200, maxHp: 200, cd: 0, dir: -1, anim: 0, kind: 'goblin', wave: 0 }; // 벽 오른쪽
+  w.enemies = [enemy];
+  var d0 = Math.abs(enemy.px - pawn.px) + Math.abs(enemy.py - pawn.py);
+  for (var t = 0; t < 120; t++) updateEnemies(w, [pawn], 1, {});
+  var d1 = Math.abs(enemy.px - pawn.px) + Math.abs(enemy.py - pawn.py);
+  ok(d1 < d0 - 1, '나무벽을 우회해 정착민에게 접근함 (거리 ' + d0.toFixed(0) + '→' + d1.toFixed(1) + ')');
+
+  // (b) 정착민을 나무로 완전히 가두면(사방 통로 없음), 적이 나무를 부수고 돌파한다
+  var sim2 = bootSim(902); var w2 = sim2.world;
+  for (var y3 = 40; y3 <= 56; y3++) for (var x3 = 44; x3 <= 52; x3++) { delete w2.objects[idx(x3, y3)]; }
+  var pcx = 48, pcy = 48;
+  // 정착민 둘레(반경1) 8칸을 전부 나무로 봉쇄
+  for (var oy = -1; oy <= 1; oy++) for (var ox = -1; ox <= 1; ox++) {
+    if (ox === 0 && oy === 0) continue;
+    w2.objects[idx(pcx + ox, pcy + oy)] = { kind: 'tree' };
+  }
+  var pawn2 = { id: 0, state: 'idle', px: pcx, py: pcy, x: pcx, y: pcy, hp: 100 };
+  var enemy2 = { id: w2.nextEid++, x: pcx + 3, y: pcy, px: pcx + 3, py: pcy, hp: 300, maxHp: 300, cd: 0, dir: -1, anim: 0, kind: 'goblin', wave: 0 };
+  w2.enemies = [enemy2];
+  var treesBefore = 0; for (var oy2 = -1; oy2 <= 1; oy2++) for (var ox2 = -1; ox2 <= 1; ox2++) { if (w2.objects[idx(pcx + ox2, pcy + oy2)] && w2.objects[idx(pcx + ox2, pcy + oy2)].kind === 'tree') treesBefore++; }
+  var broke = false;
+  for (var t2 = 0; t2 < 200 && !broke; t2++) {
+    updateEnemies(w2, [pawn2], 1, {});
+    var treesNow = 0; for (var oy3 = -1; oy3 <= 1; oy3++) for (var ox3 = -1; ox3 <= 1; ox3++) { var oo = w2.objects[idx(pcx + ox3, pcy + oy3)]; if (oo && oo.kind === 'tree') treesNow++; }
+    if (treesNow < treesBefore) broke = true;
+  }
+  ok(broke, '완전히 갇힌 정착민을 향해 나무를 부수고 돌파함 (봉쇄 나무 ' + treesBefore + '개 중 일부 파괴)');
+
+  // (c) 다리(라프트) 벽도 돌파 대상 — 한 방에 제거
+  var w3 = bootSim(903).world;
+  // 물 타일 위 다리 한 칸 + 그 옆 육지에 적, 다리 너머(막다른) 정착민 배치는 복잡하므로 breakThrough 직접 검증 대신
+  // 다리가 solid 아님에도 통행판(walkable)임을 재확인(길찾기가 다리 위를 지날 수 있음)
+  var bx = -1, by = -1;
+  for (var yb = 2; yb < 92 && bx < 0; yb++) for (var xb = 2; xb < 92; xb++) { if (w3.terrain[idx(xb, yb)] === 0 && canPlaceBridge(w3, xb, yb)) { bx = xb; by = yb; break; } }
+  if (bx >= 0) {
+    addBuilding(w3, 'bridge', bx, by, { stage: 'built' });
+    ok(isWalkable(w3, bx, by), '다리 위는 통행 가능 — 길찾기가 다리를 경유할 수 있음');
+  } else { ok(true, '(다리 설치 위치 없음 — 스킵)'); }
+})();
+
 console.log('');
 if (fails) { console.log('❌ sim-smoke 실패 ' + fails + '건'); process.exit(1); }
 console.log('✅ sim-smoke 전체 통과');

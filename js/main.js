@@ -1093,6 +1093,10 @@ var enemyCbs = {
     Audio2.play('attack');
     UI.toast('🦶 괴민이 크게 뛰어올라 착지했습니다!', true);
   },
+  onObstacleBreak: function (x, y) { // 적이 길 막은 나무를 부숨 → 그루터기 타일 갱신
+    R.refreshTile(idx(x, y));
+    R.spawnBoomFx(x, y);
+  },
 };
 
 // 계절 초기 표시 (prevSeason 은 stepWorld 가 world.prevSeason 으로 추적)
