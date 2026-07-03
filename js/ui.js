@@ -22,6 +22,17 @@ export function createUI(handlers) {
     });
   });
 
+  // 대제목 탭(도구·건설·관리) → 해당 소제목 그룹만 표시
+  var toolCats = document.querySelectorAll('.tool-cat');
+  var toolGroups = document.querySelectorAll('.tool-group');
+  toolCats.forEach(function (cat) {
+    cat.addEventListener('click', function () {
+      var c = cat.dataset.cat;
+      toolCats.forEach(function (x) { x.classList.toggle('active', x === cat); });
+      toolGroups.forEach(function (g) { g.classList.toggle('hidden', g.dataset.cat !== c); });
+    });
+  });
+
   // 속도 버튼
   var spdBtns = document.querySelectorAll('.spd');
   spdBtns.forEach(function (btn) {

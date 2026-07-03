@@ -165,6 +165,9 @@ function ok(cond, msg) { if (cond) console.log('  ✓ ' + msg); else { console.l
   await page.tap('#btnCancelTouch');
 
   console.log('[5] 모달(업그레이드·제작) 모바일 맞춤 확인');
+  // 업그레이드는 '관리' 대제목 그룹에 있음 — 먼저 관리 탭을 열어야 버튼이 보임
+  await page.evaluate(function () { var c = document.querySelector('.tool-cat[data-cat="manage"]'); if (c) c.click(); });
+  await page.waitForTimeout(80);
   await page.evaluate(function () { document.getElementById('btnUpgrades').scrollIntoView({ inline: 'center' }); });
   await page.tap('#btnUpgrades');
   await page.waitForTimeout(300);
