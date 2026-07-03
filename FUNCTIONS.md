@@ -42,7 +42,7 @@
 | `dailyRegrowth` | js/world.js:388 |
 | `dist` | js/jobs.js:23 |
 | `distB` | js/jobs.js:27 |
-| `doInteract` | js/main.js:719 |
+| `doInteract` | js/main.js:763 |
 | `drawMinimap` | js/render.js:694 |
 | `drawSelection` | js/render.js:586 |
 | `enterControl` | js/main.js:122 |
@@ -74,7 +74,7 @@
 | `idx` | js/world.js:67 |
 | `inMap` | js/world.js:70 |
 | `isMine` | js/world.js:198 |
-| `isTyping` | js/main.js:716 |
+| `isTyping` | js/main.js:760 |
 | `isWalkable` | js/world.js:275 |
 | `ix` | js/world.js:68 |
 | `iy` | js/world.js:69 |
@@ -84,7 +84,7 @@
 | `loadSaveData` | js/save.js:51 |
 | `makeNoise` | js/world.js:51 |
 | `manualInteract` | js/pawns.js:751 |
-| `manualMove` | js/main.js:750 |
+| `manualMove` | js/main.js:794 |
 | `mineDrops` | js/world.js:201 |
 | `mineResource` | js/world.js:199 |
 | `mineWork` | js/world.js:200 |
@@ -107,7 +107,7 @@
 | `poseOf` | js/pawns.js:91 |
 | `reachable` | js/jobs.js:31 |
 | `rebuildLights` | js/render.js:630 |
-| `recruitWanderer` | js/main.js:801 |
+| `recruitWanderer` | js/main.js:845 |
 | `refreshAll` | js/render.js:429 |
 | `refreshBuilding` | js/render.js:283 |
 | `refreshCrop` | js/render.js:229 |
@@ -115,7 +115,7 @@
 | `refreshTile` | js/render.js:184 |
 | `refreshZones` | js/render.js:390 |
 | `release` | js/jobs.js:13 |
-| `release` | js/main.js:700 |
+| `release` | js/main.js:744 |
 | `releaseAllOf` | js/jobs.js:17 |
 | `removeBuilding` | js/world.js:237 |
 | `removeBuildingSprite` | js/render.js:338 |
@@ -130,6 +130,7 @@
 | `screenToTile` | js/render.js:757 |
 | `seasonDef` | js/world.js:385 |
 | `seasonIndex` | js/world.js:382 |
+| `selectAtScreen` | js/main.js:620 |
 | `selectPawns` | js/main.js:95 |
 | `setHireInfo` | js/ui.js:57 |
 | `setSeasonTint` | js/render.js:680 |
@@ -172,7 +173,7 @@
 | `toolIconOf` | js/pawns.js:99 |
 | `totalRes` | js/world.js:320 |
 | `totalStored` | js/world.js:348 |
-| `touchXY` | js/main.js:624 |
+| `touchXY` | js/main.js:646 |
 | `tx` | js/render.js:47 |
 | `updateBuildingBadge` | js/render.js:263 |
 | `updateClock` | js/ui.js:70 |
@@ -190,4 +191,4 @@
 | `warehouseTier` | js/world.js:330 |
 | `yieldJob` | js/pawns.js:139 |
 
-_총 184개 함수 · 12개 파일_
+_총 185개 함수 · 12개 파일_

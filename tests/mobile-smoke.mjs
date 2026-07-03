@@ -63,6 +63,39 @@ function ok(cond, msg) { if (cond) console.log('  ✓ ' + msg); else { console.l
   ok(layout.cancelVisible, '터치 전용 ✕ 취소 버튼 노출');
   if (layout.topbarOverflow) console.log('  ⚠ 상단바가 화면 폭 초과 (확인 필요)');
 
+  // 하단 도구 버튼 겹침 검사 (DOM 순서대로 rect 가 서로 침범하지 않아야)
+  var overlap = await page.evaluate(function () {
+    var btns = Array.from(document.querySelectorAll('#toolbar .tool, #toolbar .tool-action'));
+    var rs = btns.map(function (b) { var r = b.getBoundingClientRect(); return { l: r.left, r: r.right }; })
+      .sort(function (a, b) { return a.l - b.l; });
+    var worst = 0;
+    for (var i = 1; i < rs.length; i++) { var ov = rs[i - 1].r - rs[i].l; if (ov > worst) worst = ov; }
+    return { count: btns.length, worst: Math.round(worst) };
+  });
+  ok(overlap.worst <= 2, '도구 버튼 겹침 없음 (' + overlap.count + '개, 최대겹침 ' + overlap.worst + 'px)');
+
+  console.log('[2b] 맵 이동 — 선택 모드 한 손가락 드래그 = 팬, 탭 = 팬 아님');
+  var pan = await page.evaluate(function () {
+    var g = window.game, cv = g.R.app.view;
+    function fire(type, x, y) {
+      var t = new Touch({ identifier: 1, target: cv, clientX: x, clientY: y });
+      cv.dispatchEvent(new TouchEvent(type, {
+        touches: type === 'touchend' ? [] : [t], changedTouches: [t], bubbles: true, cancelable: true,
+      }));
+    }
+    // 드래그
+    var x0 = g.R.cam.x;
+    fire('touchstart', 250, 400); fire('touchmove', 130, 400); fire('touchend', 130, 400);
+    var afterDrag = g.R.cam.x;
+    // 탭(안 끌기)
+    var x1 = g.R.cam.x;
+    fire('touchstart', 250, 400); fire('touchend', 250, 400);
+    var afterTap = g.R.cam.x;
+    return { moved: Math.abs(afterDrag - x0), tapMoved: Math.abs(afterTap - x1) };
+  });
+  ok(pan.moved > 60, '한 손가락 드래그로 맵 이동 (' + Math.round(pan.moved) + 'px)');
+  ok(pan.tapMoved < 3, '탭은 맵을 움직이지 않음 (' + Math.round(pan.tapMoved) + 'px)');
+
   console.log('[3] 탭으로 정착민 선택 → 가상 조이스틱·액션 버튼');
   // 정착민을 화면 중앙으로 데려와 탭
   await page.evaluate(function () {

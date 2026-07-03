@@ -616,11 +616,33 @@ canvas.addEventListener('wheel', function (e) {
   R.applyCamera();
 }, { passive: false });
 
-// ── 터치 입력 (안드로이드 등 — 한 손가락: 선택·도구 사용 / 두 손가락: 화면 이동·확대) ──
+// 화면 좌표에서 탭 선택 (정착민 우선 → 건물 정보 → 해제)
+function selectAtScreen(x, y) {
+  var t2 = R.screenToTile(x, y);
+  var hit = null;
+  pawns.forEach(function (p) {
+    if (p.state === 'dead') return;
+    var d = Math.hypot(p.px - t2.x, p.py - t2.y);
+    if (d < 1.1 && (!hit || d < hit.d)) hit = { p: p, d: d };
+  });
+  if (hit) { selectPawns([hit.p]); UI.hideBuilding(); }
+  else {
+    var bAt = buildingAtTile(t2.x, t2.y);
+    if (bAt) { selectPawns([]); UI.showBuilding(bAt); }
+    else { selectPawns([]); UI.hideBuilding(); }
+  }
+}
+
+// ── 터치 입력 (안드로이드 등) ──
+//  선택 도구: 한 손가락 드래그 = 맵 이동 / 탭 = 선택
+//  그 외 도구(벌목·건설 등): 한 손가락 = 지정·배치
+//  두 손가락: 핀치 줌 + 이동
 var isTouch = window.matchMedia('(pointer: coarse)').matches;
 if (isTouch) document.body.classList.add('touch');
 
-var pinch = null; // { dist, zoom, camX, camY, mx, my }
+var pinch = null;        // { dist, zoom, camX, camY, mx, my }
+var touchPan = null;     // 선택 모드 한 손가락 맵 이동 { sx, sy, camX, camY, moved }
+var TAP_SLOP = 9;        // 이 이상 끌면 탭이 아니라 드래그
 function touchXY(t) { return { x: t.clientX, y: t.clientY }; }
 
 canvas.addEventListener('touchstart', function (e) {
@@ -628,9 +650,16 @@ canvas.addEventListener('touchstart', function (e) {
   Audio2.startBgm();
   if (e.touches.length === 1) {
     var p0 = touchXY(e.touches[0]);
-    pointerDown(p0.x, p0.y, 0);
+    if (UI.getTool() === 'select') {
+      // 선택 모드: 한 손가락 = 맵 이동(드래그) 또는 선택(탭)
+      touchPan = { sx: p0.x, sy: p0.y, camX: R.cam.x, camY: R.cam.y, moved: false };
+    } else {
+      // 도구 모드: 지정/건설 드래그
+      pointerDown(p0.x, p0.y, 0);
+    }
   } else if (e.touches.length === 2) {
-    dragStart = null; selDrag = null; R.showDrag(null); // 한 손가락 제스처 취소 후 핀치로 전환
+    // 두 손가락 → 핀치. 진행 중이던 한 손가락 제스처 취소
+    touchPan = null; dragStart = null; selDrag = null; R.showDrag(null);
     var a = touchXY(e.touches[0]), b = touchXY(e.touches[1]);
     pinch = {
       dist: Math.hypot(a.x - b.x, a.y - b.y), zoom: R.cam.zoom,
@@ -642,9 +671,17 @@ canvas.addEventListener('touchstart', function (e) {
 
 canvas.addEventListener('touchmove', function (e) {
   e.preventDefault();
-  if (e.touches.length === 1 && !pinch) {
+  if (e.touches.length === 1 && touchPan) {
+    // 선택 모드 한 손가락 → 맵 이동
     var p0 = touchXY(e.touches[0]);
-    pointerMove(p0.x, p0.y);
+    var dx = p0.x - touchPan.sx, dy = p0.y - touchPan.sy;
+    if (Math.abs(dx) + Math.abs(dy) > TAP_SLOP) touchPan.moved = true;
+    R.cam.x = touchPan.camX + dx; R.cam.y = touchPan.camY + dy;
+    R.applyCamera();
+  } else if (e.touches.length === 1 && !pinch) {
+    // 도구 모드 지정 프리뷰
+    var p1 = touchXY(e.touches[0]);
+    pointerMove(p1.x, p1.y);
   } else if (e.touches.length === 2 && pinch) {
     var a = touchXY(e.touches[0]), b = touchXY(e.touches[1]);
     var dist = Math.hypot(a.x - b.x, a.y - b.y);
@@ -658,13 +695,20 @@ canvas.addEventListener('touchmove', function (e) {
 
 canvas.addEventListener('touchend', function (e) {
   e.preventDefault();
-  if (pinch) {
-    if (e.touches.length < 2) pinch = null;
+  if (pinch) { if (e.touches.length < 2) pinch = null; return; }
+  if (touchPan) {
+    // 안 끌었으면(탭) → 선택
+    if (!touchPan.moved && e.changedTouches.length) {
+      var ct = touchXY(e.changedTouches[0]);
+      selectAtScreen(ct.x, ct.y);
+    }
+    if (e.touches.length === 0) touchPan = null;
     return;
   }
+  // 도구 모드 지정 적용
   if (e.touches.length === 0 && e.changedTouches.length) {
-    var ct = touchXY(e.changedTouches[0]);
-    pointerUp(ct.x, ct.y, 0);
+    var ct2 = touchXY(e.changedTouches[0]);
+    pointerUp(ct2.x, ct2.y, 0);
   }
 }, { passive: false });
 canvas.addEventListener('touchcancel', function (e) {

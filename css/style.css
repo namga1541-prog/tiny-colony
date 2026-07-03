@@ -349,18 +349,22 @@ body.touch .touch-only { display: inline-block; }
 }
 
 /* ── 터치 모드(모바일) 전용 레이아웃 ───── */
+/* 하단 도구모음: 한 줄 가로 스크롤(스와이프). 섹션·버튼이 줄어들며 겹치지 않도록 flex:0 0 auto 고정. */
 body.touch #toolbar {
   left: 0; right: 0; bottom: 0; transform: none;
   width: 100%; max-width: 100%;
   border-radius: 0; border-width: 1px 0 0 0;
   flex-wrap: nowrap; justify-content: flex-start;
-  overflow-x: auto; -webkit-overflow-scrolling: touch;
-  padding: 6px 10px;
+  gap: 6px;
+  overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch;
+  padding: 8px 10px;
 }
-body.touch #toolbar .tool-section { flex-wrap: nowrap; }
+body.touch #toolbar .tool-section { flex: 0 0 auto; flex-wrap: nowrap; gap: 6px; }
 body.touch #toolbar .tool,
-body.touch #toolbar .tool-action { flex: 0 0 auto; padding: 8px 10px; }
-body.touch #toolbar .tool-sep { flex: 0 0 auto; }
+body.touch #toolbar .tool-action {
+  flex: 0 0 auto; padding: 9px 12px; font-size: 13px; white-space: nowrap;
+}
+body.touch #toolbar .tool-sep { display: none; } /* 구분선 숨김 — 스크롤 폭 절약 */
 body.touch #hint { display: none; }
 
 #vJoyPad, #btnActionTouch { display: none; }
