@@ -475,7 +475,18 @@ function applyTool(tool, a, b) {
 
   else if (tool === 'dig') {
     // 삽: 영역의 나무·그루터기·버섯을 즉시 치우고, 자원이 재생되지 않는 건설용 빈 땅으로.
-    forRect(a, b, function (i) {
+    // 영역 안에 쓰러진 정착민(state=dead)이 있으면 시신을 매장 — 명단·렌더에서 완전히 제거.
+    var buried = 0;
+    forRect(a, b, function (i, x, y) {
+      for (var pi = pawns.length - 1; pi >= 0; pi--) {
+        var dp = pawns[pi];
+        if (dp.state !== 'dead' || dp.x !== x || dp.y !== y) continue;
+        R.removePawn(dp.id);
+        var ci = controlled.indexOf(dp);
+        if (ci >= 0) controlled.splice(ci, 1);
+        pawns.splice(pi, 1);
+        buried++;
+      }
       if (world.terrain[i] === T_WATER || world.occupancy[i] !== undefined) return; // 물·건물 위는 못 팜
       if (world.objects[i]) { delete world.objects[i]; }
       if (world.designations[i]) { delete world.designations[i]; }
@@ -483,6 +494,11 @@ function applyTool(tool, a, b) {
       R.refreshTile(i);
       count++;
     });
+    if (buried) {
+      UI.toast('🪦 쓰러진 정착민 ' + buried + '명을 땅에 묻었습니다');
+      UI.addEvent('🪦 정착민 매장 (' + buried + '명)');
+      UI.updateRoster(pawns, controlled);
+    }
     if (count) UI.toast('🕳️ ' + count + '칸을 파냈습니다 — 나무 제거 · 자원 재생 없음 · 건설 가능');
     R.refreshZones();
   }

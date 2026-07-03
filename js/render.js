@@ -471,6 +471,15 @@ export function createRenderer(world) {
     objLayer.addChild(s); objLayer.addChild(name); objLayer.addChild(carry); objLayer.addChild(tool);
     updatePawnSprite(pawn);
   }
+  // 정착민 스프라이트 완전 제거 (삽으로 시신 매장 시)
+  function removePawn(pawnId) {
+    var e = pawnSprites[pawnId];
+    if (!e) return;
+    [e.spr, e.name, e.carry, e.tool].forEach(function (o) {
+      if (o) { if (o.parent) o.parent.removeChild(o); o.destroy(); }
+    });
+    delete pawnSprites[pawnId];
+  }
 
   var animTime = 0;
   var TAU = Math.PI * 2;
@@ -1135,6 +1144,7 @@ export function createRenderer(world) {
     refreshAll: refreshAll,
     rebuildLights: rebuildLights,
     addPawn: addPawn,
+    removePawn: removePawn,
     updatePawnSprite: updatePawnSprite,
     setSelected: setSelected,
     tickSelection: tickSelection,
