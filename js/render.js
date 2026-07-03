@@ -39,6 +39,9 @@ export function createRenderer(world) {
   // 언데드 몬스터(좀비·스켈레톤, CC0 Reemax/artisticdude): 24x64 셀, 4방향 행×프레임 열
   base.ZombieSkeleton = PIXI.BaseTexture.from('assets/monsters/zombie_skeleton.png');
   base.ZombieSkeleton.scaleMode = PIXI.SCALE_MODES.NEAREST;
+  // 최종 보스 「악마후배」(CC0 Red Demons — Umz, OpenGameArt): 32x34 셀 2프레임(정면 idle)
+  base.Demon = PIXI.BaseTexture.from('assets/monsters/demon.png');
+  base.Demon.scaleMode = PIXI.SCALE_MODES.NEAREST;
   // 공성 병기(LPC Siege Weapons, CC-BY): 특화 초소의 원거리 병기 전용 스프라이트
   var siegeTex = {
     catapult: PIXI.Texture.from('assets/siege/catapult.png'),
@@ -158,6 +161,7 @@ export function createRenderer(world) {
   }
   var fxZombie = undeadFrames(0, 3);
   var fxSkeleton = undeadFrames(3, 9);
+  var demonFrames = [tx('Demon', 0, 0, 32, 34), tx('Demon', 32, 0, 32, 34)]; // 붉은 뿔 악마(정면 2프레임)
   // 적 종류별 외형: idle/walk 프레임 + 선택적 tint·scale·anchorY(발 위치, 기본 0.72)
   var ENEMY_LOOK = {
     goblin:   { idle: goblinIdle, walk: goblinWalk },
@@ -167,7 +171,7 @@ export function createRenderer(world) {
     warlord:  { idle: fxWarlord.idle, walk: fxWarlord.walk, scale: 1.4 }, // 정복자=보라 기사(크게)
     zombie:   { idle: fxZombie, walk: fxZombie, scale: 2.1, anchorY: 0.94 },     // 좀비(느린 살덩이) — 고블린과 비슷한 시각 크기
     skeleton: { idle: fxSkeleton, walk: fxSkeleton, scale: 2.0, anchorY: 0.94 }, // 스켈레톤(걷기 사이클) — 고블린과 비슷한 시각 크기
-    demon:    { idle: fxWarlord.idle, walk: fxWarlord.walk, tint: 0x5a0d0d, scale: 3.2, anchorY: 0.82 }, // 최종 보스=검붉은 거대 기사
+    demon:    { idle: demonFrames, walk: demonFrames, scale: 4.6, anchorY: 0.96 }, // 최종 보스=붉은 뿔 악마(전용 스프라이트, 크게)
   };
 
   // 사람 스프라이트 크롭. dir: 0정면 1뒤 2좌 3우.
@@ -915,10 +919,10 @@ export function createRenderer(world) {
         sp.y = (en.py + 0.5) * TILE + 14;
         sp.scale.set(esc * (en.dir < 0 ? -1 : 1), esc);
         var frames = en.moving ? look.walk : look.idle;
-        sp.texture = frames[(((animTime / 0.12) | 0) + en.anim) % 6];
+        sp.texture = frames[(((animTime / 0.12) | 0) + en.anim) % frames.length]; // 프레임 수에 맞춰(2·3·6 혼재)
         // 고블린·식인종은 공격 프레임(내려치기)을 재생 — 때리는 게 분명히 보이도록
         if (en.atkT > 0 && (en.kind === 'goblin' || en.kind === 'cannibal')) {
-          sp.texture = goblinAtk[(((animTime / 0.07) | 0) + en.anim) % 6];
+          sp.texture = goblinAtk[(((animTime / 0.07) | 0) + en.anim) % goblinAtk.length];
         }
         if (look.tint) sp.tint = look.tint;
       }
