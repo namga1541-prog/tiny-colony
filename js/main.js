@@ -1128,6 +1128,8 @@ function recruitWanderer(via) {
 
 // ── 게임 루프 ──
 var hudTimer = 0;
+var lastLockSig = ''; // 툴바 잠금 상태 시그니처(바뀔 때만 refreshLocks → 깜빡임 방지)
+var lastHireSig = ''; // 고용 버튼 라벨/활성 시그니처(바뀔 때만 갱신 → 툴바 리플로우 깜빡임 방지)
 R.app.ticker.add(function () {
   var realSec = R.app.ticker.deltaMS / 1000;
 
@@ -1183,16 +1185,21 @@ R.app.ticker.add(function () {
     var res = totalRes(world);
     UI.updateRes(res, alive);
     UI.updateStorage(totalStored(world), storageCap(world));
-    // 고용 버튼: 현재 비용·가능 여부 표시
-    if (alive >= maxPop(world)) UI.setHireInfo('🧑‍🌾 인구 최대', true);
+    // 고용 버튼: 현재 비용·가능 여부 표시 (라벨/활성이 바뀔 때만 — 무조건 갱신 시 툴바 리플로우로 깜빡임)
+    var hireLabel, hireDisabled;
+    if (alive >= maxPop(world)) { hireLabel = '🧑‍🌾 인구 최대'; hireDisabled = true; }
     else {
       var hc = hireCost(alive);
-      UI.setHireInfo('🧑‍🌾 고용 (🍖' + hc + ')', (res.food || 0) < hc);
+      hireLabel = '🧑‍🌾 고용 (🍖' + hc + ')'; hireDisabled = (res.food || 0) < hc;
     }
+    var hireSig = hireLabel + '|' + (hireDisabled ? 1 : 0);
+    if (hireSig !== lastHireSig) { lastHireSig = hireSig; UI.setHireInfo(hireLabel, hireDisabled); }
     var pp = panelPawn();
     if (pp) UI.updatePawnPanel(pp);
     UI.updateRoster(pawns, controlled);
-    if (UI.refreshLocks) UI.refreshLocks();
+    // 잠금 갱신은 상태가 실제로 바뀔 때만 — 매 프레임 호출 시 툴바 폭 재계산으로 깜빡임 발생
+    var lockSig = (world.rank || 0) + '|' + (world.invasionWon ? 1 : 0) + '|' + (world.traderActive ? 1 : 0);
+    if (lockSig !== lastLockSig) { lastLockSig = lockSig; if (UI.refreshLocks) UI.refreshLocks(); }
   }
 });
 
