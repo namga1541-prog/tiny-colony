@@ -184,7 +184,8 @@ export function createRenderer(world) {
   function refreshTile(i) {
     var o = world.objects[i];
     var cur = objSprites[i];
-    var wantKind = o && (o.kind === 'tree' || o.kind === 'mushroom') ? o.kind : null;
+    var OBJ_KINDS = { tree: 1, mushroom: 1, chest: 1, rareplant: 1 };
+    var wantKind = o && OBJ_KINDS[o.kind] ? o.kind : null;
     if (cur && cur.objKind !== wantKind) {
       objLayer.removeChild(cur); cur.destroy();
       if (cur.objKind === 'tree') treeList.splice(treeList.indexOf(cur), 1);
@@ -199,6 +200,11 @@ export function createRenderer(world) {
         s.x = ix(i) * TILE + 32; s.y = (iy(i) + 1) * TILE;
         s.treePhase = o.phase || 0;
         treeList.push(s);
+      } else if (wantKind === 'chest' || wantKind === 'rareplant') {
+        s = new PIXI.Sprite(worldObjTex(wantKind));
+        s.anchor.set(0.5, 0.85);
+        s.scale.set(2.2);
+        s.x = ix(i) * TILE + 32; s.y = (iy(i) + 1) * TILE - 8;
       } else {
         s = new PIXI.Sprite(mushroomTex);
         s.anchor.set(0.5, 0.85);
@@ -545,7 +551,8 @@ export function createRenderer(world) {
     if (pawn.state === 'resting') return 'heart';
     if (pawn.state !== 'working' || !pawn.job) return null;
     switch (pawn.job.type) {
-      case 'gather': var o = world.objects[pawn.job.idx]; return (o && o.kind === 'mushroom') ? 'basket' : 'axe';
+      case 'gather': var o = world.objects[pawn.job.idx];
+        return (o && (o.kind === 'mushroom' || o.kind === 'chest' || o.kind === 'rareplant')) ? 'basket' : 'axe';
       case 'mine': return 'pickaxe';
       case 'build': case 'craft': return 'hammer';
       case 'hunt': return 'bow';
@@ -555,6 +562,35 @@ export function createRenderer(world) {
       case 'harvestCrop': return 'sickle';
       default: return null;
     }
+  }
+
+  // ── 원정 섬 오브젝트(보물상자·희귀식물) — 코드로 그린 픽셀 스프라이트 ──
+  var worldObjTexCache = {};
+  function worldObjTex(kind) {
+    if (worldObjTexCache[kind]) return worldObjTexCache[kind];
+    var g = new PIXI.Graphics();
+    if (kind === 'chest') {
+      g.beginFill(0x5a3d21); g.drawRoundedRect(1, 6, 22, 14, 2); g.endFill();      // 몸체
+      g.beginFill(0x7a5230); g.drawRoundedRect(1, 2, 22, 8, 3); g.endFill();       // 뚜껑
+      g.beginFill(0xd8a24a); g.drawRect(1, 9, 22, 2); g.endFill();                 // 금속 띠
+      g.beginFill(0xffd98a); g.drawRect(10, 9, 4, 5); g.endFill();                 // 자물쇠
+      g.lineStyle(1, 0x2b1c0f); g.drawRoundedRect(1, 2, 22, 18, 3); g.lineStyle(0);
+    } else if (kind === 'rareplant') {
+      g.beginFill(0x3f7a3a); g.drawRect(11, 10, 2, 12); g.endFill();               // 줄기
+      g.beginFill(0x59a852);
+      g.drawEllipse(7, 12, 4, 2.4); g.drawEllipse(17, 10, 4, 2.4); g.endFill();    // 잎
+      g.beginFill(0xd766e0); // 꽃(보라·핑크 — 희귀함 강조)
+      for (var k = 0; k < 5; k++) {
+        var ang = (Math.PI * 2 / 5) * k - Math.PI / 2;
+        g.drawCircle(12 + Math.cos(ang) * 4.2, 4 + Math.sin(ang) * 4.2, 2.6);
+      }
+      g.endFill();
+      g.beginFill(0xffe27a); g.drawCircle(12, 4, 2.2); g.endFill();               // 꽃심
+    }
+    var tex = app.renderer.generateTexture(g, { scaleMode: PIXI.SCALE_MODES.NEAREST, resolution: 3 });
+    g.destroy();
+    worldObjTexCache[kind] = tex;
+    return tex;
   }
 
   function updatePawnSprite(pawn) {
@@ -684,13 +720,13 @@ export function createRenderer(world) {
         sp.texture = sheepFrames[(((animTime / 0.18) | 0) + sh.phase) % 8];
         sp.scale.set(sh.dir < 0 ? -1 : 1, 1);
       } else {
-        var af = animalFrames[type] || animalFrames.pig;
+        var af = animalFrames[type === 'raredeer' ? 'cow' : type] || animalFrames.pig; // 희귀 영양은 소 실루엣 재사용(금빛 색조로 구분)
         sp.texture = af[(((animTime / 0.25) | 0) + sh.phase) % 2];
         // 16px 원본 → 약 3배로 표시 (좌우 반전 유지)
         var sc = 3;
         sp.scale.set(sh.dir < 0 ? -sc : sc, sc);
       }
-      sp.tint = sh.hunt ? 0xffb0b0 : 0xffffff; // 사냥 지정 시 붉게
+      sp.tint = sh.hunt ? 0xffb0b0 : (sh.rare ? 0xffdb70 : 0xffffff); // 사냥 지정=붉게, 희귀 동물(원정 섬)=금빛
     }
     // 초과 스프라이트 제거 (사냥으로 양이 줄었을 때)
     while (sheepSprites.length > world.sheep.length) {
@@ -731,6 +767,7 @@ export function createRenderer(world) {
         sp.scale.set(en.dir < 0 ? -1 : 1, 1);
         var frames = en.moving ? goblinWalk : goblinIdle;
         sp.texture = frames[(((animTime / 0.12) | 0) + en.anim) % 6];
+        if (en.kind === 'cannibal') sp.tint = 0x8a2020; // 어두운 핏빛 색조로 고블린과 구분(원정 섬 상주 식인종)
       }
       sp.zIndex = sp.y;
       if (isG) { // 이름표 「괴민」 + HP바 (머리 위)
@@ -918,6 +955,18 @@ export function createRenderer(world) {
     for (n = 0; n < pawns.length; n++) {
       if (pawns[n].state === 'dead') continue;
       miniCtx.fillRect(pawns[n].px * MINI - 1, pawns[n].py * MINI - 1, 3, 3);
+    }
+    // 원정 섬 위치 표시(테마별 색 링) — 발견 여부와 무관하게 항해 목표로 보이도록.
+    // (섬 도입 이전 세이브를 불러온 경우 저장된 옛 지형엔 실제 육지가 없을 수 있어 — 그때는 표시 안 함)
+    var ISL_COLOR = { treasure: '#ffd94d', cannibal: '#ff4b4b', rare: '#c084fc' };
+    for (var wi = 0; wi < (world.islands || []).length; wi++) {
+      var isl = world.islands[wi];
+      if (world.terrain[idx(Math.round(isl.cx), Math.round(isl.cy))] === T_WATER) continue;
+      miniCtx.strokeStyle = ISL_COLOR[isl.theme] || '#ffffff';
+      miniCtx.lineWidth = 1.4;
+      miniCtx.beginPath();
+      miniCtx.arc(isl.cx * MINI, isl.cy * MINI, Math.max(3, isl.r * MINI * 0.5), 0, Math.PI * 2);
+      miniCtx.stroke();
     }
     // 카메라 뷰포트 사각형
     var vx = (-cam.x / cam.zoom / TILE) * MINI;

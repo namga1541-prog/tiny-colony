@@ -8,7 +8,7 @@ import {
   idx, ix, iy, isWalkable, addItem, removeItem, natureDef, stackRoom,
   buildingDef, buildingFront, consumeGlobal, canAfford, totalRes,
   mineResource, mineWork, mineDrops, nearestEnemy, sheepById, storageFull,
-  upgradeMult,
+  upgradeMult, grantRelic,
 } from './world.js';
 import { findPath } from './path.js';
 import {
@@ -404,6 +404,7 @@ function finishWork(world, pawn, ctx) {
     if (o) {
       var def = natureDef(o.kind);
       var wasTree = o.kind === 'tree';
+      var wasChest = o.kind === 'chest';
       delete world.objects[j.idx];
       delete world.designations[j.idx];
       if (j.type === 'eatShroom') {
@@ -414,6 +415,13 @@ function finishWork(world, pawn, ctx) {
         if (wasTree) {
           world.objects[j.idx] = { kind: 'stump' }; // 그루터기 (통행 가능)
           ctx.onEvent(pawn.name + '이(가) 나무를 벌목했습니다');
+        }
+        if (wasChest) { // 원정 섬 보물상자: 60% 확률로 유물도 함께 획득
+          if ((ctx.rng ? ctx.rng() : Math.random()) < 0.6) {
+            var got = grantRelic(world, ctx.rng || Math.random);
+            if (ctx.onToast) ctx.onToast('📦 보물상자에서 유물 획득: ' + got.def.icon + ' ' + got.def.name + ' — ' + got.def.desc);
+          }
+          ctx.onEvent('📦 ' + pawn.name + ' 이(가) 보물상자를 열었습니다!');
         }
       }
       ctx.onWorldChange(j.idx);
@@ -479,12 +487,15 @@ function finishWork(world, pawn, ctx) {
     var shp = sheepById(world, j.sheepId);
     if (shp) {
       var adef = ANIMALS[shp.type || 'sheep'] || ANIMALS.sheep;
-      if (!storageFull(world)) { addItem(world, 0, 'food', adef.food); }
+      if (!storageFull(world)) {
+        addItem(world, 0, 'food', adef.food);
+        if (adef.rareGold) addItem(world, 0, 'gold', adef.rareGold); // 희귀 동물(원정 섬) 처치 보너스
+      }
       else ctx.onStorageFull();
       var si2 = world.sheep.indexOf(shp);
       if (si2 >= 0) world.sheep.splice(si2, 1);
       ctx.onSheepChange();
-      ctx.onEvent(pawn.name + '이(가) 사냥에 성공했습니다');
+      ctx.onEvent(pawn.name + '이(가) 사냥에 성공했습니다' + (adef.rareGold ? ' (희귀 동물! 금 +' + adef.rareGold + ')' : ''));
     }
     releaseAllOf(world, pawn.id);
     pawn.job = null;
@@ -790,9 +801,10 @@ export function manualInteract(world, pawn, ctx) {
     if (Math.abs(shp.x - pawn.x) <= 1 && Math.abs(shp.y - pawn.y) <= 1) {
       var adef = ANIMALS[shp.type || 'sheep'] || ANIMALS.sheep;
       addItem(world, 0, 'food', adef.food);
+      if (adef.rareGold) addItem(world, 0, 'gold', adef.rareGold); // 희귀 동물(원정 섬) 처치 보너스
       world.sheep.splice(s, 1);
       if (ctx.onSheepChange) ctx.onSheepChange();
-      return '🥩 ' + adef.label + ' 사냥 성공 (+식량 ' + adef.food + ')';
+      return '🥩 ' + adef.label + ' 사냥 성공 (+식량 ' + adef.food + (adef.rareGold ? ' · 금 +' + adef.rareGold : '') + ')';
     }
   }
   var best = null; // {pri, d, start}

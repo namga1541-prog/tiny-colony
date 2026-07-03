@@ -140,8 +140,10 @@ export const ROLE_SPEED_BONUS = 1.15; // 역할 전문 작업 속도 +15%
 
 // 자연물 (단일 타일)
 export const NATURE = {
-  tree:     { work: 20, drops: { wood: 9 } },
-  mushroom: { work: 8,  drops: { food: 1 } },
+  tree:      { work: 20, drops: { wood: 9 } },
+  mushroom:  { work: 8,  drops: { food: 1 } },
+  chest:     { work: 45, drops: { gold: 60, iron: 20 } },  // 보물상자(원정섬) — 개봉 시 확률로 유물도 획득(pawns.js)
+  rareplant: { work: 14, drops: { food: 6, gold: 3 } },    // 희귀 식물(원정섬) — 일반 자연물보다 산출 높음
 };
 
 // 금광 (3x2 풋프린트 자연 구조물). regenPerDay: 매일 매장량 회복(재생)
@@ -230,6 +232,8 @@ export const GIANT = {
 export const GIANT_RAID = { everyDays: 5, spawnHour: 20, baseCount: 1 }; // 5·10·15…일 밤 8시
 export const RAID = { firstDay: 4, intervalDays: 3, baseCount: 2, perDayExtra: 0.4, spawnHour: 20,
   perPop: 0.4, hpPerDay: 1.5, loot: { gold: 4, iron: 2 } };
+// 식인종(원정 섬 상주 적) — 고블린보다 강하고 빠름. 습격과 무관하게 섬에 상시 서식.
+export const CANNIBAL = { hp: 60, power: 11, attackCd: 12, moveMinPerTile: 1.2, dropGold: 8, dropIron: 4, name: '식인종' };
 
 // ── 요리 (모닥불에서) ──
 export const COOK = { work: 15, foodPerMeal: 2, mealEatAmount: 95 };
@@ -237,12 +241,13 @@ export const COOK = { work: 15, foodPerMeal: 2, mealEatAmount: 95 };
 // ── 사냥 (동물) ── 종류별 식량 산출
 export const HUNT = { work: 14 };
 export const ANIMALS = {
-  sheep:   { label: '양',   food: 4, sheet: 'Sheep_Idle', big: true },
-  pig:     { label: '돼지', food: 6, sheet: 'Pig',        big: false },
-  cow:     { label: '소',   food: 9, sheet: 'Cow',        big: false },
-  chicken: { label: '닭',   food: 2, sheet: 'Chicken',    big: false },
+  sheep:    { label: '양',     food: 4,  sheet: 'Sheep_Idle', big: true },
+  pig:      { label: '돼지',   food: 6,  sheet: 'Pig',        big: false },
+  cow:      { label: '소',     food: 9,  sheet: 'Cow',        big: false },
+  chicken:  { label: '닭',     food: 2,  sheet: 'Chicken',    big: false },
+  raredeer: { label: '희귀 영양', food: 16, sheet: 'Cow', big: false, rareGold: 12 }, // 비경의 섬 전용. 처치 시 금도 획득
 };
-export const ANIMAL_TYPES = ['sheep', 'pig', 'cow', 'chicken'];
+export const ANIMAL_TYPES = ['sheep', 'pig', 'cow', 'chicken']; // 야생 배회(pickAnimalType) 대상 — raredeer 는 섬 전용, 제외
 
 // ── 고용: 식량을 지불하고 새 정착민 영입 (인원 늘수록 비용↑) ──
 export const HIRE = { base: 25, perPawn: 15, maxPop: 12 };
@@ -309,6 +314,15 @@ export const IRONMINE = { fw: 3, fh: 2, work: 18, dropsPerCycle: 2, charges: 20,
 
 // ── 뗏목/배 (물 위에 띄워 다른 대륙으로 건너감) ──
 export const BRIDGE = { name: '뗏목', cost: { wood: 2 }, work: 8 };
+
+// ── 원정 섬: 본토·2번대륙과 멀리 떨어진 바다에 절차생성되는 테마 섬 ──
+// cxf/cyf/rf 는 맵 크기(MAP_W/MAP_H) 대비 비율. world.js 가 좌표로 환산해 지형에 새겨넣음.
+// theme: 'treasure'(보물상자) · 'cannibal'(식인종 상시 서식) · 'rare'(희귀 식물·동물)
+export const ISLANDS = [
+  { id: 'treasure', theme: 'treasure', name: '보물섬',    icon: '💰', cxf: 0.125, cyf: 0.125, rf: 0.075 },
+  { id: 'cannibal', theme: 'cannibal', name: '식인종의 섬', icon: '💀', cxf: 0.885, cyf: 0.885, rf: 0.075 },
+  { id: 'rareland', theme: 'rare',     name: '비경의 섬',   icon: '🦄', cxf: 0.575, cyf: 0.935, rf: 0.075 },
+];
 
 // ── 계절 (6일 = 1계절, 24일 = 1년) ──
 export const SEASON_DAYS = 6;

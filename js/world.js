@@ -2,7 +2,7 @@
 import {
   MAP_W, MAP_H, NATURE, STACK_MAX, BUILDS, GOLDMINE, IRONMINE, BRIDGE,
   RESEARCH_RATE_PER_PAWN, ENEMY, RAID, GIANT, SEASON_DAYS, SEASONS, STORAGE, RANCH, REGROW,
-  ANIMAL_TYPES, WAREHOUSE_TIERS, UPGRADES, RANKS, DEFENSE_TIERS, CANNON, RELICS,
+  ANIMAL_TYPES, WAREHOUSE_TIERS, UPGRADES, RANKS, DEFENSE_TIERS, CANNON, RELICS, ISLANDS, CANNIBAL,
   T_WATER, T_GRASS, T_SAND,
 } from './config.js';
 
@@ -120,6 +120,7 @@ export function createWorld(seed) {
     rank: 0,            // 발전 단계 (0 무리 ~ 4 나라) — RANKS 인덱스
     relics: {},         // 유물 id -> 보유 개수 (스택). 습격 격퇴·괴민 처치로 획득
     dug: {},            // idx -> true. 삽으로 파낸 땅 (자원 재생 없음 · 건설 공간)
+    islands: [],        // {id,name,icon,theme,cx,cy,r,discovered,cap} — 원정 섬 메타(발견·리스폰용)
   };
 
   var coast = makeNoise(rng, 8);
@@ -129,6 +130,10 @@ export function createWorld(seed) {
   // 2개 대륙: 본섬(좌하) + 바다 건너 두 번째 대륙(우상). 사이에 바다.
   var m1x = MAP_W * 0.36, m1y = MAP_H * 0.55;
   var s2x = MAP_W * 0.86, s2y = MAP_H * 0.24;
+  // 원정 섬(보물·식인종·희귀) — 본토·2번대륙과 멀리 떨어진 좌표에 작은 원형 섬으로 새겨넣음
+  var islandDefs = ISLANDS.map(function (isl) {
+    return { def: isl, cx: MAP_W * isl.cxf, cy: MAP_H * isl.cyf, r: MAP_W * isl.rf };
+  });
   for (var y = 0; y < MAP_H; y++) {
     for (var x = 0; x < MAP_W; x++) {
       var mnx = (x - m1x) / (MAP_W * 0.30), mny = (y - m1y) / (MAP_H * 0.32);
@@ -137,6 +142,13 @@ export function createWorld(seed) {
       var dSec = Math.sqrt(snx * snx + sny * sny);
       var edge = 0.84 + (coast(x / 11, y / 11) - 0.5) * 0.28;
       var land = dMain < edge || dSec < edge;
+      if (!land) {
+        for (var isi = 0; isi < islandDefs.length; isi++) {
+          var isd = islandDefs[isi];
+          var inx = (x - isd.cx) / isd.r, iny = (y - isd.cy) / isd.r;
+          if (Math.sqrt(inx * inx + iny * iny) < edge) { land = true; break; }
+        }
+      }
       world.terrain[idx(x, y)] = land ? T_GRASS : T_WATER;
     }
   }
@@ -204,6 +216,61 @@ export function createWorld(seed) {
   addItem(world, idx(cx + 2, cy), 'wood', 20);
   addItem(world, idx(cx + 2, cy + 1), 'food', 8);
   addBuilding(world, 'campfire', cx - 1, cy - 1, { stage: 'built' });
+
+  // ── 원정 섬 콘텐츠 배치 (보물상자·식인종·희귀 동식물) ──
+  world.islands = islandDefs.map(function (isd) {
+    return { id: isd.def.id, name: isd.def.name, icon: isd.def.icon, theme: isd.def.theme,
+      cx: isd.cx, cy: isd.cy, r: isd.r, discovered: false, cap: 0 };
+  });
+  function islandSpot(isl, needFreeObj) {
+    for (var t = 0; t < 60; t++) {
+      var ang = rng() * Math.PI * 2, rad = rng() * isl.r * 0.75;
+      var sx2 = Math.round(isl.cx + Math.cos(ang) * rad), sy2 = Math.round(isl.cy + Math.sin(ang) * rad);
+      if (!inMap(sx2, sy2) || !isWalkable(world, sx2, sy2)) continue;
+      if (needFreeObj && world.objects[idx(sx2, sy2)]) continue;
+      return { x: sx2, y: sy2 };
+    }
+    return null;
+  }
+  for (var wi = 0; wi < world.islands.length; wi++) {
+    var isl = world.islands[wi];
+    if (isl.theme === 'treasure') {
+      var chestN = 3 + ((rng() * 3) | 0);
+      for (var c1 = 0; c1 < chestN; c1++) {
+        var sp1 = islandSpot(isl, true);
+        if (sp1) world.objects[idx(sp1.x, sp1.y)] = { kind: 'chest' };
+      }
+    } else if (isl.theme === 'cannibal') {
+      var cannN = 4 + ((rng() * 3) | 0);
+      isl.cap = cannN;
+      for (var c2 = 0; c2 < cannN; c2++) {
+        var sp2 = islandSpot(isl, false);
+        if (sp2) {
+          world.enemies.push({
+            id: world.nextEid++, x: sp2.x, y: sp2.y, px: sp2.x, py: sp2.y,
+            hp: CANNIBAL.hp, maxHp: CANNIBAL.hp, cd: 0, dir: 1, anim: (rng() * 6) | 0, kind: 'cannibal',
+          });
+        }
+      }
+    } else if (isl.theme === 'rare') {
+      var plantN = 6 + ((rng() * 5) | 0);
+      for (var c3 = 0; c3 < plantN; c3++) {
+        var sp3 = islandSpot(isl, true);
+        if (sp3) world.objects[idx(sp3.x, sp3.y)] = { kind: 'rareplant' };
+      }
+      var deerN = 3 + ((rng() * 3) | 0);
+      isl.cap = deerN;
+      for (var c4 = 0; c4 < deerN; c4++) {
+        var sp4 = islandSpot(isl, false);
+        if (sp4) {
+          world.sheep.push({
+            id: world.nextSid++, type: 'raredeer', rare: true, x: sp4.x, y: sp4.y, px: sp4.x, py: sp4.y,
+            dir: 1, cd: rng() * 30, phase: (rng() * 8) | 0,
+          });
+        }
+      }
+    }
+  }
 
   return world;
 }
@@ -502,6 +569,51 @@ export function dailyRegrowth(world, rng) {
   return spawned;
 }
 
+// 매일 아침: 식인종 섬의 상주 인구를 상한(cap)까지 서서히 보충 (30% 확률로 1체)
+export function dailyIslandRespawn(world, rng) {
+  var spawned = 0;
+  for (var wi = 0; wi < (world.islands || []).length; wi++) {
+    var isl = world.islands[wi];
+    if (isl.theme !== 'cannibal' || !isl.cap) continue;
+    var count = 0;
+    for (var ei = 0; ei < world.enemies.length; ei++) {
+      var e = world.enemies[ei];
+      if (e.kind === 'cannibal' && Math.hypot(e.x - isl.cx, e.y - isl.cy) <= isl.r * 1.2) count++;
+    }
+    if (count >= isl.cap || rng() >= 0.3) continue;
+    for (var t = 0; t < 40; t++) {
+      var ang = rng() * Math.PI * 2, rad = rng() * isl.r * 0.75;
+      var sx = Math.round(isl.cx + Math.cos(ang) * rad), sy = Math.round(isl.cy + Math.sin(ang) * rad);
+      if (!inMap(sx, sy) || !isWalkable(world, sx, sy)) continue;
+      world.enemies.push({
+        id: world.nextEid++, x: sx, y: sy, px: sx, py: sy,
+        hp: CANNIBAL.hp, maxHp: CANNIBAL.hp, cd: 0, dir: 1, anim: (rng() * 6) | 0, kind: 'cannibal',
+      });
+      spawned++;
+      break;
+    }
+  }
+  return spawned;
+}
+
+// 정착민이 미발견 원정 섬 반경 안에 들어오면 발견 처리. 새로 발견한 섬 배열 반환.
+export function checkIslandDiscovery(world, pawns) {
+  var found = [];
+  for (var wi = 0; wi < (world.islands || []).length; wi++) {
+    var isl = world.islands[wi];
+    if (isl.discovered) continue;
+    for (var p = 0; p < pawns.length; p++) {
+      if (pawns[p].state === 'dead') continue;
+      if (Math.hypot(pawns[p].px - isl.cx, pawns[p].py - isl.cy) <= isl.r) {
+        isl.discovered = true;
+        found.push(isl);
+        break;
+      }
+    }
+  }
+  return found;
+}
+
 // 매일 아침: 광산 매장량 회복 (재생 자원화). 변경된 광산 id 배열 반환
 export function dailyMineRegen(world) {
   var changed = [];
@@ -555,7 +667,11 @@ export function tickCrops(world, dtMin) {
 
 // ── 습격: 해안 물 근처(육지 가장자리)에서 고블린 스폰 ──
 // 적 종류별 스탯 (기본 고블린, 거인 '괴민')
-export function enemyStats(e) { return (e && e.kind === 'giant') ? GIANT : ENEMY; }
+export function enemyStats(e) {
+  if (e && e.kind === 'giant') return GIANT;
+  if (e && e.kind === 'cannibal') return CANNIBAL;
+  return ENEMY;
+}
 
 export function spawnRaid(world, count, rng, kind) {
   var isGiant = kind === 'giant';

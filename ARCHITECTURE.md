@@ -6,7 +6,7 @@
 - 타일 그리드 `MAP_W × MAP_H = 96 × 96`. 인덱스 `idx(x,y)=y*96+x`, 역변환 `ix(i)`·`iy(i)`.
 - 정착민/적: **정수 `x`/`y`**(그리드 스냅) + **실수 `px`/`py`**(보간 위치). 렌더·거리계산은 px/py, 타일 판정은 x/y.
 - 지형 코드: `T_WATER=0` · `T_GRASS=1` · `T_SAND=2`. `isWalkable`·`inMap` 로 판정.
-- 맵은 **두 대륙**(본섬 + 바다 건너 고립 대륙). 뗏목(bridge)으로만 연결.
+- 맵은 **두 대륙**(본섬 + 바다 건너 고립 대륙) + **원정 섬 3곳**(보물·식인종·비경 — `world.islands`). 전부 뗏목(bridge)으로만 연결.
 
 ## 시간 모델
 - `MIN_PER_SEC=6` · `DAY_MIN=1440`(1일=1440게임분) · `SPEED_MULT=[0,1,2.5,5]`(속도 0~3).
@@ -45,8 +45,17 @@
 - 규칙: 시뮬 로직에 Math.random 직접 금지 — 반드시 주입 rng.
 
 ## 세이브 (save.js)
-- 키 `tinyColony.save1`, 현재 버전 **`v: 9`**. `loadSaveData` 는 `v !== 9` 이면 null(마이그레이션 없음).
+- 키 `tinyColony.save1`, 현재 버전 **`v: 15`**. `loadSaveData` 는 `v !== 15` 이면 null(마이그레이션 없음).
 - `world.buildings` 등은 통째 직렬화 → 건물에 필드만 추가하면 버전 안 올려도 됨(읽을 때 폴백).
+- 버전 불일치로 로드 실패 시 main.js 가 `hadIncompatibleSave` 를 감지해 "이전 버전이라 불러올 수 없다" 토스트를 띄움(무설명 새 게임 방지).
+- **`world.islands` 는 저장 안 함** — `createWorld(seed)` 가 결정론적으로 매번 동일하게 재생성(섬 위치·테마·chest/cannibal/raredeer 개수까지 시드 종속). 플레이 중 변한 부분(상자 개봉·식인종 처치·희귀동물 사냥)은 이미 직렬화되는 `objects`/`enemies`/`sheep` 필드로 정확히 복원됨 — `islands` 자체(메타·discovered 플래그)만 로드 시 초기화(발견 토스트 재발생 가능·무해). 이 설계 덕에 원정 섬 추가가 세이브 버전을 올리지 않음.
+
+## 원정 섬 (world.islands) — 로그라이트 콘텐츠
+- `config.js`: `ISLANDS`(위치·반경 비율, 테마) · `CANNIBAL`(적 스탯) · `NATURE.chest`/`NATURE.rareplant`(드롭) · `ANIMALS.raredeer`(희귀 동물, `rareGold` 처치 보너스).
+- `world.js` `createWorld` 가 본섬·2번대륙과 멀리 떨어진 3개 원형 섬을 지형에 새김 → 테마별 콘텐츠 배치(보물상자/식인종 상주 적/희귀식물+희귀동물). `world.islands[]` 에 메타 저장(`id,name,icon,theme,cx,cy,r,discovered,cap`).
+- `checkIslandDiscovery(world,pawns)`(매 stepWorld 호출) — 정착민이 섬 반경 진입 시 1회 발견 토스트. `dailyIslandRespawn(world,rng)`(매일 아침) — 식인종을 cap 까지 서서히 보충.
+- 채집(`forage` 도구)이 chest/rareplant 도 지정 가능(버섯과 동일 취급). chest 개봉 시 60% 확률로 유물도 획득(`grantRelic`).
+- 적 `kind`: `'goblin'`(기본)·`'giant'`(괴민)·`'cannibal'`(원정 섬 상주) — `enemyStats(e)` 가 종류별 스탯 분기.
 
 ## window.game (디버그·테스트 훅, main.js 말미)
 `{ world, pawns, R, applyTool(tool,a,b), setSpeed(s), enterControl(pawn), exitControl(), keys }`

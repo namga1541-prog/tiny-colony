@@ -10,6 +10,7 @@ import {
   idx, addItem, mulberry32,
   updateSheep, tickTowers, updateEnemies, tickResearch, tickCrops, tickRanches,
   dailyRegrowth, dailyMineRegen, spawnRaid, seasonDef, seasonIndex, maxPop, grantRelic,
+  dailyIslandRespawn, checkIslandDiscovery,
 } from './world.js';
 import { updatePawn } from './pawns.js';
 import { checkGoals } from './goals.js';
@@ -47,6 +48,15 @@ export function stepWorld(world, pawns, dtMin, rng, ctx, enemyCbs) {
     for (var re = 0; re < rev.length; re++) { if (rev[re].idx !== undefined) ctx.onItemChange(rev[re].idx); }
   }
 
+  // 원정 섬 발견: 정착민이 섬 반경 안에 들어오면 즉시 안내
+  var newlyFound = checkIslandDiscovery(world, pawns);
+  for (var nf = 0; nf < newlyFound.length; nf++) {
+    var isl2 = newlyFound[nf];
+    ctx.onToast(isl2.icon + ' 새로운 섬을 발견했습니다: 「' + isl2.name + '」!');
+    ctx.onEvent(isl2.icon + ' 섬 발견 — ' + isl2.name);
+    ctx.onSfx('success');
+  }
+
   // 습격 격퇴 판정: 습격 중이었는데 적이 전멸하면
   if (world.raidActive && world.enemies.length === 0) {
     world.raidActive = false;
@@ -79,6 +89,7 @@ export function stepWorld(world, pawns, dtMin, rng, ctx, enemyCbs) {
     for (var mi = 0; mi < minesRegen.length; mi++) {
       if (world.buildings[minesRegen[mi]]) ctx.onBuildingChange(world.buildings[minesRegen[mi]]);
     }
+    dailyIslandRespawn(world, mulberry32(world.seed + world.day + 0x1a2b));
     // 영입: 3일마다, 인구가 상한 미만이면 떠돌이 합류 (습격 없는 낮에만)
     var aliveCnt = 0;
     for (var a = 0; a < pawns.length; a++) if (pawns[a].state !== 'dead') aliveCnt++;

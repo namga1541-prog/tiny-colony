@@ -1,7 +1,7 @@
 // L1 시나리오 스모크 — 시드 고정, 헤드리스. stepWorld 추출이 올바른지 + 결정론 확인.
 import { bootSim, run, runDays, designateChop, give, snapshot } from './harness.mjs';
-import { addBuilding, storageCap, upgradeMult, upgradeAdd, maxPop, rankReqStatus, canAdvanceRank, advanceRank, defenseStats, tickTowers, enemyStats, spawnRaid, mulberry32, grantRelic } from '../js/world.js';
-import { GIANT, ENEMY } from '../js/config.js';
+import { addBuilding, storageCap, upgradeMult, upgradeAdd, maxPop, rankReqStatus, canAdvanceRank, advanceRank, defenseStats, tickTowers, enemyStats, spawnRaid, mulberry32, grantRelic, dailyIslandRespawn, checkIslandDiscovery } from '../js/world.js';
+import { GIANT, ENEMY, CANNIBAL, ISLANDS } from '../js/config.js';
 import { findWorkJob } from '../js/jobs.js';
 
 var fails = 0;
@@ -260,6 +260,63 @@ console.log('[sim-smoke] 14) 직접 조종(선택) 중 방치돼도 굶어 죽�
   run(sim, 30);
   ok(p.hunger > 20, '식사 완료 후 포만감 회복 (hunger=' + Math.round(p.hunger) + ')');
   ok(p.manual === true, '식사 중에도 직접 조종 선택 상태는 유지(플레이어 제어권 보존)');
+})();
+
+console.log('[sim-smoke] 15) 원정 섬 — 생성·테마 콘텐츠·발견·리스폰 (신규)');
+(function () {
+  var w = bootSim(11).world;
+  ok(w.islands && w.islands.length === ISLANDS.length, '섬 ' + ISLANDS.length + '개 생성 (' + (w.islands && w.islands.length) + ')');
+  var byTheme = {};
+  w.islands.forEach(function (isl) { byTheme[isl.theme] = isl; });
+  ['treasure', 'cannibal', 'rare'].forEach(function (th) { ok(!!byTheme[th], '테마 「' + th + '」 섬 존재'); });
+
+  // 섬 중심이 실제로 육지(잔디/모래)인지 — 바다 한복판에 생성되지 않았는지 확인
+  var allLand = w.islands.every(function (isl) {
+    return w.terrain[Math.round(isl.cy) * 96 + Math.round(isl.cx)] !== 0; // T_WATER=0
+  });
+  ok(allLand, '모든 섬 중심이 육지(물 아님)로 생성됨');
+
+  // 보물섬: 반경 내 chest 오브젝트 존재
+  var tIsl = byTheme.treasure;
+  var chestCount = 0;
+  for (var i in w.objects) {
+    if (w.objects[i].kind === 'chest') {
+      var x = i % 96, y = (i / 96) | 0;
+      if (Math.hypot(x - tIsl.cx, y - tIsl.cy) <= tIsl.r * 1.1) chestCount++;
+    }
+  }
+  ok(chestCount >= 1, '보물섬에 보물상자(chest) 배치됨 (' + chestCount + '개)');
+
+  // 식인종 섬: kind=cannibal 인 적이 cap 만큼 상주
+  var cIsl = byTheme.cannibal;
+  var cannCount = w.enemies.filter(function (e) { return e.kind === 'cannibal'; }).length;
+  ok(cannCount === cIsl.cap && cannCount > 0, '식인종 섬에 상주 적 cap만큼 스폰(' + cannCount + '/' + cIsl.cap + ')');
+  ok(enemyStats({ kind: 'cannibal' }).hp === CANNIBAL.hp, '식인종 스탯 = CANNIBAL 설정');
+
+  // 비경의 섬: rareplant + raredeer(rare:true)
+  var rIsl = byTheme.rareland || byTheme.rare;
+  var plantCount = 0;
+  for (var j in w.objects) if (w.objects[j].kind === 'rareplant') plantCount++;
+  ok(plantCount >= 1, '비경의 섬에 희귀식물(rareplant) 배치됨 (' + plantCount + '개)');
+  var deerCount = w.sheep.filter(function (s) { return s.type === 'raredeer' && s.rare; }).length;
+  ok(deerCount === rIsl.cap && deerCount > 0, '비경의 섬에 희귀 영양 cap만큼 스폰(' + deerCount + '/' + rIsl.cap + ')');
+
+  // 발견(discovery): 정착민을 섬 반경 안으로 이동시키면 discovered=true + 반환
+  var sim2 = bootSim(11), w2 = sim2.world, pawns2 = sim2.pawns;
+  var isl2 = w2.islands.filter(function (x) { return x.theme === 'treasure'; })[0];
+  pawns2[0].px = isl2.cx; pawns2[0].py = isl2.cy;
+  var found = checkIslandDiscovery(w2, pawns2);
+  ok(found.length === 1 && found[0].id === isl2.id, '섬 반경 진입 시 발견 처리(' + found.length + '건)');
+  ok(isl2.discovered === true, 'discovered 플래그 true로 갱신');
+  var found2 = checkIslandDiscovery(w2, pawns2);
+  ok(found2.length === 0, '이미 발견한 섬은 재발견 처리 안 함(중복 토스트 방지)');
+
+  // 식인종 리스폰: 전멸 후 rng 강제(항상 0) → 하루 만에 1체 리스폰
+  var w3 = bootSim(11).world;
+  w3.enemies = w3.enemies.filter(function (e) { return e.kind !== 'cannibal'; }); // 전멸 처리
+  var spawned = dailyIslandRespawn(w3, function () { return 0; }); // rng()=0 → 확률조건(0<0.3) 항상 통과
+  var cannAfter = w3.enemies.filter(function (e) { return e.kind === 'cannibal'; }).length;
+  ok(spawned === 1 && cannAfter === 1, '식인종 전멸 후 리스폰 함수 호출 시 1체 보충(' + cannAfter + ')');
 })();
 
 console.log('');

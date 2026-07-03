@@ -411,10 +411,11 @@ function applyTool(tool, a, b) {
   var res = totalRes(world);
 
   if (tool === 'chop' || tool === 'forage') {
-    var want = tool === 'chop' ? 'tree' : 'mushroom';
+    // forage 는 버섯뿐 아니라 원정 섬의 보물상자·희귀식물도 함께 지정(같은 채집 작업으로 처리)
+    var wantSet = tool === 'chop' ? { tree: 1 } : { mushroom: 1, chest: 1, rareplant: 1 };
     forRect(a, b, function (i) {
       var o = world.objects[i];
-      if (o && o.kind === want && !world.designations[i]) {
+      if (o && wantSet[o.kind] && !world.designations[i]) {
         world.designations[i] = tool;
         count++;
       }
