@@ -1,7 +1,7 @@
 // v0.3 부팅·게임 루프·입력
 import {
   MAP_W, MAP_H, MIN_PER_SEC, DAY_MIN, SPEED_MULT, BUILDS, PAWN_DEFS,
-  RAID, BRIDGE, TRAITS, HUMAN_IDS, WAREHOUSE_TIERS, BUILD_MIN_RANK, RANKS, DEFENSE_TIERS, ROLES, T_WATER,
+  RAID, BRIDGE, TRAITS, HUMAN_IDS, WAREHOUSE_TIERS, BUILD_MIN_RANK, RANKS, DEFENSE_TIERS, OUTPOST_BRANCHES, ROLES, T_WATER,
 } from './config.js';
 import {
   createWorld, mulberry32, idx, ix, iy, isWalkable, footprintClear,
@@ -226,7 +226,41 @@ var UI = createUI({
     UI.toast('🔼 창고를 ' + b.tier + '단계로 업그레이드했습니다!');
     UI.addEvent('🔼 창고 업그레이드 (' + b.tier + '단계)');
   },
-  onUpgradeBuilding: function (b) {
+  // 방어건물 업그레이드. branch 인자가 있으면 미분기 초소를 그 특화로 전환, 없으면 현재 라인의 다음 단계로 강화.
+  onUpgradeBuilding: function (b, branch) {
+    // ① 초소 특화 분기 선택 (가시벽/석궁탑/투석기/속사탑)
+    if (branch && OUTPOST_BRANCHES[branch]) {
+      if (b.branch) return; // 이미 특화됨
+      var brDef = OUTPOST_BRANCHES[branch];
+      var t1 = brDef.tiers[0];
+      if (!canAfford(world, t1.cost)) { UI.toast('⚠️ 자재가 부족합니다', true); return; }
+      for (var bt in t1.cost) consumeGlobal(world, bt, t1.cost[bt]);
+      b.branch = branch;
+      b.tier = 1;
+      R.refreshBuilding(b);
+      UI.showBuilding(b);
+      UI.toast(brDef.icon + ' 초소를 「' + brDef.name + '」(으)로 특화했습니다!');
+      UI.addEvent(brDef.icon + ' ' + brDef.name + ' 특화');
+      Audio2.play('build');
+      return;
+    }
+    // ② 이미 특화된 초소: 분기 자체 tier 로 강화
+    if (b.branch && OUTPOST_BRANCHES[b.branch]) {
+      var br = OUTPOST_BRANCHES[b.branch];
+      var curB = b.tier || 1;
+      var nextB = br.tiers[curB]; // 0-based: 다음 단계
+      if (!nextB) return;
+      if (!canAfford(world, nextB.cost)) { UI.toast('⚠️ 자재가 부족합니다', true); return; }
+      for (var t3 in nextB.cost) consumeGlobal(world, t3, nextB.cost[t3]);
+      b.tier = curB + 1;
+      R.refreshBuilding(b);
+      UI.showBuilding(b);
+      UI.toast('🔼 ' + br.name + ' 을(를) ' + b.tier + '단계로 강화했습니다!');
+      UI.addEvent('🔼 ' + br.name + ' ' + b.tier + '단계');
+      Audio2.play('build');
+      return;
+    }
+    // ③ 망루·성 등 선형 tier 건물
     var tiers = DEFENSE_TIERS[b.kind];
     if (!tiers) return;
     var curTier = b.tier || 1;

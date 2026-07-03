@@ -1,7 +1,7 @@
 // L1 시나리오 스모크 — 시드 고정, 헤드리스. stepWorld 추출이 올바른지 + 결정론 확인.
 import { bootSim, run, runDays, designateChop, give, snapshot } from './harness.mjs';
 import { addBuilding, storageCap, upgradeMult, upgradeAdd, maxPop, rankReqStatus, canAdvanceRank, advanceRank, defenseStats, tickTowers, enemyStats, spawnRaid, mulberry32, grantRelic, dailyIslandRespawn, checkIslandDiscovery } from '../js/world.js';
-import { GIANT, ENEMY, CANNIBAL, ISLANDS, INVASION } from '../js/config.js';
+import { GIANT, ENEMY, CANNIBAL, ISLANDS, INVASION, OUTPOST_BRANCHES } from '../js/config.js';
 import { findWorkJob, releaseAllOf } from '../js/jobs.js';
 
 var fails = 0;
@@ -445,6 +445,56 @@ console.log('[sim-smoke] 19) 자동공격 토글(⚔️) — 직접 조종 중�
   p.autoAttack = true;
   run(sim, 1);
   ok(target.hp < 50, '자동공격 켜짐 — 사거리 내 적을 자동으로 공격(HP ' + target.hp + ')');
+})();
+
+console.log('[sim-smoke] 20) 초소 특화 분기 — 근접(가시벽)·원거리(석궁/투석기/속사) 스탯·광역·연사 (신규)');
+(function () {
+  function enemy(id, x, y) { return { id: id, x: x, y: y, px: x, py: y, hp: 100, cd: 0, dir: 0, phase: 0, anim: 0 }; }
+  var w = bootSim(1).world;
+  var op = addBuilding(w, 'outpost', 40, 40, { stage: 'built' });
+  var base = defenseStats(op);
+  ok(base.power === 5 && base.range === 4 && base.aoe === 0, '기본 초소 = 공격력 5·사거리 4·단일');
+
+  // 가시벽(근접): 짧은 사거리 + 인접 광역(aoe 1)
+  op.branch = 'spike'; op.tier = 1;
+  var sp = defenseStats(op);
+  ok(sp.power === OUTPOST_BRANCHES.spike.tiers[0].power && sp.range === 3 && sp.aoe === 1 && sp.role === 'melee',
+    '가시벽 1단계 = 근접·사거리 3·광역(반경1)');
+
+  // 석궁탑(원거리·저격): 긴 사거리·단일. 2단계 강화 시 사거리↑
+  op.branch = 'ballista'; op.tier = 1;
+  var ba1 = defenseStats(op);
+  op.tier = 2;
+  var ba2 = defenseStats(op);
+  ok(ba1.range === 8 && ba1.aoe === 0, '석궁탑 1단계 = 긴 사거리 8·단일');
+  ok(ba2.range === 10 && ba2.power > ba1.power, '석궁탑 2단계 = 사거리 10·공격력 강화');
+
+  // 투석기(원거리·광역): 중간 사거리 + aoe 2. 뭉친 적 3마리 모두 피해
+  var w2 = bootSim(2).world;
+  var cat = addBuilding(w2, 'outpost', 40, 40, { stage: 'built' });
+  cat.branch = 'catapult'; cat.tier = 1;
+  ok(defenseStats(cat).aoe === 2, '투석기 = 광역(반경2)');
+  w2.enemies = [enemy(1, 43, 41), enemy(2, 44, 41), enemy(3, 43, 42)];
+  tickTowers(w2, 30, {});
+  ok(w2.enemies.every(function (e) { return e.hp < 100; }), '투석기 발사 → 반경 내 적 3마리 모두 피해(광역)');
+
+  // 속사탑(원거리·연사): 단일 대상, 매우 짧은 쿨다운
+  var w3 = bootSim(3).world;
+  var rap = addBuilding(w3, 'outpost', 40, 40, { stage: 'built' });
+  rap.branch = 'rapid'; rap.tier = 1;
+  ok(defenseStats(rap).aoe === 0 && defenseStats(rap).cd < defenseStats(cat).cd, '속사탑 = 단일·투석기보다 빠른 연사');
+  w3.enemies = [enemy(1, 43, 41), enemy(2, 44, 41), enemy(3, 43, 42)];
+  tickTowers(w3, 30, {});
+  var hurt = w3.enemies.filter(function (e) { return e.hp < 100; }).length;
+  ok(hurt === 1, '속사탑은 단일 대상만 피해 (' + hurt + '마리)');
+
+  // 가시벽 근접 광역: 곁에 붙은 적 무리에 splash
+  var w4 = bootSim(4).world;
+  var spk = addBuilding(w4, 'outpost', 40, 40, { stage: 'built' });
+  spk.branch = 'spike'; spk.tier = 1;
+  w4.enemies = [enemy(1, 42, 41), enemy(2, 43, 41), enemy(3, 42, 42)];
+  tickTowers(w4, 30, {});
+  ok(w4.enemies.filter(function (e) { return e.hp < 100; }).length >= 2, '가시벽 근접 광역 → 곁의 적 다수 피해');
 })();
 
 console.log('');

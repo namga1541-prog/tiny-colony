@@ -91,11 +91,10 @@ export const WAREHOUSE_TIERS = [
 ];
 
 // ── 방어건물 업그레이드 tier: 공격 스탯(power·range·cd) + 업그레이드 비용 ──
-// 1단계는 건설에 포함(cost:null). 성 최종 tier 는 대포(cannon: 광역 피해) — 나라 단계에서만 해금.
+// 1단계는 건설에 포함(cost:null). aoe(맨해튼 반경, 0=단일)로 광역 피해 표현 — 성 최종 tier 는 대포(광역).
 export const DEFENSE_TIERS = {
   outpost: [
-    { power: 5,  range: 4, cd: 20, cost: null },
-    { power: 9,  range: 5, cd: 18, cost: { wood: 14, gold: 6 } },
+    { power: 5,  range: 4, cd: 20, cost: null }, // 기본 초소 — 특화 전(OUTPOST_BRANCHES 로 분기)
   ],
   tower: [
     { power: 10, range: 6, cd: 14, cost: null },
@@ -105,10 +104,41 @@ export const DEFENSE_TIERS = {
   castle: [
     { power: 18, range: 8,  cd: 10, cost: null },
     { power: 28, range: 9,  cd: 9,  cost: { wood: 40, gold: 25, iron: 15 } },
-    { power: 42, range: 10, cd: 8,  cost: { wood: 60, gold: 45, iron: 30 }, cannon: true, minRank: 4 }, // 대포 — 나라 단계 해금
+    { power: 42, range: 10, cd: 8,  cost: { wood: 60, gold: 45, iron: 30 }, cannon: true, aoe: 2, minRank: 4 }, // 대포(광역) — 나라 단계 해금
   ],
 };
-export const CANNON = { radius: 2 }; // 대포 광역 피해 반경(맨해튼 거리, 타일)
+export const CANNON = { radius: 2 }; // 대포 광역 피해 반경(맨해튼 거리, 타일) — 하위호환용 상수
+
+// ── 초소(outpost) 특화 분기: 기본 초소를 근접/원거리 4갈래로 나눠 업그레이드 ──
+// 각 분기는 자체 2단계 tier 배열을 가짐. 분기 선택 시 b.branch 설정 + b.tier=1(분기 1단계).
+// role: 'melee'(근접·짧은 사거리·인접 광역) | 'ranged'(원거리). ranged 는 사거리/광역/연사로 다시 차별화.
+// aoe(맨해튼 반경, 0=단일 대상)·tint(렌더 색조)·icon(배지)로 시각 구분. rng 미사용 → 결정론 유지.
+export const OUTPOST_BRANCHES = {
+  spike:    { name: '가시벽',  icon: '🧱', role: 'melee',  tint: 0x9adf7a, badge: '🧱',
+    desc: '근접 방어. 바로 곁의 적에게 강한 광역 피해를 줍니다 (사거리 짧음).',
+    tiers: [
+      { power: 22, range: 3, cd: 16, aoe: 1, cost: { wood: 16, gold: 6 } },
+      { power: 34, range: 3, cd: 14, aoe: 1, cost: { wood: 24, gold: 12, iron: 8 } },
+    ] },
+  ballista: { name: '석궁탑',  icon: '🎯', role: 'ranged', tint: 0xc9a26a, badge: '🎯',
+    desc: '원거리·저격형. 매우 긴 사거리로 단일 적을 강하게 저격합니다.',
+    tiers: [
+      { power: 18, range: 8,  cd: 16, aoe: 0, cost: { wood: 18, gold: 12 } },
+      { power: 30, range: 10, cd: 14, aoe: 0, cost: { wood: 28, gold: 20, iron: 10 } },
+    ] },
+  catapult: { name: '투석기',  icon: '💣', role: 'ranged', tint: 0x8a8f9a, badge: '💣',
+    desc: '원거리·광역형. 중간 사거리로 넓은 반경에 포격합니다 (느린 연사).',
+    tiers: [
+      { power: 14, range: 6, cd: 24, aoe: 2, cost: { wood: 22, gold: 16, iron: 6 } },
+      { power: 22, range: 7, cd: 22, aoe: 2, cost: { wood: 34, gold: 26, iron: 14 } },
+    ] },
+  rapid:    { name: '속사탑',  icon: '⚡', role: 'ranged', tint: 0x6db3ff, badge: '⚡',
+    desc: '원거리·연사형. 낮은 피해를 매우 빠르게 연사합니다 (단일 대상).',
+    tiers: [
+      { power: 7,  range: 6, cd: 5, aoe: 0, cost: { wood: 16, gold: 14 } },
+      { power: 11, range: 7, cd: 4, aoe: 0, cost: { wood: 26, gold: 22, iron: 8 } },
+    ] },
+};
 
 // ── 목장 (5): 지어두면 주기적으로 식량 산출 + 양 번식 ──
 export const RANCH = { interval: 200, food: 4, breedChance: 0.2, maxSheep: 12 };

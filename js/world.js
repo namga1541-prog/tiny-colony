@@ -2,7 +2,7 @@
 import {
   MAP_W, MAP_H, NATURE, STACK_MAX, BUILDS, GOLDMINE, IRONMINE, BRIDGE,
   RESEARCH_RATE_PER_PAWN, ENEMY, RAID, GIANT, SEASON_DAYS, SEASONS, STORAGE, RANCH, REGROW,
-  ANIMAL_TYPES, WAREHOUSE_TIERS, UPGRADES, RANKS, DEFENSE_TIERS, CANNON, RELICS, ISLANDS, CANNIBAL, WARLORD,
+  ANIMAL_TYPES, WAREHOUSE_TIERS, UPGRADES, RANKS, DEFENSE_TIERS, OUTPOST_BRANCHES, CANNON, RELICS, ISLANDS, CANNIBAL, WARLORD,
   T_WATER, T_GRASS, T_SAND,
 } from './config.js';
 
@@ -805,15 +805,22 @@ export function updateEnemies(world, pawns, dtMin, cb) {
 }
 
 // 방어 건물(망루·초소·성) 자동 공격: 사거리 내 최근접 적 타격
-// 방어건물의 현재 tier 공격 스탯 (DEFENSE_TIERS 우선, 없으면 BUILDS.attack 폴백)
+// 방어건물의 현재 공격 스탯. 초소 분기(b.branch) 우선 → DEFENSE_TIERS → BUILDS.attack 폴백.
+// aoe(맨해튼 반경, 0=단일)로 광역/단일 통일. cannon 은 하위호환 표기(aoe>0 과 동일 의미).
 export function defenseStats(b) {
+  if (b.branch && OUTPOST_BRANCHES[b.branch]) {
+    var br = OUTPOST_BRANCHES[b.branch];
+    var bt = br.tiers[(b.tier || 1) - 1] || br.tiers[br.tiers.length - 1];
+    return { power: bt.power, range: bt.range, cd: bt.cd, aoe: bt.aoe || 0, cannon: (bt.aoe || 0) > 0, branch: b.branch, role: br.role };
+  }
   var tiers = DEFENSE_TIERS[b.kind];
   if (tiers) {
     var t = tiers[(b.tier || 1) - 1] || tiers[tiers.length - 1];
-    return { power: t.power, range: t.range, cd: t.cd, cannon: !!t.cannon };
+    var aoe = t.aoe || (t.cannon ? CANNON.radius : 0);
+    return { power: t.power, range: t.range, cd: t.cd, aoe: aoe, cannon: aoe > 0 };
   }
   var a = (BUILDS[b.kind] || {}).attack || { power: 0, range: 0, cd: 999 };
-  return { power: a.power, range: a.range, cd: a.cd, cannon: false };
+  return { power: a.power, range: a.range, cd: a.cd, aoe: 0, cannon: false };
 }
 
 export function tickTowers(world, dtMin, cb) {
@@ -831,11 +838,11 @@ export function tickTowers(world, dtMin, cb) {
     if (!near) continue;
     b.atkCd = st.cd;
     var dmg = st.power * upgradeMult(world, 'towerpower');
-    if (st.cannon) { // 대포: 타겟 주변 반경 내 모든 적에게 광역 피해
+    if (st.aoe > 0) { // 광역(대포·투석기·가시벽): 타겟 주변 반경 내 모든 적에게 피해
       var tx = near.enemy.x, ty = near.enemy.y;
       for (var ei = 0; ei < world.enemies.length; ei++) {
         var en = world.enemies[ei];
-        if (Math.abs(en.x - tx) + Math.abs(en.y - ty) <= CANNON.radius) en.hp -= dmg;
+        if (Math.abs(en.x - tx) + Math.abs(en.y - ty) <= st.aoe) en.hp -= dmg;
       }
       if (cb && cb.onCannonFire) cb.onCannonFire(b, near.enemy);
     } else {

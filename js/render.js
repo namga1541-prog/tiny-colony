@@ -1,7 +1,7 @@
 // v0.3 렌더러 (Tiny Swords): 지형·거품·건물·유닛 애니메이션·조명·색보정
 /* global PIXI */
 import {
-  TILE, MAP_W, MAP_H, TS, BUILDS, HUMANS,
+  TILE, MAP_W, MAP_H, TS, BUILDS, HUMANS, OUTPOST_BRANCHES,
   ZOOM_DEFAULT, ZOOM_MIN, ZOOM_MAX,
 } from './config.js';
 import {
@@ -269,6 +269,8 @@ export function createRenderer(world) {
   function updateBuildingBadge(b, def) {
     // 완공된 건물에만 기능 배지 표시 (설계도·모닥불·다리·광산 제외)
     var want = (b.stage === 'built') ? BUILDING_BADGE[b.kind] : null;
+    // 특화된 초소는 분기 배지로 교체(가시벽🧱·석궁탑🎯·투석기💣·속사탑⚡)
+    if (b.stage === 'built' && b.branch && OUTPOST_BRANCHES[b.branch]) want = OUTPOST_BRANCHES[b.branch].badge;
     var badge = bBadges[b.id];
     if (!want) {
       if (badge) { objLayer.removeChild(badge); badge.destroy(); delete bBadges[b.id]; }
@@ -323,7 +325,9 @@ export function createRenderer(world) {
       e.tint = ready ? 0xffffff : 0x9ec7ff;
     } else {
       e.alpha = 1;
-      e.tint = b.kind === 'ironmine' ? 0xaab4c2 : (def.tint || 0xffffff);
+      // 특화된 초소는 분기별 색조로 구분(가시벽=초록·석궁탑=갈색·투석기=회색·속사탑=파랑)
+      var branchTint = (b.branch && OUTPOST_BRANCHES[b.branch]) ? OUTPOST_BRANCHES[b.branch].tint : null;
+      e.tint = branchTint || (b.kind === 'ironmine' ? 0xaab4c2 : (def.tint || 0xffffff));
     }
     // Tiny Town 건물: 소스 크롭을 풋프린트 폭(fw*TILE)에 맞춰 확대 (16px→표시 크기)
     if (def.town) {

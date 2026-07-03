@@ -376,6 +376,21 @@ body.touch .touch-only { display: inline-block; }
 .bp-stats { font-size: 12px; color: #8fd0ff; line-height: 1.6; }
 .bp-stats b { color: #fff; }
 
+/* ── 방어건물 업그레이드/특화 버튼 ── */
+.bp-upgrade { display: flex; flex-direction: column; gap: 5px; }
+.bp-upgrade button {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #dfe4f0;
+  border-radius: 8px;
+  padding: 6px 8px;
+  font-size: 12px; font-family: inherit;
+  cursor: pointer; text-align: left;
+}
+.bp-upgrade button:hover:not(:disabled) { background: rgba(74, 125, 255, 0.22); border-color: #6d97ff; }
+.bp-upgrade button:disabled { opacity: 0.5; cursor: default; }
+
 /* ── 미니맵 ────────────────────────────── */
 #minimapBox {
   right: 12px; top: 64px;

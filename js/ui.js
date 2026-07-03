@@ -1,6 +1,6 @@
 // DOM HUD: 도구·시계·자원·정착민 패널·토스트·커스터마이징 모달·연구/제작 모달
 import { taskLabel } from './pawns.js';
-import { HUMANS, RESEARCH, WEAPONS, SKILL_LABEL, skillLevel, BUILDS, STORAGE, RODS, WAREHOUSE_TIERS, ROLES, RANKS, BUILD_MIN_RANK, DEFENSE_TIERS, RELICS, INVASION } from './config.js';
+import { HUMANS, RESEARCH, WEAPONS, SKILL_LABEL, skillLevel, BUILDS, STORAGE, RODS, WAREHOUSE_TIERS, ROLES, RANKS, BUILD_MIN_RANK, DEFENSE_TIERS, OUTPOST_BRANCHES, RELICS, INVASION } from './config.js';
 import { totalRes, warehouseTier, warehouseCap, maxPop, rankReqStatus, defenseStats } from './world.js';
 
 export function createUI(handlers) {
@@ -259,9 +259,15 @@ export function createUI(handlers) {
     var lines = [];
     if (def && def.attack) {
       var ds = defenseStats(b);
-      var tierN = DEFENSE_TIERS[b.kind] ? (b.tier || 1) : null;
-      lines.push('⚔️ 공격력 <b>' + ds.power + '</b>' + (ds.cannon ? ' 💥광역' : ''));
-      lines.push('🎯 사거리 <b>' + ds.range + '</b>' + (tierN ? ' · ' + tierN + '단계' : ''));
+      if (b.branch && OUTPOST_BRANCHES[b.branch]) {
+        var brInfo = OUTPOST_BRANCHES[b.branch];
+        lines.push(brInfo.icon + ' <b>' + brInfo.name + '</b> · ' + (b.tier || 1) + '단계 · ' + (brInfo.role === 'melee' ? '근접' : '원거리'));
+      } else if (b.kind === 'outpost') {
+        lines.push('🛡️ <b>기본 초소</b> · 특화 전');
+      }
+      lines.push('⚔️ 공격력 <b>' + ds.power + '</b>' + (ds.aoe > 0 ? ' 💥광역(반경 ' + ds.aoe + ')' : ''));
+      var tierN = (DEFENSE_TIERS[b.kind] && !b.branch && b.kind !== 'outpost') ? (b.tier || 1) : null;
+      lines.push('🎯 사거리 <b>' + ds.range + '</b> · ⏱️ 쿨 <b>' + ds.cd + '</b>' + (tierN ? ' · ' + tierN + '단계' : ''));
     }
     if (b.kind === 'warehouse' && b.stage === 'built') {
       lines.push('📦 저장 용량 <b>+' + warehouseCap(b) + '</b> (' + warehouseTier(b) + '단계)');
@@ -303,6 +309,48 @@ export function createUI(handlers) {
         upWrap.appendChild(btn);
       }
       bpStats.parentNode.appendChild(upWrap);
+    } else if (b.kind === 'outpost' && !b.branch && b.stage === 'built') {
+      // 초소 미분기 → 근접/원거리 4갈래 특화 선택 버튼
+      var upWrapS = document.createElement('div');
+      upWrapS.className = 'bp-upgrade bp-branch';
+      upWrapS.style.marginTop = '8px';
+      upWrapS.innerHTML = '<div style="font-size:11px;color:#8d94a8;margin-bottom:4px">🔀 특화 선택 (근접/원거리)</div>';
+      Object.keys(OUTPOST_BRANCHES).forEach(function (bid) {
+        var brx = OUTPOST_BRANCHES[bid];
+        var t1x = brx.tiers[0];
+        var cstx = Object.keys(t1x.cost).map(function (t) {
+          return ({ wood: '목재', gold: '금', iron: '철' }[t] || t) + ' ' + t1x.cost[t];
+        }).join(', ');
+        var bbtn = document.createElement('button');
+        bbtn.textContent = brx.icon + ' ' + brx.name + ' (' + cstx + ')';
+        bbtn.title = brx.desc;
+        bbtn.addEventListener('click', function () {
+          if (handlers.onUpgradeBuilding) handlers.onUpgradeBuilding(b, bid);
+        });
+        upWrapS.appendChild(bbtn);
+      });
+      bpStats.parentNode.appendChild(upWrapS);
+    } else if (b.branch && OUTPOST_BRANCHES[b.branch] && b.stage === 'built') {
+      // 특화된 초소 → 분기 자체 tier 강화
+      var brc = OUTPOST_BRANCHES[b.branch];
+      var nextC = brc.tiers[b.tier || 1]; // 0-based: 다음 단계
+      var upWrapC = document.createElement('div');
+      upWrapC.className = 'bp-upgrade';
+      upWrapC.style.marginTop = '8px';
+      if (!nextC) {
+        upWrapC.innerHTML = '<span style="font-size:12px;color:#8d94a8">최대 단계</span>';
+      } else {
+        var cstc = Object.keys(nextC.cost).map(function (t) {
+          return ({ wood: '목재', gold: '금', iron: '철' }[t] || t) + ' ' + nextC.cost[t];
+        }).join(', ');
+        var bcbtn = document.createElement('button');
+        bcbtn.textContent = '🔼 강화 (' + cstc + ')  ⌨F';
+        bcbtn.addEventListener('click', function () {
+          if (handlers.onUpgradeBuilding) handlers.onUpgradeBuilding(b);
+        });
+        upWrapC.appendChild(bcbtn);
+      }
+      bpStats.parentNode.appendChild(upWrapC);
     } else if (DEFENSE_TIERS[b.kind] && b.stage === 'built') {
       var tiers = DEFENSE_TIERS[b.kind];
       var curTierD = b.tier || 1;
