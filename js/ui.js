@@ -52,6 +52,10 @@ export function createUI(handlers) {
   });
   var btnDev = document.getElementById('btnDev');
   if (btnDev) btnDev.addEventListener('click', showDevelopment);
+  var btnCancelAll = document.getElementById('btnCancelAll');
+  if (btnCancelAll) btnCancelAll.addEventListener('click', function () {
+    if (handlers.onCancelAll) handlers.onCancelAll();
+  });
   refreshLocks(); // 초기 건물 잠금 표시
 
   // 발전 단계 미달 건물 버튼 흐리게 표시

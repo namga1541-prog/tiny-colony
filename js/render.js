@@ -711,33 +711,43 @@ export function createRenderer(world) {
       var sp = enemySprites[en.id];
       if (!sp) {
         sp = new PIXI.Sprite(goblinIdle[0]);
-        sp.anchor.set(0.5, 0.72);
         objLayer.addChild(sp);
         enemySprites[en.id] = sp;
       }
       sp.x = (en.px + 0.5) * TILE;
-      sp.y = (en.py + 0.5) * TILE + (isG ? 20 : 14);
+      sp.tint = 0xffffff;
+      var GS = 16; // 거인 스케일(정착민의 ~5배 키 — 압도적이지만 전장이 보이는 크기)
+      if (isG) {
+        // 거대 원시인(caveman) — 나체에 가죽 팬티, 주먹으로 부수는 바보 거인
+        sp.anchor.set(0.5, 0.9);
+        sp.y = (en.py + 0.5) * TILE + 4;
+        sp.scale.set(GS * (en.dir < 0 ? -1 : 1), GS);
+        var d4 = en.dir < 0 ? 2 : 3;
+        var gf = ((animTime / 0.18) | 0) + en.anim; // 느릿한 걸음
+        sp.texture = pawnTex({ human: 'caveman' }, en.moving ? 'walk' : 'idle', gf, d4);
+      } else {
+        sp.anchor.set(0.5, 0.72);
+        sp.y = (en.py + 0.5) * TILE + 14;
+        sp.scale.set(en.dir < 0 ? -1 : 1, 1);
+        var frames = en.moving ? goblinWalk : goblinIdle;
+        sp.texture = frames[(((animTime / 0.12) | 0) + en.anim) % 6];
+      }
       sp.zIndex = sp.y;
-      var S = isG ? 2.4 : 1; // 거인은 2.4배 거대
-      sp.scale.set(S * (en.dir < 0 ? -1 : 1), S);
-      sp.tint = isG ? 0xcaa89a : 0xffffff; // 거인은 창백한 살색조(진격의 거인풍)
-      var frames = en.moving ? goblinWalk : goblinIdle;
-      sp.texture = frames[(((animTime / 0.12) | 0) + en.anim) % 6];
-      if (isG) { // 이름표 「괴민」 + HP바
+      if (isG) { // 이름표 「괴민」 + HP바 (머리 위)
         var dec = enemyDecor[en.id];
         if (!dec) {
           var lbl = new PIXI.Text('괴민', {
-            fontFamily: 'Malgun Gothic', fontSize: 28, fill: 0xffd7d0, fontWeight: '700',
+            fontFamily: 'Malgun Gothic', fontSize: 30, fill: 0xffd7d0, fontWeight: '700',
             stroke: 0x3a1414, strokeThickness: 6,
           });
-          lbl.anchor.set(0.5, 1); lbl.scale.set(0.7);
+          lbl.anchor.set(0.5, 1); lbl.scale.set(0.75);
           var bar = new PIXI.Graphics();
           objLayer.addChild(lbl); objLayer.addChild(bar);
           dec = enemyDecor[en.id] = { lbl: lbl, bar: bar };
         }
-        var topY = sp.y - S * 78; // 머리 위
+        var topY = sp.y - GS * 15; // 머리 위 (16px * S * ~0.9)
         dec.lbl.x = sp.x; dec.lbl.y = topY - 8; dec.lbl.zIndex = 1000001;
-        var bw = 54, bh = 6, frac = Math.max(0, (en.hp || 0) / (en.maxHp || 1));
+        var bw = 70, bh = 7, frac = Math.max(0, (en.hp || 0) / (en.maxHp || 1));
         dec.bar.zIndex = 1000001;
         dec.bar.clear();
         dec.bar.beginFill(0x000000, 0.55); dec.bar.drawRect(sp.x - bw / 2 - 1, topY - 1, bw + 2, bh + 2); dec.bar.endFill();

@@ -258,6 +258,28 @@ var UI = createUI({
     if (pw) UI.toast('🧑‍🌾 새 정착민 "' + pw.name + '" 을(를) 고용했습니다 (식량 ' + cost + ' 소비)');
   },
   getAlive: function () { return pawns.filter(function (p) { return p.state !== 'dead'; }).length; },
+  onCancelAll: function () {
+    // 예약된 작업 지시 전부 취소 → 정착민이 새 지시로 즉시 전환 (예: 벌목 취소하고 낚시)
+    world.designations = {};
+    world.mineDesig = {};
+    world.fishDesig = {};
+    world.craftQueue.length = 0;
+    var cancelTypes = { gather: 1, mine: 1, fish: 1, plant: 1, harvestCrop: 1, haul: 1, cook: 1, hunt: 1, craft: 1 };
+    var n = 0;
+    for (var i = 0; i < pawns.length; i++) {
+      var p = pawns[i];
+      if (p.state === 'dead' || p.manual) continue;
+      if (p.job && cancelTypes[p.job.type]) {
+        releaseAllOf(world, p.id);
+        p.job = null; p.path = null; p.workLeft = 0;
+        if (p.state === 'working' || p.state === 'moving') p.state = 'idle';
+        n++;
+      }
+    }
+    R.refreshZones();
+    UI.toast(n ? '🚫 예약 작업 취소 — 정착민 ' + n + '명 재배치' : '🚫 취소할 예약 작업이 없습니다');
+    UI.addEvent('🚫 예약 작업 전체 취소');
+  },
   onAdvanceRank: function () {
     var alive = pawns.filter(function (p) { return p.state !== 'dead'; }).length;
     if (!canAdvanceRank(world, alive)) { UI.toast('아직 승급 요건이 부족합니다', true); return false; }
@@ -884,6 +906,10 @@ var enemyCbs = {
     var def = BUILDS[b.kind];
     R.spawnAttackFx(b.x + (def.fw || 1) / 2, b.y + (def.fh || 1) / 2, e.x, e.y); // 포탄 궤적
     R.spawnBoomFx(e.x, e.y); // 착탄 광역 폭발
+    Audio2.play('attack');
+  },
+  onGiantSmash: function (e, tgt) { // 괴민 주먹질 충격
+    R.spawnBoomFx(tgt.x, tgt.y);
     Audio2.play('attack');
   },
 };

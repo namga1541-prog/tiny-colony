@@ -612,6 +612,8 @@ export function updateEnemies(world, pawns, dtMin, cb) {
           e.cd = st.attackCd;
           tgt.hp = Math.max(0, tgt.hp - st.power);
           if (cb.onHit) cb.onHit(tgt, st.power);
+          if (e.kind === 'giant' && cb.onGiantSmash) cb.onGiantSmash(e, tgt); // 주먹질 충격
+
           if (tgt.hp <= 0 && tgt.state !== 'dead') {
             tgt.state = 'dead';
             tgt.job = null;
