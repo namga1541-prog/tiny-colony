@@ -245,6 +245,23 @@ console.log('[sim-smoke] 13) 유물 시스템 — 배율 합산·스택·업그�
   ok(upgradeAdd(w, 'maxpop') === 6, 'banner ×2 → maxpop +6 (add 스택)');
 })();
 
+console.log('[sim-smoke] 14) 직접 조종(선택) 중 방치돼도 굶어 죽지 않음 (버그 회귀가드)');
+(function () {
+  // 버그: 정착민을 선택(manual=true)한 채 방치하면 think()가 전혀 호출 안 돼
+  // 배가 고파도 절대 먹지 않고 굶어 죽던 문제(모바일 터치 오선택으로 자주 발생).
+  var sim = bootSim(9);
+  var p = sim.pawns[0];
+  give(sim, { food: 50 });
+  p.manual = true;       // 선택(직접 조종) 상태로 방치
+  p.state = 'idle';
+  p.hunger = 20;         // hungryAt(30) 이하로 배고픔
+  run(sim, 30);
+  ok(p.hunger > 20 || p.state === 'eating', '선택 상태에서도 배고프면 자동으로 식사 시작 (hunger=' + Math.round(p.hunger) + ', state=' + p.state + ')');
+  run(sim, 30);
+  ok(p.hunger > 20, '식사 완료 후 포만감 회복 (hunger=' + Math.round(p.hunger) + ')');
+  ok(p.manual === true, '식사 중에도 직접 조종 선택 상태는 유지(플레이어 제어권 보존)');
+})();
+
 console.log('');
 if (fails) { console.log('❌ sim-smoke 실패 ' + fails + '건'); process.exit(1); }
 console.log('✅ sim-smoke 전체 통과');

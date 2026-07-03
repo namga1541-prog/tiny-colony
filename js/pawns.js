@@ -746,7 +746,17 @@ export function updatePawn(world, pawn, dtMin, ctx) {
     }
 
     case 'idle': {
-      if (pawn.manual) break; // 직접 조종 중엔 AI 미개입
+      if (pawn.manual) {
+        // 위급 허기 안전장치: 직접 조종(선택) 상태로 방치돼도 굶어 죽지 않도록 자동 식사.
+        // (모바일 터치로 실수 선택 후 잊어버리는 경우 대비 — 이동/전투 중엔 발동 안 함)
+        if (pawn.hunger <= NEEDS.hungryAt && ((world.stock.meal || 0) > 0 || (world.stock.food || 0) > 0)) {
+          releaseAllOf(world, pawn.id);
+          pawn.job = null;
+          pawn.state = 'eating';
+          pawn.workLeft = 4;
+        }
+        break; // 그 외엔 직접 조종 중이므로 AI 미개입
+      }
       think(world, pawn, dtMin, ctx);
       break;
     }
