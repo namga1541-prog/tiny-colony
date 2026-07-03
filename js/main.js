@@ -1,7 +1,7 @@
 // v0.3 부팅·게임 루프·입력
 import {
   MAP_W, MAP_H, MIN_PER_SEC, DAY_MIN, SPEED_MULT, BUILDS, PAWN_DEFS,
-  RAID, BRIDGE, TRAITS, HUMAN_IDS, WAREHOUSE_TIERS, BUILD_MIN_RANK, RANKS, DEFENSE_TIERS,
+  RAID, BRIDGE, TRAITS, HUMAN_IDS, WAREHOUSE_TIERS, BUILD_MIN_RANK, RANKS, DEFENSE_TIERS, ROLES,
 } from './config.js';
 import {
   createWorld, mulberry32, idx, ix, iy, isWalkable, footprintClear,
@@ -188,9 +188,11 @@ var UI = createUI({
     UI.updatePawnPanel(pawn);
   },
   onSetRole: function (pawn, role) {
-    if (pawn.role === role) role = 'none'; // 같은 역할 재클릭 → 해제
-    pawn.role = role;
-    // 대기 중이면 다음 틱에 새 역할 작업을 바로 잡음. 작업 중이면 현재 작업을 끝낸 뒤 반영.
+    var newRole = (pawn.role === role) ? 'none' : role; // 패널 정착민 기준 토글
+    // 선택한 정착민 전원에 적용 (2명 선택 → 어부 = 둘 다 어부). 선택 없으면 해당 정착민만.
+    var targets = controlled.length ? controlled : [pawn];
+    targets.forEach(function (p) { p.role = newRole; });
+    if (targets.length > 1) UI.toast('🎯 선택한 ' + targets.length + '명을 「' + (ROLES[newRole] ? ROLES[newRole].name : '자유') + '」(으)로 지정');
     UI.updatePawnPanel(pawn);
   },
   onUpgradeWarehouse: function (b) {
@@ -259,26 +261,34 @@ var UI = createUI({
   },
   getAlive: function () { return pawns.filter(function (p) { return p.state !== 'dead'; }).length; },
   onCancelAll: function () {
-    // 예약된 작업 지시 전부 취소 → 정착민이 새 지시로 즉시 전환 (예: 벌목 취소하고 낚시)
-    world.designations = {};
-    world.mineDesig = {};
-    world.fishDesig = {};
-    world.craftQueue.length = 0;
     var cancelTypes = { gather: 1, mine: 1, fish: 1, plant: 1, harvestCrop: 1, haul: 1, cook: 1, hunt: 1, craft: 1 };
-    var n = 0;
-    for (var i = 0; i < pawns.length; i++) {
-      var p = pawns[i];
-      if (p.state === 'dead' || p.manual) continue;
+    function stop(p) {
       if (p.job && cancelTypes[p.job.type]) {
         releaseAllOf(world, p.id);
         p.job = null; p.path = null; p.workLeft = 0;
         if (p.state === 'working' || p.state === 'moving') p.state = 'idle';
-        n++;
+        return true;
       }
+      return false;
+    }
+    var sel = controlled.filter(function (p) { return p.state !== 'dead'; });
+    if (sel.length) {
+      // 선택한 정착민만: 그들의 현재 작업만 취소. 전체 지시·다른 정착민은 그대로 유지.
+      sel.forEach(stop);
+      UI.toast('🚫 선택한 ' + sel.length + '명의 작업만 취소했습니다 (다른 정착민은 계속 작업)');
+      return;
+    }
+    // 선택 없음 → 전체 예약 취소 (모든 지시 삭제 + 전원 재배치)
+    world.designations = {}; world.mineDesig = {}; world.fishDesig = {}; world.craftQueue.length = 0;
+    var n = 0;
+    for (var i = 0; i < pawns.length; i++) {
+      var p = pawns[i];
+      if (p.state === 'dead' || p.manual) continue;
+      if (stop(p)) n++;
     }
     R.refreshZones();
-    UI.toast(n ? '🚫 예약 작업 취소 — 정착민 ' + n + '명 재배치' : '🚫 취소할 예약 작업이 없습니다');
-    UI.addEvent('🚫 예약 작업 전체 취소');
+    UI.toast(n ? '🚫 전체 예약 작업 취소 — 정착민 ' + n + '명 재배치' : '🚫 취소할 예약 작업이 없습니다');
+    UI.addEvent('🚫 전체 예약 작업 취소');
   },
   onAdvanceRank: function () {
     var alive = pawns.filter(function (p) { return p.state !== 'dead'; }).length;
