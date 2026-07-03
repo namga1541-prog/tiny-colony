@@ -1,6 +1,7 @@
 // L1 시나리오 스모크 — 시드 고정, 헤드리스. stepWorld 추출이 올바른지 + 결정론 확인.
 import { bootSim, run, runDays, designateChop, give, snapshot } from './harness.mjs';
-import { addBuilding, storageCap, upgradeMult, upgradeAdd, maxPop, rankReqStatus, canAdvanceRank, advanceRank, defenseStats, tickTowers } from '../js/world.js';
+import { addBuilding, storageCap, upgradeMult, upgradeAdd, maxPop, rankReqStatus, canAdvanceRank, advanceRank, defenseStats, tickTowers, enemyStats, spawnRaid, mulberry32 } from '../js/world.js';
+import { GIANT, ENEMY } from '../js/config.js';
 import { findWorkJob } from '../js/jobs.js';
 
 var fails = 0;
@@ -188,6 +189,28 @@ console.log('[sim-smoke] 10) 방어건물 tier + 대포 광역 (신규)');
   tickTowers(w2, 20, {});
   var hurt = w2.enemies.filter(function (e) { return e.hp < 100; }).length;
   ok(hurt === 1, '일반 망루는 단일 대상만 피해 (' + hurt + '마리)');
+})();
+
+console.log('[sim-smoke] 11) 무지성 거인 「괴민」 (신규)');
+(function () {
+  var sim = bootSim(5);
+  var w = sim.world;
+  ok(enemyStats({ kind: 'giant' }).power === GIANT.power, '거인 종류 스탯 = GIANT');
+  ok(enemyStats({ kind: 'goblin' }).power === ENEMY.power, '고블린 종류 스탯 = ENEMY');
+  ok(GIANT.hp > ENEMY.hp && GIANT.power > ENEMY.power && GIANT.moveMinPerTile > ENEMY.moveMinPerTile,
+    '거인은 더 튼튼(HP)·강함(공격)·느림(이동)');
+  // 직접 스폰 (결정론 rng)
+  var rng = mulberry32(w.seed ^ 0x1234);
+  var got = spawnRaid(w, 1, rng, 'giant');
+  var g = w.enemies.filter(function (e) { return e.kind === 'giant'; })[0];
+  ok(got === 1 && g, '거인 스폰 → kind=giant');
+  ok(g && g.hp >= GIANT.hp && g.maxHp === g.hp, '거인 HP가 GIANT 기준 이상 (' + (g && g.hp) + ')');
+  // 5일밤 트리거 통합: 4일 경과 후 밤까지 진행 → 괴민 상륙
+  var sim2 = bootSim(7);
+  give(sim2, { food: 800, meal: 200 });
+  runDays(sim2, 4);           // ~5일차 아침
+  run(sim2, 14 * 60);         // 5일차 22시(거인 스폰 20시 경과)
+  ok(sim2.world.enemies.some(function (e) { return e.kind === 'giant'; }), '5일밤 → 괴민 자동 상륙(sim 트리거)');
 })();
 
 console.log('');

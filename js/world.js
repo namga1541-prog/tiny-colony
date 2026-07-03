@@ -1,7 +1,7 @@
 // v0.3 월드: 바다 위의 섬 + 다중타일 건물(풋프린트) + 금광 + 양
 import {
   MAP_W, MAP_H, NATURE, STACK_MAX, BUILDS, GOLDMINE, IRONMINE, BRIDGE,
-  RESEARCH_RATE_PER_PAWN, ENEMY, RAID, SEASON_DAYS, SEASONS, STORAGE, RANCH, REGROW,
+  RESEARCH_RATE_PER_PAWN, ENEMY, RAID, GIANT, SEASON_DAYS, SEASONS, STORAGE, RANCH, REGROW,
   ANIMAL_TYPES, WAREHOUSE_TIERS, UPGRADES, RANKS, DEFENSE_TIERS, CANNON,
   T_WATER, T_GRASS, T_SAND,
 } from './config.js';
@@ -534,7 +534,11 @@ export function tickCrops(world, dtMin) {
 }
 
 // ── 습격: 해안 물 근처(육지 가장자리)에서 고블린 스폰 ──
-export function spawnRaid(world, count, rng) {
+// 적 종류별 스탯 (기본 고블린, 거인 '괴민')
+export function enemyStats(e) { return (e && e.kind === 'giant') ? GIANT : ENEMY; }
+
+export function spawnRaid(world, count, rng, kind) {
+  var isGiant = kind === 'giant';
   var edges = [];
   for (var y = 1; y < MAP_H - 1; y++) {
     for (var x = 1; x < MAP_W - 1; x++) {
@@ -548,8 +552,10 @@ export function spawnRaid(world, count, rng) {
   }
   if (edges.length === 0) return 0;
   var spawned = 0;
-  // 일수에 따라 고블린 체력 강화
-  var ehp = ENEMY.hp + Math.floor((world.day || 1) * (RAID.hpPerDay || 0));
+  // 일수에 따라 체력 강화 (거인은 훨씬 튼튼)
+  var ehp = isGiant
+    ? GIANT.hp + Math.floor((world.day || 1) * (GIANT.hpPerDay || 0))
+    : ENEMY.hp + Math.floor((world.day || 1) * (RAID.hpPerDay || 0));
   // 한 지점 근처에 무리로 상륙
   var base = edges[(rng() * edges.length) | 0];
   for (var n = 0; n < count; n++) {
@@ -559,6 +565,7 @@ export function spawnRaid(world, count, rng) {
     world.enemies.push({
       id: world.nextEid++, x: sx, y: sy, px: sx, py: sy,
       hp: ehp, maxHp: ehp, cd: 0, dir: 1, anim: (rng() * 6) | 0,
+      kind: kind || 'goblin',
     });
     spawned++;
   }
@@ -581,9 +588,11 @@ export function updateEnemies(world, pawns, dtMin, cb) {
   var alive = [];
   for (var n = 0; n < world.enemies.length; n++) {
     var e = world.enemies[n];
+    var st = enemyStats(e);
     if (e.hp <= 0) {
-      // 처치 → 금 드랍
-      addItem(world, idx(e.x, e.y), 'gold', ENEMY.dropGold);
+      // 처치 → 전리품 드랍 (거인은 철도)
+      addItem(world, idx(e.x, e.y), 'gold', st.dropGold);
+      if (st.dropIron) addItem(world, idx(e.x, e.y), 'iron', st.dropIron);
       if (cb.onEnemyDown) cb.onEnemyDown(e);
       continue;
     }
@@ -600,9 +609,9 @@ export function updateEnemies(world, pawns, dtMin, cb) {
         e.cd -= dtMin;
         e.moving = false;
         if (e.cd <= 0) {
-          e.cd = ENEMY.attackCd;
-          tgt.hp = Math.max(0, tgt.hp - ENEMY.power);
-          if (cb.onHit) cb.onHit(tgt, ENEMY.power);
+          e.cd = st.attackCd;
+          tgt.hp = Math.max(0, tgt.hp - st.power);
+          if (cb.onHit) cb.onHit(tgt, st.power);
           if (tgt.hp <= 0 && tgt.state !== 'dead') {
             tgt.state = 'dead';
             tgt.job = null;
@@ -612,7 +621,7 @@ export function updateEnemies(world, pawns, dtMin, cb) {
       } else {
         // 접근 (그리디 1스텝, 물/벽 회피)
         e.moving = true;
-        var step = dtMin / ENEMY.moveMinPerTile;
+        var step = dtMin / st.moveMinPerTile;
         var vx = Math.sign(tgt.px - e.px), vy = Math.sign(tgt.py - e.py);
         if (vx !== 0) e.dir = vx;
         // 우선 큰 축 이동

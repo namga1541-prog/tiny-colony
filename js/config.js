@@ -220,6 +220,14 @@ export const COMBAT = {
 };
 // 고블린 습격
 export const ENEMY = { hp: 45, power: 8, attackCd: 14, moveMinPerTile: 1.4, dropGold: 2 };
+
+// ── 무지성 거인 「괴민」: 5일밤마다 상륙. 덩치 크고 HP·공격력 높지만 느리고 아둔함(진격의 거인풍) ──
+// moveMinPerTile 이 클수록 느림(2.8 = 고블린의 2배 느림). rng 미사용 → 결정론 유지.
+export const GIANT = {
+  hp: 300, power: 22, attackCd: 24, moveMinPerTile: 2.8,
+  dropGold: 30, dropIron: 15, hpPerDay: 8, name: '괴민',
+};
+export const GIANT_RAID = { everyDays: 5, spawnHour: 20, baseCount: 1 }; // 5·10·15…일 밤 8시
 export const RAID = { firstDay: 4, intervalDays: 3, baseCount: 2, perDayExtra: 0.4, spawnHour: 20,
   perPop: 0.4, hpPerDay: 1.5, loot: { gold: 4, iron: 2 } };
 

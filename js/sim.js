@@ -5,7 +5,7 @@
 //
 // 모든 렌더·UI·오디오 효과는 ctx 콜백으로만 방출한다(상태 변경과 효과 분리).
 // main.js 는 ctx 에 실제 R.*/UI.*/Audio2.* 를, 하네스는 기록용 stub 을 연결한다.
-import { DAY_MIN, RAID, MAP_W, MAP_H } from './config.js';
+import { DAY_MIN, RAID, GIANT_RAID, MAP_W, MAP_H } from './config.js';
 import {
   idx, addItem, mulberry32,
   updateSheep, tickTowers, updateEnemies, tickResearch, tickCrops, tickRanches,
@@ -103,6 +103,20 @@ export function stepWorld(world, pawns, dtMin, rng, ctx, enemyCbs) {
     }
   }
   if (curHour < RAID.spawnHour) world.raidToday = false;
+
+  // 무지성 거인 「괴민」: 5일밤(5·10·15…)마다 상륙
+  if (world.day % GIANT_RAID.everyDays === 0 && curHour >= GIANT_RAID.spawnHour && !world.giantToday) {
+    world.giantToday = true;
+    var gcnt = GIANT_RAID.baseCount + Math.floor((world.day - GIANT_RAID.everyDays) / 15);
+    var gg = spawnRaid(world, gcnt, rng, 'giant');
+    if (gg > 0) {
+      world.raidActive = true;
+      ctx.onToast('🧟 무지성 거인 「괴민」 출현! 느리지만 거대하고 강력합니다 — 힘을 합쳐 막으세요!', true);
+      ctx.onEvent('🧟 거인 괴민 상륙' + (gg > 1 ? ' (' + gg + '체)' : ''));
+      ctx.onSfx('alert');
+    }
+  }
+  if (curHour < GIANT_RAID.spawnHour) world.giantToday = false;
 
   // 목표 달성 체크
   var newGoals = checkGoals(world, pawns);

@@ -699,13 +699,15 @@ export function createRenderer(world) {
     }
   }
 
-  // ── 적(고블린) ──
+  // ── 적(고블린 + 거인 괴민) ──
   var enemySprites = {};
+  var enemyDecor = {}; // 거인 전용: { lbl(이름표), bar(HP바) }
   function syncEnemies() {
     var live = {};
     for (var n = 0; n < world.enemies.length; n++) {
       var en = world.enemies[n];
       live[en.id] = 1;
+      var isG = en.kind === 'giant';
       var sp = enemySprites[en.id];
       if (!sp) {
         sp = new PIXI.Sprite(goblinIdle[0]);
@@ -714,14 +716,43 @@ export function createRenderer(world) {
         enemySprites[en.id] = sp;
       }
       sp.x = (en.px + 0.5) * TILE;
-      sp.y = (en.py + 0.5) * TILE + 14;
+      sp.y = (en.py + 0.5) * TILE + (isG ? 20 : 14);
       sp.zIndex = sp.y;
-      sp.scale.x = en.dir < 0 ? -1 : 1;
+      var S = isG ? 2.4 : 1; // 거인은 2.4배 거대
+      sp.scale.set(S * (en.dir < 0 ? -1 : 1), S);
+      sp.tint = isG ? 0xcaa89a : 0xffffff; // 거인은 창백한 살색조(진격의 거인풍)
       var frames = en.moving ? goblinWalk : goblinIdle;
       sp.texture = frames[(((animTime / 0.12) | 0) + en.anim) % 6];
+      if (isG) { // 이름표 「괴민」 + HP바
+        var dec = enemyDecor[en.id];
+        if (!dec) {
+          var lbl = new PIXI.Text('괴민', {
+            fontFamily: 'Malgun Gothic', fontSize: 28, fill: 0xffd7d0, fontWeight: '700',
+            stroke: 0x3a1414, strokeThickness: 6,
+          });
+          lbl.anchor.set(0.5, 1); lbl.scale.set(0.7);
+          var bar = new PIXI.Graphics();
+          objLayer.addChild(lbl); objLayer.addChild(bar);
+          dec = enemyDecor[en.id] = { lbl: lbl, bar: bar };
+        }
+        var topY = sp.y - S * 78; // 머리 위
+        dec.lbl.x = sp.x; dec.lbl.y = topY - 8; dec.lbl.zIndex = 1000001;
+        var bw = 54, bh = 6, frac = Math.max(0, (en.hp || 0) / (en.maxHp || 1));
+        dec.bar.zIndex = 1000001;
+        dec.bar.clear();
+        dec.bar.beginFill(0x000000, 0.55); dec.bar.drawRect(sp.x - bw / 2 - 1, topY - 1, bw + 2, bh + 2); dec.bar.endFill();
+        dec.bar.beginFill(0xff4d4d); dec.bar.drawRect(sp.x - bw / 2, topY, bw * frac, bh); dec.bar.endFill();
+      }
     }
     for (var id in enemySprites) {
       if (!live[id]) { objLayer.removeChild(enemySprites[id]); enemySprites[id].destroy(); delete enemySprites[id]; }
+    }
+    for (var id2 in enemyDecor) {
+      if (!live[id2]) {
+        objLayer.removeChild(enemyDecor[id2].lbl); enemyDecor[id2].lbl.destroy();
+        objLayer.removeChild(enemyDecor[id2].bar); enemyDecor[id2].bar.destroy();
+        delete enemyDecor[id2];
+      }
     }
   }
 
