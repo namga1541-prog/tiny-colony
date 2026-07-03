@@ -1,6 +1,7 @@
 // L1 시나리오 스모크 — 시드 고정, 헤드리스. stepWorld 추출이 올바른지 + 결정론 확인.
 import { bootSim, run, runDays, designateChop, give, snapshot } from './harness.mjs';
 import { addBuilding, storageCap, upgradeMult, upgradeAdd } from '../js/world.js';
+import { findWorkJob } from '../js/jobs.js';
 
 var fails = 0;
 function ok(cond, msg) {
@@ -117,6 +118,31 @@ console.log('[sim-smoke] 7) 콜로니 업그레이드 — 효과·저장고·집
   ok(Math.abs(upgradeMult(w, 'towerpower') - 2.1) < 1e-9, '방어력 mult 누적 곱 (2.1)');
   w.upgrades.pop_max1 = true; w.upgrades.pop_max2 = true; // 4 + 6 = 10
   ok(upgradeAdd(w, 'maxpop') === 10, '인구상한 add 누적 합 (10)');
+})();
+
+console.log('[sim-smoke] 8) 정착민 역할 특화 — 우선순위 게이트 + 폴백 (신규)');
+(function () {
+  // 역할이 있으면 전문 작업을 일반 우선순위보다 먼저 잡고, 전문 작업이 없으면 일반 작업으로 폴백.
+  function setup(role) {
+    var sim = bootSim(321);
+    var p = sim.pawns[0];
+    p.role = role;
+    designateChop(sim, 5); // 벌목(gather) 후보 — 일반 캐스케이드에서 사냥보다 상위
+    sim.world.sheep.push({ id: sim.world.nextSid++, x: p.x + 1, y: p.y, hunt: true }); // 사냥 후보
+    return { sim: sim, p: p };
+  }
+  var a = setup('none');
+  var jobNone = findWorkJob(a.sim.world, a.p);
+  ok(jobNone && jobNone.type === 'gather', '자유 정착민은 일반 우선순위(벌목)를 잡음 (' + (jobNone && jobNone.type) + ')');
+
+  var b = setup('hunter');
+  var jobHunter = findWorkJob(b.sim.world, b.p);
+  ok(jobHunter && jobHunter.type === 'hunt', '사냥꾼은 벌목보다 사냥을 우선함 (' + (jobHunter && jobHunter.type) + ')');
+
+  var c = setup('hunter');
+  c.sim.world.sheep = c.sim.world.sheep.filter(function (s) { return !s.hunt; }); // 사냥감 제거
+  var jobFallback = findWorkJob(c.sim.world, c.p);
+  ok(jobFallback && jobFallback.type === 'gather', '사냥감 없으면 사냥꾼도 일반 작업(벌목)으로 폴백 (' + (jobFallback && jobFallback.type) + ')');
 })();
 
 console.log('');

@@ -2,6 +2,7 @@
 import {
   NEEDS, NATURE, BUILDS, WALK_MIN_PER_TILE, TRAITS, CROP, WEAPONS,
   COMBAT, COOK, HUNT, CLINIC, ANIMALS, FISHING, FISH, catchFish, skillMult,
+  ROLES, ROLE_SPEED_BONUS,
 } from './config.js';
 import {
   idx, ix, iy, isWalkable, addItem, removeItem, natureDef, stackRoom,
@@ -27,6 +28,7 @@ export function createPawn(id, def, x, y, rng) {
     look: def.look || { human: 'villager' },
     trait: trait,
     skills: def.skills || {},   // {woodcutting, mining, construction, farming, combat} → xp
+    role: def.role || 'none',   // 특화 역할 (config.ROLES 키). 'none' = 자유
     equipped: def.equipped || null, // 'sword' | 'bow' | null
     face: 1,             // 1 우 / -1 좌
     x: x, y: y,
@@ -702,7 +704,10 @@ export function updatePawn(world, pawn, dtMin, ctx) {
       if (sk) gainSkill(pawn, sk, dtMin * 0.6);
       // 콜로니 업그레이드: 전체 작업속도 + 해당 작업 전용 속도 (구매 즉시 라이브 반영)
       var um = upgradeMult(world, 'speed_all') * (sk ? upgradeMult(world, 'speed_' + sk) : 1);
-      pawn.workLeft -= dtMin * (pawn.trait.workMult || 1) * moodPenalty * sm * um;
+      // 역할 특화 보너스: 이 작업이 정착민 역할의 전문 작업이면 +15%
+      var rdef = pawn.role && ROLES[pawn.role];
+      var rm = (rdef && rdef.jobs.indexOf(j.type) >= 0) ? ROLE_SPEED_BONUS : 1;
+      pawn.workLeft -= dtMin * (pawn.trait.workMult || 1) * moodPenalty * sm * um * rm;
       if (pawn.workLeft <= 0) finishWork(world, pawn, ctx);
       break;
     }

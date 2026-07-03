@@ -1,6 +1,6 @@
 // DOM HUD: 도구·시계·자원·정착민 패널·토스트·커스터마이징 모달·연구/제작 모달
 import { taskLabel } from './pawns.js';
-import { HUMANS, RESEARCH, WEAPONS, SKILL_LABEL, skillLevel, BUILDS, STORAGE, RODS, WAREHOUSE_TIERS } from './config.js';
+import { HUMANS, RESEARCH, WEAPONS, SKILL_LABEL, skillLevel, BUILDS, STORAGE, RODS, WAREHOUSE_TIERS, ROLES } from './config.js';
 import { totalRes, warehouseTier, warehouseCap } from './world.js';
 
 export function createUI(handlers) {
@@ -140,6 +140,7 @@ export function createUI(handlers) {
   var barMood = document.getElementById('barMood');
   var pawnTrait = document.getElementById('pawnTrait');
   var pawnSkills = document.getElementById('pawnSkills');
+  var pawnRole = document.getElementById('pawnRole');
   var pawnEquip = document.getElementById('pawnEquip');
 
   function showPawn(pawn) {
@@ -150,7 +151,8 @@ export function createUI(handlers) {
     panel.classList.add('hidden');
   }
   function updatePawnPanel(pawn) {
-    pawnName.textContent = pawn.name;
+    var rdef = ROLES[pawn.role] || ROLES.none;
+    pawnName.textContent = (pawn.role && pawn.role !== 'none' ? rdef.icon + ' ' : '') + pawn.name;
     pawnTask.textContent = taskLabel(pawn);
     barHunger.style.width = pawn.hunger + '%';
     barHp.style.width = pawn.hp + '%';
@@ -166,6 +168,23 @@ export function createUI(handlers) {
         if (lv > 0) parts.push(SKILL_LABEL[key] + ' Lv' + lv);
       }
       pawnSkills.textContent = parts.length ? '🛠️ ' + parts.join(' · ') : '';
+    }
+    // 역할 선택 버튼 (사망 시 숨김)
+    if (pawnRole) {
+      pawnRole.innerHTML = '';
+      if (pawn.state !== 'dead') {
+        Object.keys(ROLES).forEach(function (key) {
+          var rd = ROLES[key];
+          var btn = document.createElement('button');
+          btn.textContent = rd.icon + (key === 'none' ? '' : ' ' + rd.name);
+          btn.title = rd.name;
+          if ((pawn.role || 'none') === key) btn.classList.add('role-active');
+          btn.addEventListener('click', function () {
+            if (handlers.onSetRole) handlers.onSetRole(pawn, key);
+          });
+          pawnRole.appendChild(btn);
+        });
+      }
     }
     pawnEquip.innerHTML = '';
     if (pawn.state !== 'dead') {

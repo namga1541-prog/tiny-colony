@@ -103,6 +103,21 @@ export const SKILL_LABEL = {
 export function skillLevel(xp) { return Math.min(10, Math.floor((xp || 0) / 100)); }
 export function skillMult(xp) { return 1 + skillLevel(xp) * 0.06; } // 레벨당 +6%, 만렙 +60%
 
+// ── 정착민 역할 (특화 직업) ──
+// 지정 시 해당 작업(jobs)을 일반 우선순위보다 먼저 수행 + 전문 작업 속도 보너스.
+// jobs 는 findWorkJob 의 job.type 토큰. 역할 작업이 없으면 일반 캐스케이드로 폴백(놀지 않음).
+export const ROLES = {
+  none:       { name: '자유',     icon: '🧑', jobs: [] },
+  builder:    { name: '건축가',   icon: '🏗️', jobs: ['build', 'deliver'] },
+  woodcutter: { name: '벌목꾼',   icon: '🪓', jobs: ['gather'] },
+  miner:      { name: '광부',     icon: '⛏️', jobs: ['mine'] },
+  farmer:     { name: '농부',     icon: '🌾', jobs: ['plant', 'harvestCrop', 'cook'] },
+  fisher:     { name: '어부',     icon: '🎣', jobs: ['fish'] },
+  hunter:     { name: '사냥꾼',   icon: '🏹', jobs: ['hunt', 'fish'] },
+  smith:      { name: '대장장이', icon: '🔨', jobs: ['craft', 'mine'] },
+};
+export const ROLE_SPEED_BONUS = 1.15; // 역할 전문 작업 속도 +15%
+
 // 자연물 (단일 타일)
 export const NATURE = {
   tree:     { work: 20, drops: { wood: 3 } },

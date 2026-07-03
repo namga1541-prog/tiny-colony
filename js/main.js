@@ -54,7 +54,7 @@ if (saved) {
   world.goals = saved.goals || {};
   world.nextRaidDay = saved.nextRaidDay || RAID.firstDay;
   pawns = saved.pawns.map(function (p) {
-    var pw = createPawn(p.id, { name: p.name, look: p.look, color: p.color, trait: p.trait, equipped: p.equipped, skills: p.skills }, p.x, p.y);
+    var pw = createPawn(p.id, { name: p.name, look: p.look, color: p.color, trait: p.trait, equipped: p.equipped, skills: p.skills, role: p.role }, p.x, p.y);
     pw.hunger = p.hunger; pw.hp = p.hp;
     pw.mood = p.mood === undefined ? 70 : p.mood;
     pw.carry = p.carry || null;
@@ -184,6 +184,12 @@ var UI = createUI({
     var msg = equipWeapon(world, pawn, type);
     if (msg) UI.toast(msg);
     R.updatePawnSprite(pawn);
+    UI.updatePawnPanel(pawn);
+  },
+  onSetRole: function (pawn, role) {
+    if (pawn.role === role) role = 'none'; // 같은 역할 재클릭 → 해제
+    pawn.role = role;
+    // 대기 중이면 다음 틱에 새 역할 작업을 바로 잡음. 작업 중이면 현재 작업을 끝낸 뒤 반영.
     UI.updatePawnPanel(pawn);
   },
   onUpgradeWarehouse: function (b) {

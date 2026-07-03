@@ -139,6 +139,22 @@ body.touch .touch-only { display: inline-block; }
 .pawn-equip button:hover { background: rgba(255, 255, 255, 0.15); }
 .pawn-equip button.eq-active { background: #4a7dff; border-color: #6d97ff; color: #fff; }
 
+/* ── 역할 선택 ── */
+.pawn-role-label { font-size: 11px; color: #8d94a8; margin: 4px 0 3px; }
+.pawn-role { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
+.pawn-role button {
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #dde2ee;
+  border-radius: 8px;
+  padding: 5px 7px;
+  font-size: 11px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.pawn-role button:hover { background: rgba(255, 255, 255, 0.15); }
+.pawn-role button.role-active { background: #2fa96b; border-color: #52d38f; color: #fff; }
+
 /* ── 토스트 ────────────────────────────── */
 #toastHost {
   position: fixed; top: 62px; left: 50%; transform: translateX(-50%);
