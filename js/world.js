@@ -2,7 +2,7 @@
 import {
   MAP_W, MAP_H, NATURE, STACK_MAX, BUILDS, GOLDMINE, IRONMINE, BRIDGE,
   RESEARCH_RATE_PER_PAWN, ENEMY, RAID, GIANT, GIANT_FAST_MULT, SEASON_DAYS, SEASONS, STORAGE, RANCH, REGROW,
-  ANIMAL_TYPES, WAREHOUSE_TIERS, UPGRADES, RANKS, DEFENSE_TIERS, OUTPOST_BRANCHES, CANNON, RELICS, ISLANDS, CANNIBAL, WARLORD, RAIDER, INVWARRIOR,
+  ANIMAL_TYPES, WAREHOUSE_TIERS, UPGRADES, RANKS, DEFENSE_TIERS, OUTPOST_BRANCHES, CANNON, RELICS, ISLANDS, CANNIBAL, WARLORD, RAIDER, INVWARRIOR, ZOMBIE, SKELETON,
   T_WATER, T_GRASS, T_SAND,
 } from './config.js';
 
@@ -693,6 +693,8 @@ export function enemyStats(e) {
   if (e && e.kind === 'warlord') return WARLORD;
   if (e && e.kind === 'raider') return RAIDER;
   if (e && e.kind === 'warrior') return INVWARRIOR;
+  if (e && e.kind === 'zombie') return ZOMBIE;
+  if (e && e.kind === 'skeleton') return SKELETON;
   return ENEMY;
 }
 
@@ -700,7 +702,7 @@ export function enemyStats(e) {
 export function spawnRaid(world, count, rng, kind, waveNo) {
   var isGiant = kind === 'giant';
   var isWarlord = kind === 'warlord';
-  var fixedHp = { warlord: WARLORD.hp, raider: RAIDER.hp, warrior: INVWARRIOR.hp }[kind]; // 고정 체력 종족
+  var fixedHp = { warlord: WARLORD.hp, raider: RAIDER.hp, warrior: INVWARRIOR.hp, zombie: ZOMBIE.hp, skeleton: SKELETON.hp }[kind]; // 고정 체력 종족
   var edges = [];
   for (var y = 1; y < MAP_H - 1; y++) {
     for (var x = 1; x < MAP_W - 1; x++) {

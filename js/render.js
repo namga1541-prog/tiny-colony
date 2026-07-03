@@ -36,6 +36,9 @@ export function createRenderer(world) {
   // 건물 전용: Kenney Tiny Town 타일맵(16px, 12x11) — 건물별 고유 스프라이트 크롭용
   base.TinyTown = PIXI.BaseTexture.from('assets/town/Tilemap/tilemap_packed.png');
   base.TinyTown.scaleMode = PIXI.SCALE_MODES.NEAREST;
+  // 언데드 몬스터(좀비·스켈레톤, CC0 Reemax/artisticdude): 24x64 셀, 4방향 행×프레임 열
+  base.ZombieSkeleton = PIXI.BaseTexture.from('assets/monsters/zombie_skeleton.png');
+  base.ZombieSkeleton.scaleMode = PIXI.SCALE_MODES.NEAREST;
   // 공성 병기(LPC Siege Weapons, CC-BY): 특화 초소의 원거리 병기 전용 스프라이트
   var siegeTex = {
     catapult: PIXI.Texture.from('assets/siege/catapult.png'),
@@ -138,13 +141,24 @@ export function createRenderer(world) {
   var fxRaider = enemyFrames('Pawn_Red');        // 약탈자(빨강 도끼병)
   var fxWarrior = enemyFrames('Warrior_Red');    // 침략 전사(빨강 기사)
   var fxWarlord = enemyFrames('Warrior_Purple'); // 정복자(보라 기사·미니보스)
-  // 적 종류별 외형: idle/walk 프레임 + 선택적 tint·scale
+  // 언데드(좀비·스켈레톤, CC0): 24x64 셀. row1(왼쪽 프로필)을 걷기/대기 공용으로 사용(좌우는 스케일 부호로 반전).
+  // 좀비=열 0~2(3프레임), 스켈레톤=열 3~11(9프레임, 실제 다리 움직임 있는 걷기 사이클).
+  function undeadFrames(colStart, colCount) {
+    var frames = [];
+    for (var i = 0; i < colCount; i++) frames.push(tx('ZombieSkeleton', (colStart + i) * 24, 1 * 64, 24, 64));
+    return frames;
+  }
+  var fxZombie = undeadFrames(0, 3);
+  var fxSkeleton = undeadFrames(3, 9);
+  // 적 종류별 외형: idle/walk 프레임 + 선택적 tint·scale·anchorY(발 위치, 기본 0.72)
   var ENEMY_LOOK = {
     goblin:   { idle: goblinIdle, walk: goblinWalk },
     cannibal: { idle: goblinIdle, walk: goblinWalk, tint: 0x8a2020 }, // 식인종=붉은 고블린
     raider:   { idle: fxRaider.idle, walk: fxRaider.walk },
     warrior:  { idle: fxWarrior.idle, walk: fxWarrior.walk },
     warlord:  { idle: fxWarlord.idle, walk: fxWarlord.walk, scale: 1.4 }, // 정복자=보라 기사(크게)
+    zombie:   { idle: fxZombie, walk: fxZombie, scale: 2.1, anchorY: 0.94 },     // 좀비(느린 살덩이) — 고블린과 비슷한 시각 크기
+    skeleton: { idle: fxSkeleton, walk: fxSkeleton, scale: 2.0, anchorY: 0.94 }, // 스켈레톤(걷기 사이클) — 고블린과 비슷한 시각 크기
   };
 
   // 사람 스프라이트 크롭. dir: 0정면 1뒤 2좌 3우.
@@ -863,10 +877,10 @@ export function createRenderer(world) {
         var gf = ((animTime / 0.18) | 0) + en.anim; // 느릿한 걸음
         sp.texture = pawnTex({ human: 'caveman' }, en.moving ? 'walk' : 'idle', gf, d4);
       } else {
-        // 종류별 외형(고블린·식인종·약탈자·전사·정복자). 없으면 고블린으로 폴백.
+        // 종류별 외형(고블린·식인종·약탈자·전사·정복자·언데드). 없으면 고블린으로 폴백.
         var look = ENEMY_LOOK[en.kind] || ENEMY_LOOK.goblin;
         var esc = look.scale || 1;
-        sp.anchor.set(0.5, 0.72);
+        sp.anchor.set(0.5, look.anchorY || 0.72);
         sp.y = (en.py + 0.5) * TILE + 14;
         sp.scale.set(esc * (en.dir < 0 ? -1 : 1), esc);
         var frames = en.moving ? look.walk : look.idle;

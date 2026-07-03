@@ -21,6 +21,8 @@ function spawnInvasionWave(world, rng, sched, waveNo, withGiants) {
   spawnRaid(world, sched.goblinsPerWave || 0, rng, 'goblin', waveNo);
   spawnRaid(world, sched.raidersPerWave || 0, rng, 'raider', waveNo);
   spawnRaid(world, sched.warriorsPerWave || 0, rng, 'warrior', waveNo);
+  spawnRaid(world, sched.zombiesPerWave || 0, rng, 'zombie', waveNo);
+  spawnRaid(world, sched.skeletonsPerWave || 0, rng, 'skeleton', waveNo);
   spawnRaid(world, sched.warlordsPerWave || 0, rng, 'warlord', waveNo);
   if (withGiants && sched.giants) {
     var g0 = world.enemies.length;

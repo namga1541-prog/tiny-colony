@@ -273,6 +273,9 @@ export const CANNIBAL = { hp: 60, power: 11, attackCd: 12, moveMinPerTile: 1.2, 
 // 약탈자: 빠르고 약하지만 떼로 몰려옴(Pawn 도끼병). 침략 전사: 느리지만 튼튼한 기사(Warrior).
 export const RAIDER = { hp: 42, power: 8, attackCd: 13, moveMinPerTile: 1.1, dropGold: 5, dropIron: 1, name: '약탈자' };
 export const INVWARRIOR = { hp: 100, power: 15, attackCd: 16, moveMinPerTile: 1.7, dropGold: 10, dropIron: 4, name: '침략 전사' };
+// 언데드 몬스터: 좀비(느린 살덩이)·스켈레톤(빠른 뼈다귀). 대침공에 섞여 상륙.
+export const ZOMBIE = { hp: 70, power: 9, attackCd: 15, moveMinPerTile: 2.1, dropGold: 3, dropIron: 0, name: '좀비' };
+export const SKELETON = { hp: 55, power: 10, attackCd: 13, moveMinPerTile: 1.3, dropGold: 4, dropIron: 2, name: '스켈레톤' };
 
 // ── 정복자 「워로드」: 대침공(INVASION) 전용 미니보스. GIANT × 1.3 배율 ──
 export const WARLORD = {
@@ -284,10 +287,10 @@ export const WARLORD = {
 // 나라 단계 도달 여부와 무관하게 무조건 발동 — 방어를 못 갖췄어도 시련을 겪는 가혹한 난이도.
 // schedule 순서대로 하나씩 진행되며, 뒤로 갈수록(20일차) 웨이브·적 수·보상이 늘어난다.
 export const INVASION = {
-  // 웨이브마다 여러 종족 혼합 상륙(고블린·약탈자·침략전사 + 정복자). 10·20일차 모두 빠른 괴민 3체 동반.
+  // 웨이브마다 여러 종족 혼합 상륙(고블린·약탈자·침략전사·언데드 + 정복자). 10·20일차 모두 빠른 괴민 3체 동반.
   schedule: [
-    { day: 10, waves: 3, goblinsPerWave: 3, raidersPerWave: 6, warriorsPerWave: 2, warlordsPerWave: 1, relicCount: 1, giants: 3 },
-    { day: 20, waves: 4, goblinsPerWave: 4, raidersPerWave: 8, warriorsPerWave: 3, warlordsPerWave: 2, relicCount: 2, giants: 3 },
+    { day: 10, waves: 3, goblinsPerWave: 3, raidersPerWave: 6, warriorsPerWave: 2, warlordsPerWave: 1, zombiesPerWave: 2, skeletonsPerWave: 2, relicCount: 1, giants: 3 },
+    { day: 20, waves: 4, goblinsPerWave: 4, raidersPerWave: 8, warriorsPerWave: 3, warlordsPerWave: 2, zombiesPerWave: 3, skeletonsPerWave: 3, relicCount: 2, giants: 3 },
   ],
   spawnHour: 20,          // GIANT_RAID/RAID 와 동일 시각대(밤 8시)
   waveGapMin: 90,          // 웨이브 클리어 후 다음 웨이브까지 소강 시간(게임분)

@@ -76,4 +76,5 @@ npx serve -p 5800 .
 - 아트(구버전): [Kenney](https://kenney.nl) Roguelike/RPG·Tiny Town·Tiny Dungeon (CC0), [pixel-boy — Ninja Adventure](https://pixel-boy.itch.io/ninja-adventure-asset-pack) (CC0)
 - 건물(집·창고·대장간·치료소·목장·망루·가시벽): [Kenney — Medieval RTS](https://kenney.nl/assets/medieval-rts) (CC0). `assets/mrts/`.
 - 공성 병기(특화 초소 — 투석기·석궁탑·속사탑): [LPC Siege Weapons — bluecarrot16 외](https://opengameart.org/content/lpc-siege-weapons) (CC-BY 4.0 / CC-BY 3.0 / OGA-BY 3.0). `assets/siege/` 는 게임 구동용이며, 전체 기여자 명단·라이선스는 원본 OpenGameArt 페이지를 따릅니다.
+- 언데드 몬스터(좀비·스켈레톤, 대침공 혼합군): [Zombie and Skeleton 32x48 — Reemax / artisticdude](https://opengameart.org/content/zombie-and-skeleton-32x48) (CC0). `assets/monsters/`.
 - 렌더링: [PixiJS](https://pixijs.com) 7 (MIT)
