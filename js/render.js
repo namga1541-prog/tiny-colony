@@ -48,6 +48,13 @@ export function createRenderer(world) {
     ballista: { tex: siegeTex.ballista, w: 105 }, // 석궁탑
     rapid:    { tex: siegeTex.cannon,   w: 107 }, // 속사탑 → 캐논
   };
+  // 건물 스프라이트(Kenney Medieval RTS, CC0) — 건물별 고유 그림(64x64). 종류로 매핑.
+  function mrts(name) { var t = PIXI.Texture.from('assets/mrts/' + name + '.png'); t.baseTexture.scaleMode = PIXI.SCALE_MODES.NEAREST; return t; }
+  var MRTS_KIND = { // 완공 건물 → Medieval RTS 텍스처
+    house: mrts('house'), warehouse: mrts('warehouse'), smithy: mrts('smithy'),
+    clinic: mrts('clinic'), ranch: mrts('ranch'), tower: mrts('tower'),
+  };
+  var MRTS_PALISADE = mrts('palisade'); // 가시벽(근접 특화 초소)
   // 사람 캐릭터 시트 (Ninja Adventure, 16px 4방향) — 사람별 Idle/Walk
   for (var hk in HUMANS) {
     base['nj_' + hk + '_idle'] = PIXI.BaseTexture.from('assets/ninja/' + HUMANS[hk].dir + '/Idle.png');
@@ -279,6 +286,10 @@ export function createRenderer(world) {
     if (b.kind === 'outpost' && b.stage === 'built' && b.branch && BRANCH_SIEGE[b.branch]) {
       return BRANCH_SIEGE[b.branch].tex;
     }
+    // 가시벽(근접 특화 초소)은 Medieval RTS 목책으로 표시
+    if (b.kind === 'outpost' && b.stage === 'built' && b.branch === 'spike') return MRTS_PALISADE;
+    // 건물별 Medieval RTS 고유 스프라이트 (집·창고·대장간·치료소·목장·망루)
+    if (MRTS_KIND[b.kind]) return MRTS_KIND[b.kind];
     var def = BUILDS[b.kind];
     if (def.town) { // Tiny Town 고유 건물 스프라이트 (타일맵에서 크롭)
       return tx('TinyTown', def.town.sx, def.town.sy, def.town.sw, def.town.sh);
@@ -364,13 +375,14 @@ export function createRenderer(world) {
       e.texture = buildingTexture(b);
     }
     if (b.kind === 'bridge') { rebuildLights(); return; }
-    // 완공된 특화 초소 = LPC 병기 스프라이트(디테일 원본 그대로, 색조 미적용)
+    // 완공된 특화 초소 = LPC 병기 스프라이트, 건물류 = Medieval RTS 스프라이트 (둘 다 원본 색 그대로)
     var siege = (b.kind === 'outpost' && b.stage === 'built' && b.branch && BRANCH_SIEGE[b.branch]);
+    var mrtsBld = !!MRTS_KIND[b.kind] || (b.kind === 'outpost' && b.stage === 'built' && b.branch === 'spike');
     if (b.stage === 'bp') {
       var ready = bpMissing(b) === null;
       e.alpha = ready ? 0.95 : 0.45;
       e.tint = ready ? 0xffffff : 0x9ec7ff;
-    } else if (siege) {
+    } else if (siege || mrtsBld) {
       e.alpha = 1;
       e.tint = 0xffffff;
     } else {
@@ -382,6 +394,11 @@ export function createRenderer(world) {
     // 병기 스프라이트: 원본 폭을 풋프린트(약 2타일)에 맞춰 스케일
     if (siege) {
       e.scale.set((def.fw * TILE * 0.94) / BRANCH_SIEGE[b.branch].w);
+    } else if (mrtsBld) {
+      // Medieval RTS 건물(64x64)을 풋프린트에 맞춰 확대(약간 오버행). 창고는 단계별 확대 유지.
+      var mScale = (def.fw * TILE * 1.15) / 64;
+      if (b.kind === 'warehouse') mScale *= 1 + ((b.tier || 1) - 1) * 0.08;
+      e.scale.set(mScale);
     } else if (def.town) {
       // Tiny Town 건물: 소스 크롭을 풋프린트 폭(fw*TILE)에 맞춰 확대 (16px→표시 크기)
       var tScale = (def.fw * TILE) / def.town.sw;
