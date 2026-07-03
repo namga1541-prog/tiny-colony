@@ -1196,6 +1196,47 @@ export function createRenderer(world) {
       pushP('grav', x, y, (Math.random() - 0.5) * 240, -110 - Math.random() * 130, 0.5, 3 + Math.random() * 2, 0xffcf6a);
     }
   }
+  // ── 섬의 수호신 「아보랑카도」 강림 연출 ──
+  // 48x64 셀 3열(걷기 프레임)×4행(N/W/S/E), 2행=정면(남쪽) — CC-BY: Angels by AntumDeluge(원작 Svetlana Kushnariova), OpenGameArt.org
+  var goddessBase = PIXI.BaseTexture.from('assets/goddess/angel-f-001.png');
+  goddessBase.scaleMode = PIXI.SCALE_MODES.NEAREST;
+  function goddessTex(col) { return new PIXI.Texture(goddessBase, new PIXI.Rectangle(col * 48, 2 * 64, 48, 64)); }
+  var goddessFrames = [goddessTex(0), goddessTex(1), goddessTex(2)];
+  var goddessFx = null; // { spr, t, phase:'in'|'hold'|'out', frame }
+  function spawnGoddessFx(tileX, tileY) {
+    if (goddessFx) { objLayer.removeChild(goddessFx.spr); goddessFx.spr.destroy(); goddessFx = null; }
+    var x = (tileX + 0.5) * TILE, y = (tileY + 1) * TILE;
+    var spr = new PIXI.Sprite(goddessFrames[0]);
+    spr.anchor.set(0.5, 1);
+    spr.scale.set(2.0);
+    spr.x = x; spr.y = y;
+    spr.alpha = 0;
+    spr.zIndex = y + 1; // 같은 자리의 정착민보다 한 겹 위
+    objLayer.addChild(spr);
+    goddessFx = { spr: spr, t: 0, phase: 'in', frame: 0 };
+    workFxList.push({ kind: 'ring', x: x, y: y - TILE * 0.4, life: 0.9, max: 0.9, size: 4, color: 0xffe9a8, grow: TILE * 1.6, lw: 3 });
+  }
+  function tickGoddessFx(dtSec) {
+    if (!goddessFx) return;
+    var g = goddessFx;
+    g.t += dtSec;
+    g.frame = (g.frame + dtSec * 3) % 3;
+    g.spr.texture = goddessFrames[g.frame | 0];
+    if (g.phase === 'in') {
+      g.spr.alpha = Math.min(1, g.t / 1.2);
+      if (g.t >= 1.2) { g.phase = 'hold'; g.t = 0; }
+    } else if (g.phase === 'hold') {
+      g.spr.alpha = 1;
+      if (Math.random() < dtSec * 1.5) {
+        pushP('rise', g.spr.x + (Math.random() - 0.5) * 44, g.spr.y - 70 - Math.random() * 30, (Math.random() - 0.5) * 10, -22, 1.1, 3, 0xfff0c0);
+      }
+      if (g.t >= 5) { g.phase = 'out'; g.t = 0; }
+    } else { // out
+      g.spr.alpha = Math.max(0, 1 - g.t / 1.5);
+      if (g.t >= 1.5) { objLayer.removeChild(g.spr); g.spr.destroy(); goddessFx = null; }
+    }
+  }
+
   function tickWorkFx(dtSec) { // atkFxList 그린 뒤(fxLayer.clear 후) 이어서 그림 — 별도 clear 없음
     for (var i = workFxList.length - 1; i >= 0; i--) {
       var p = workFxList[i];
@@ -1225,6 +1266,7 @@ export function createRenderer(world) {
     animTime += dtSec;
     tickAttackFx(dtSec);
     tickWorkFx(dtSec);
+    tickGoddessFx(dtSec);
     var foamF = (animTime / 0.15) | 0;
     for (var n = 0; n < foamSprites.length; n++) {
       var fs = foamSprites[n];
@@ -1278,5 +1320,6 @@ export function createRenderer(world) {
     tick: tick,
     spawnAttackFx: spawnAttackFx,
     spawnBoomFx: spawnBoomFx,
+    spawnGoddessFx: spawnGoddessFx,
   };
 }

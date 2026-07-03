@@ -40,6 +40,7 @@ export function bootSim(seed) {
     onSfx: function () { counters.sfx++; },
     onRecruit: function () { headlessRecruit(world, pawns, ambient); counters.recruit++; },
     onSeasonTint: function () {},
+    onGoddessDescend: function () {},
   };
   var enemyCbs = {
     onHit: function () {},

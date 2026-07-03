@@ -703,14 +703,20 @@ console.log('[sim-smoke] 28) 섬의 수호신 「아보랑카도」 — 지정�
 (function () {
   var sim = bootSim(601); var w = sim.world;
   give(sim, { food: 500, meal: 100 });
+  var descendCalls = [];
+  sim.ctx.onGoddessDescend = function (x, y) { descendCalls.push({ x: x, y: y }); };
   ok(!w.goddessVisited, '초기엔 아직 강림 전');
   run(sim, (GODDESS.day - 1) * DAY_MIN - 480 - 1); // GODDESS.day 전날 23:59 근처까지
   ok(!w.goddessVisited, GODDESS.day + '일 이전에는 강림하지 않음');
   run(sim, 1201); // GODDESS.day 일 밤(spawnHour)까지 도달
   ok(w.goddessVisited, GODDESS.day + '일 밤에 강림');
   ok((w.relics[GODDESS.relicId] || 0) === 1, '축복(유물) 1개 확정 지급 (' + (w.relics[GODDESS.relicId] || 0) + ')');
+  ok(descendCalls.length === 1, '강림 시각 이펙트 콜백(onGoddessDescend) 정확히 1회 호출');
+  ok(descendCalls[0] && Number.isFinite(descendCalls[0].x) && Number.isFinite(descendCalls[0].y),
+    '강림 위치(정착민 중심) 좌표 전달 (' + (descendCalls[0] && descendCalls[0].x) + ',' + (descendCalls[0] && descendCalls[0].y) + ')');
   run(sim, 2 * DAY_MIN);
   ok((w.relics[GODDESS.relicId] || 0) === 1, '재강림 없이 1회성 유지(유물 개수 변동 없음)');
+  ok(descendCalls.length === 1, '재강림 이펙트도 다시 호출되지 않음(1회성)');
 })();
 
 console.log('');

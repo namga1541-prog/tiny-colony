@@ -77,4 +77,5 @@ npx serve -p 5800 .
 - 건물(집·창고·대장간·치료소·목장·망루·가시벽): [Kenney — Medieval RTS](https://kenney.nl/assets/medieval-rts) (CC0). `assets/mrts/`.
 - 공성 병기(특화 초소 — 투석기·석궁탑·속사탑): [LPC Siege Weapons — bluecarrot16 외](https://opengameart.org/content/lpc-siege-weapons) (CC-BY 4.0 / CC-BY 3.0 / OGA-BY 3.0). `assets/siege/` 는 게임 구동용이며, 전체 기여자 명단·라이선스는 원본 OpenGameArt 페이지를 따릅니다.
 - 언데드 몬스터(좀비·스켈레톤, 대침공 혼합군): [Zombie and Skeleton 32x48 — Reemax / artisticdude](https://opengameart.org/content/zombie-and-skeleton-32x48) (CC0). `assets/monsters/`.
+- 섬의 수호신 「아보랑카도」: [Angels — AntumDeluge (원작 Svetlana Kushnariova)](https://opengameart.org/content/angels) (CC-BY 3.0). `assets/goddess/`.
 - 렌더링: [PixiJS](https://pixijs.com) 7 (MIT)

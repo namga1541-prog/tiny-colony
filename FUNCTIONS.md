@@ -14,7 +14,7 @@
 | `affordCost` | js/ui.js:749 |
 | `alivePawns` | js/goals.js:4 |
 | `applyCamera` | js/render.js:1117 |
-| `applyTool` | js/main.js:466 |
+| `applyTool` | js/main.js:467 |
 | `armorDefense` | js/world.js:794 |
 | `at` | js/world.js:91 |
 | `autoAttackTick` | js/pawns.js:724 |
@@ -61,7 +61,7 @@
 | `defenseStats` | js/world.js:920 |
 | `dist` | js/jobs.js:23 |
 | `distB` | js/jobs.js:27 |
-| `doInteract` | js/main.js:962 |
+| `doInteract` | js/main.js:963 |
 | `drawMinimap` | js/render.js:1057 |
 | `drawSelection` | js/render.js:949 |
 | `drawTool` | js/render.js:629 |
@@ -81,10 +81,11 @@
 | `findWorkJob` | js/jobs.js:292 |
 | `finishWork` | js/pawns.js:410 |
 | `footprintClear` | js/world.js:314 |
-| `forRect` | js/main.js:458 |
+| `forRect` | js/main.js:459 |
 | `freeGrass` | js/world.js:549 |
 | `gainSkill` | js/pawns.js:609 |
 | `glowTexture` | js/render.js:977 |
+| `goddessTex` | js/render.js:1203 |
 | `goTo` | js/pawns.js:177 |
 | `grantLegendaryRelic` | js/world.js:49 |
 | `grantRelic` | js/world.js:41 |
@@ -104,7 +105,7 @@
 | `inMap` | js/world.js:107 |
 | `islandSpot` | js/world.js:248 |
 | `isMine` | js/world.js:309 |
-| `isTyping` | js/main.js:959 |
+| `isTyping` | js/main.js:960 |
 | `isWalkable` | js/world.js:388 |
 | `ix` | js/world.js:105 |
 | `iy` | js/world.js:106 |
@@ -114,7 +115,7 @@
 | `loadSaveData` | js/save.js:59 |
 | `makeNoise` | js/world.js:88 |
 | `manualInteract` | js/pawns.js:861 |
-| `manualMove` | js/main.js:997 |
+| `manualMove` | js/main.js:998 |
 | `maxPop` | js/world.js:453 |
 | `mineDrops` | js/world.js:312 |
 | `mineResource` | js/world.js:310 |
@@ -135,15 +136,15 @@
 | `pawnTex` | js/render.js:174 |
 | `pickAnimalType` | js/world.js:67 |
 | `play` | js/audio.js:28 |
-| `pointerDown` | js/main.js:712 |
-| `pointerMove` | js/main.js:728 |
-| `pointerUp` | js/main.js:755 |
+| `pointerDown` | js/main.js:713 |
+| `pointerMove` | js/main.js:729 |
+| `pointerUp` | js/main.js:756 |
 | `poseOf` | js/pawns.js:104 |
 | `pushP` | js/render.js:1168 |
 | `rankReqStatus` | js/world.js:458 |
 | `reachable` | js/jobs.js:31 |
 | `rebuildLights` | js/render.js:993 |
-| `recruitWanderer` | js/main.js:1073 |
+| `recruitWanderer` | js/main.js:1074 |
 | `refreshAll` | js/render.js:558 |
 | `refreshBuilding` | js/render.js:388 |
 | `refreshCrop` | js/render.js:301 |
@@ -152,7 +153,7 @@
 | `refreshTile` | js/render.js:250 |
 | `refreshZones` | js/render.js:511 |
 | `release` | js/jobs.js:13 |
-| `release` | js/main.js:943 |
+| `release` | js/main.js:944 |
 | `releaseAllOf` | js/jobs.js:17 |
 | `removeBuilding` | js/world.js:350 |
 | `removeBuildingSprite` | js/render.js:459 |
@@ -171,7 +172,7 @@
 | `screenToTile` | js/render.js:1132 |
 | `seasonDef` | js/world.js:541 |
 | `seasonIndex` | js/world.js:538 |
-| `selectAtScreen` | js/main.js:819 |
+| `selectAtScreen` | js/main.js:820 |
 | `selectPawns` | js/main.js:107 |
 | `setHireInfo` | js/ui.js:93 |
 | `setSeasonTint` | js/render.js:1043 |
@@ -196,12 +197,13 @@
 | `skillMult` | js/config.js:158 |
 | `spawnAttackFx` | js/render.js:1141 |
 | `spawnBoomFx` | js/render.js:1191 |
+| `spawnGoddessFx` | js/render.js:1206 |
 | `spawnInvasionWave` | js/sim.js:20 |
 | `spawnRaid` | js/world.js:708 |
 | `spawnWorkFx` | js/render.js:1171 |
 | `stackRoom` | js/world.js:431 |
 | `startBgm` | js/audio.js:22 |
-| `stepWorld` | js/sim.js:44 |
+| `stepWorld` | js/sim.js:45 |
 | `stop` | js/main.js:332 |
 | `storageCap` | js/world.js:496 |
 | `storageFull` | js/world.js:508 |
@@ -209,14 +211,15 @@
 | `syncSheep` | js/render.js:838 |
 | `taskLabel` | js/pawns.js:69 |
 | `think` | js/pawns.js:959 |
-| `tick` | js/render.js:1224 |
+| `tick` | js/render.js:1265 |
 | `tickAttackFx` | js/render.js:1148 |
 | `tickCrops` | js/world.js:679 |
+| `tickGoddessFx` | js/render.js:1219 |
 | `tickRanches` | js/world.js:511 |
 | `tickResearch` | js/world.js:670 |
 | `tickSelection` | js/render.js:960 |
 | `tickTowers` | js/world.js:936 |
-| `tickWorkFx` | js/render.js:1199 |
+| `tickWorkFx` | js/render.js:1240 |
 | `toast` | js/ui.js:416 |
 | `toggleMute` | js/audio.js:39 |
 | `toolIconOf` | js/pawns.js:112 |
@@ -224,7 +227,7 @@
 | `toolTex` | js/render.js:673 |
 | `totalRes` | js/world.js:433 |
 | `totalStored` | js/world.js:504 |
-| `touchXY` | js/main.js:845 |
+| `touchXY` | js/main.js:846 |
 | `tryAutoArm` | js/pawns.js:653 |
 | `tryAutoArmor` | js/pawns.js:661 |
 | `tx` | js/render.js:71 |
@@ -247,4 +250,4 @@
 | `worldObjTex` | js/render.js:701 |
 | `yieldJob` | js/pawns.js:152 |
 
-_총 241개 함수 · 12개 파일_
+_총 244개 함수 · 12개 파일_

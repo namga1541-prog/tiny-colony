@@ -40,7 +40,8 @@ function spawnInvasionWave(world, rng, sched, waveNo, withGiants) {
 //
 // ctx 계약: (상태) rng, onWorldChange, onItemChange, onCropChange, onBuildingChange,
 //   onBuildingBuilt, onEvent, onStorageFull, onDeath, onStarving, onSheepChange
-//   (효과) onTileChange, onToast(msg,warn), onSfx(name), onRecruit(), onSeasonTint(tint,alpha)
+//   (효과) onTileChange, onToast(msg,warn), onSfx(name), onRecruit(), onSeasonTint(tint,alpha),
+//   onGoddessDescend(x,y) — 「아보랑카도」 강림 위치(타일 좌표)
 export function stepWorld(world, pawns, dtMin, rng, ctx, enemyCbs) {
   var prevDay = world.day;
   var gameMin = dtMin;
@@ -169,6 +170,14 @@ export function stepWorld(world, pawns, dtMin, rng, ctx, enemyCbs) {
     world.goddessVisited = true;
     world.relics = world.relics || {};
     world.relics[GODDESS.relicId] = (world.relics[GODDESS.relicId] || 0) + 1;
+    // 강림 위치: 생존 정착민들의 중심(콜로니가 실제로 자리잡은 곳) — 없으면 맵 중앙
+    var aliveG = pawns.filter(function (p) { return p.state !== 'dead'; });
+    var gx, gy;
+    if (aliveG.length) {
+      gx = Math.round(aliveG.reduce(function (s, p) { return s + p.px; }, 0) / aliveG.length);
+      gy = Math.round(aliveG.reduce(function (s, p) { return s + p.py; }, 0) / aliveG.length);
+    } else { gx = MAP_W / 2 | 0; gy = MAP_H / 2 | 0; }
+    ctx.onGoddessDescend(gx, gy);
     ctx.onToast('🌺 섬의 수호신 「' + GODDESS.name + '」가 마을에 강림했습니다! 축복을 내리고 조용히 떠났습니다.', true);
     ctx.onEvent('🌺 여신 ' + GODDESS.name + ' 강림 — 축복 하사');
     ctx.onSfx('success');

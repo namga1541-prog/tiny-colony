@@ -452,6 +452,7 @@ var ctx = {
   onSfx: function (name) { Audio2.play(name); },
   onRecruit: function () { recruitWanderer(); },
   onSeasonTint: function (tint, a) { R.setSeasonTint(tint, a); },
+  onGoddessDescend: function (x, y) { R.spawnGoddessFx(x, y); },
 };
 
 // ── 도구 적용 ──
