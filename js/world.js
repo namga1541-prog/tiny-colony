@@ -3,7 +3,7 @@ import {
   MAP_W, MAP_H, NATURE, STACK_MAX, BUILDS, BUILDING_HP_DEFAULT, GOLDMINE, IRONMINE, BRIDGE,
   RESEARCH_RATE_PER_PAWN, ENEMY, RAID, GIANT, GIANT_FAST_MULT, GIANT_JUMP, SEASON_DAYS, SEASONS, STORAGE, RANCH, REGROW,
   ANIMAL_TYPES, WAREHOUSE_TIERS, UPGRADES, RANKS, DEFENSE_TIERS, OUTPOST_BRANCHES, CANNON, RELICS, ISLANDS, CANNIBAL, WARLORD, RAIDER, INVWARRIOR, ZOMBIE, SKELETON,
-  ARMOR,
+  ARMOR, FISH_PLATFORM,
   T_WATER, T_GRASS, T_SAND,
 } from './config.js';
 
@@ -317,6 +317,7 @@ export function buildingDef(kind) {
   if (kind === 'goldmine') return { name: '금광', fw: GOLDMINE.fw, fh: GOLDMINE.fh, solid: true };
   if (kind === 'ironmine') return { name: '철광', fw: IRONMINE.fw, fh: IRONMINE.fh, solid: true };
   if (kind === 'bridge') return { name: BRIDGE.name, fw: 1, fh: 1, solid: false, onWater: true };
+  if (kind === 'fishPlatform') return { name: FISH_PLATFORM.name, fw: 1, fh: 1, solid: false, onWater: true };
   return BUILDS[kind];
 }
 
@@ -351,7 +352,7 @@ export function addBuilding(world, kind, x, y, opts) {
   if (opts && opts.charges !== undefined) { b.charges = opts.charges; b.maxCharges = opts.charges; }
   if (kind === 'warehouse') b.tier = 1;
   // 내구도: 자연물(광산 등)·다리 제외한 일반 건물만 적에게 파괴될 수 있음
-  if (!b.natural && kind !== 'bridge') { b.maxHp = def.hp || BUILDING_HP_DEFAULT; b.hp = b.maxHp; }
+  if (!b.natural && kind !== 'bridge' && kind !== 'fishPlatform') { b.maxHp = def.hp || BUILDING_HP_DEFAULT; b.hp = b.maxHp; }
   world.buildings[b.id] = b;
   for (var dy = 0; dy < def.fh; dy++) {
     for (var dx = 0; dx < def.fw; dx++) {
@@ -407,7 +408,7 @@ export function isWalkable(world, x, y) {
     // 완성된 다리가 놓인 물만 통행 가능
     if (bid !== undefined) {
       var wb = world.buildings[bid];
-      if (wb && wb.kind === 'bridge' && wb.stage === 'built') return true;
+      if (wb && (wb.kind === 'bridge' || wb.kind === 'fishPlatform') && wb.stage === 'built') return true;
     }
     return false;
   }
@@ -428,6 +429,41 @@ export function canPlaceBridge(world, x, y) {
   if (world.occupancy[i] !== undefined) return false;
   return isWalkable(world, x + 1, y) || isWalkable(world, x - 1, y) ||
          isWalkable(world, x, y + 1) || isWalkable(world, x, y - 1);
+}
+
+// 낚시 지정 가능한 물 타일인지 + 등급(0=해안, 1=좌대 인접, 2=선착장 인접) 판정. -1 이면 지정 불가.
+// 인접한 통행 가능 타일들 중 가장 높은 등급을 채택(여러 등급이 겹쳐도 최선을 적용).
+export function fishSpotTier(world, x, y) {
+  var best = -1;
+  var nbrs = [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]];
+  for (var n = 0; n < nbrs.length; n++) {
+    var nx = nbrs[n][0], ny = nbrs[n][1];
+    if (!isWalkable(world, nx, ny)) continue;
+    var tier = 0;
+    var bid = world.occupancy[idx(nx, ny)];
+    if (bid !== undefined) {
+      var nb = world.buildings[bid];
+      if (nb && nb.stage === 'built') {
+        if (nb.kind === 'dock') tier = 2;
+        else if (nb.kind === 'fishPlatform') tier = 1;
+      }
+    }
+    if (tier > best) best = tier;
+  }
+  return best;
+}
+
+// 건물 풋프린트 테두리(대각선 포함 바깥 한 겹)가 물과 접하는지 — 선착장(dock) 등 해안 전용 건물 배치 게이트.
+export function footprintTouchesWater(world, x, y, fw, fh) {
+  for (var dy = -1; dy <= fh; dy++) {
+    for (var dx = -1; dx <= fw; dx++) {
+      if (dx >= 0 && dx < fw && dy >= 0 && dy < fh) continue; // 내부는 제외(테두리만)
+      var tx = x + dx, ty = y + dy;
+      if (!inMap(tx, ty)) continue;
+      if (world.terrain[idx(tx, ty)] === T_WATER) return true;
+    }
+  }
+  return false;
 }
 
 // ── 재고 (글로벌) ── addItem/removeItem 는 타일 인자를 무시하고 전체 재고에 반영

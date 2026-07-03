@@ -1,7 +1,7 @@
 // L1 시나리오 스모크 — 시드 고정, 헤드리스. stepWorld 추출이 올바른지 + 결정론 확인.
 import { bootSim, run, runDays, designateChop, give, snapshot, DAY_MIN, MAP_W } from './harness.mjs';
-import { addBuilding, storageCap, upgradeMult, upgradeAdd, maxPop, rankReqStatus, canAdvanceRank, advanceRank, defenseStats, tickTowers, enemyStats, spawnRaid, mulberry32, grantRelic, dailyIslandRespawn, checkIslandDiscovery, updateEnemies, idx, shipComplete } from '../js/world.js';
-import { GIANT, ENEMY, CANNIBAL, ISLANDS, INVASION, OUTPOST_BRANCHES, RAIDER, INVWARRIOR, ZOMBIE, SKELETON, GIANT_JUMP, ARMOR, FRUITTREE, FISH, catchFish, GODDESS, TRADER, BUILDS, BUILD_MIN_RANK } from '../js/config.js';
+import { addBuilding, storageCap, upgradeMult, upgradeAdd, maxPop, rankReqStatus, canAdvanceRank, advanceRank, defenseStats, tickTowers, enemyStats, spawnRaid, mulberry32, grantRelic, dailyIslandRespawn, checkIslandDiscovery, updateEnemies, idx, shipComplete, fishSpotTier, footprintTouchesWater, canPlaceBridge, isWalkable } from '../js/world.js';
+import { GIANT, ENEMY, CANNIBAL, ISLANDS, INVASION, OUTPOST_BRANCHES, RAIDER, INVWARRIOR, ZOMBIE, SKELETON, GIANT_JUMP, ARMOR, FRUITTREE, FISH, catchFish, GODDESS, TRADER, BUILDS, BUILD_MIN_RANK, FISH_PLATFORM } from '../js/config.js';
 import { findWorkJob, releaseAllOf } from '../js/jobs.js';
 
 var fails = 0;
@@ -765,6 +765,53 @@ console.log('[sim-smoke] 31) 탈출선 해금 조건 — 나라 단계 + 대침�
     ok(BUILDS[k].escapePart === true, k + ' 은 escapePart 플래그 보유(대침공 격퇴 게이트용)');
     ok(BUILD_MIN_RANK[k] === 4, k + ' 은 나라 단계(4)에서만 해금');
   });
+})();
+
+console.log('[sim-smoke] 32) 좌대·선착장 — 낚시 등급 판정 + 희귀 확률 보정 (신규)');
+(function () {
+  var w = bootSim(801).world;
+  // 물가 육지 옆 물 타일 하나 찾기(육지-물 경계)
+  var wx = -1, wy = -1;
+  for (var y = 1; y < 94 && wx < 0; y++) {
+    for (var x = 1; x < 94; x++) {
+      if (w.terrain[idx(x, y)] === 0 && isWalkable(w, x - 1, y)) { wx = x; wy = y; break; }
+    }
+  }
+  ok(wx >= 0, '해안 물 타일 확보 (' + wx + ',' + wy + ')');
+  ok(fishSpotTier(w, wx, wy) === 0, '일반 물가 = 등급 0(해안)');
+
+  // 좌대를 인접 물 타일에 설치 → 그 좌대에 접한 물 타일 등급이 1로 상승
+  var px = wx + 1;
+  if (w.terrain[idx(px, wy)] === 0 && canPlaceBridge(w, px, wy)) {
+    addBuilding(w, 'fishPlatform', px, wy, { stage: 'built' });
+    ok(fishSpotTier(w, wx, wy) === 1, '좌대에 접한 물 = 등급 1(좌대)');
+  } else { ok(true, '(좌대 설치 위치 부적합 — 스킵)'); }
+
+  // 선착장(육지 2x2, 물 접함)을 지어 인접 물 등급 2 확인 — footprintTouchesWater 로 해안 판정
+  var dx0 = -1, dy0 = -1;
+  for (var yy = 2; yy < 92 && dx0 < 0; yy++) {
+    for (var xx = 2; xx < 92; xx++) {
+      if (isWalkable(w, xx, yy) && isWalkable(w, xx + 1, yy) && isWalkable(w, xx, yy + 1) && isWalkable(w, xx + 1, yy + 1) &&
+          footprintTouchesWater(w, xx, yy, 2, 2)) { dx0 = xx; dy0 = yy; break; }
+    }
+  }
+  ok(dx0 >= 0, '물과 접한 2x2 육지 확보(선착장 부지)');
+  ok(footprintTouchesWater(w, dx0, dy0, 2, 2) === true, 'footprintTouchesWater 가 해안 부지를 참으로 판정');
+  ok(footprintTouchesWater(w, dx0, dy0, 1, 1) !== undefined, 'footprintTouchesWater 는 boolean 반환');
+
+  // catchFish 보정: 같은 rodTier 라도 spotBonus 가 높으면 희귀 어종 기대치↑
+  function rareShare(rod, spot) {
+    var rng = mulberry32(999);
+    var rare = 0, N = 4000;
+    for (var i = 0; i < N; i++) { if (catchFish(rod, rng, spot).rare >= 2) rare++; }
+    return rare / N;
+  }
+  var base = rareShare(0, 0);
+  var withPlatform = rareShare(0, 1);
+  var withDock = rareShare(0, 2);
+  ok(withPlatform > base, '좌대 보정(spot 1)이 희귀 어종 비율을 높임 (' + base.toFixed(3) + '→' + withPlatform.toFixed(3) + ')');
+  ok(withDock > withPlatform, '선착장 보정(spot 2)이 좌대보다 더 높임 (' + withDock.toFixed(3) + ')');
+  ok(FISH_PLATFORM.cost.wood > 0, '좌대 비용 정의됨');
 })();
 
 console.log('');

@@ -87,6 +87,13 @@ export const BUILDS = {
     img: null, pw: 128, ph: 128, // Fire 애니메이션으로 렌더
     desc: '밤을 밝힙니다.',
   },
+  dock: {
+    name: '선착장', cost: { wood: 20, gold: 8 }, work: 90, hp: 90,
+    fw: 2, fh: 2, solid: false, requireCoast: true, // 물과 접한 곳에만 건설 가능(main.js 게이트)
+    img: 'House', imgC: 'House_C', pw: 128, ph: 192,
+    town: { sx: 0, sy: 64, sw: 64, sh: 64 }, tint: 0x5a9ec9, // 파란 물빛 색조(선착장=해안)
+    desc: '배를 대는 선착장. 인접한 곳에서 낚시하면 희귀 어종 확률이 크게 오릅니다.',
+  },
   ranch: {
     name: '목장', cost: { wood: 14 }, work: 60, hp: 90,
     fw: 2, fh: 2, solid: true,
@@ -418,16 +425,24 @@ export const FISH = [
   { name: '오색 산천어', food: 14, gold: 0,  weight: 0.8, rare: 3 },
   { name: '인어의 눈물고기', food: 12, gold: 0, weight: 0.5, rare: 3 },
 ];
-export function catchFish(rodTier, rng) {
+// 낚시터 등급별 희귀 보정 — 낚싯대(rodTier)와 같은 방식으로 합산(둘 다 있으면 시너지).
+// 0=해안(기본), 1=좌대(FISH_PLATFORM) 인접, 2=선착장(DOCK) 인접. world.js 의 fishSpotTier() 가 판정.
+export const FISH_SPOT_BONUS = { plain: 0, platform: 1, dock: 2 };
+
+export function catchFish(rodTier, rng, spotBonus) {
   var total = 0, i, w = [];
+  var bonus = (rodTier || 0) + (spotBonus || 0);
   for (i = 0; i < FISH.length; i++) {
-    var ww = FISH[i].weight * (1 + (rodTier || 0) * 0.9 * FISH[i].rare);
+    var ww = FISH[i].weight * (1 + bonus * 0.9 * FISH[i].rare);
     w.push(ww); total += ww;
   }
   var r = rng() * total;
   for (i = 0; i < FISH.length; i++) { r -= w[i]; if (r <= 0) return FISH[i]; }
   return FISH[0];
 }
+
+// ── 좌대: 물 위에 설치하는 저렴한 낚시 발판. 다리처럼 즉시 완공되고 밟고 설 수 있음(main.js 전용 도구).
+export const FISH_PLATFORM = { name: '좌대', cost: { wood: 6 } };
 
 // ── 광물: 금광 일부는 철광 (강철 무기 재료) ──
 export const IRONMINE = { fw: 3, fh: 2, work: 18, dropsPerCycle: 2, charges: 20, regenPerDay: 5 };

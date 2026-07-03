@@ -248,6 +248,8 @@ export function createRenderer(world) {
     shipHull:    { icon: '🚀', color: 0x5a6674 },
     shipEngine:  { icon: '🔥', color: 0xb05a2a },
     shipReactor: { icon: '⚡', color: 0x2a8a64 },
+    fishPlatform: { icon: '🎣', color: 0x8a6a3a },
+    dock:         { icon: '⚓', color: 0x2a6a8a },
   };
 
   function refreshTile(i) {
@@ -324,7 +326,7 @@ export function createRenderer(world) {
     if (b.kind === 'goldmine' || b.kind === 'ironmine') {
       return b.depleted ? tx('GoldMine_Destroyed', 0, 0, 192, 128) : tx('GoldMine_Active', 0, 0, 192, 128);
     }
-    if (b.kind === 'bridge') return tx('Bridge_All', 0, 0, 192, 64);
+    if (b.kind === 'bridge' || b.kind === 'fishPlatform') return tx('Bridge_All', 0, 0, 192, 64);
     if (b.kind === 'campfire') return fireFrames[0];
     // 완공된 특화 초소(투석기·석궁탑·속사탑)는 LPC 공성 병기 스프라이트로 표시
     if (b.kind === 'outpost' && b.stage === 'built' && b.branch && BRANCH_SIEGE[b.branch]) {
@@ -409,7 +411,7 @@ export function createRenderer(world) {
         e.firePhase = ((b.x + b.y) % 7);
         e.anchor.set(0.5, 0.8);
       }
-      if (b.kind === 'bridge') { // 1타일 다리: 판자 슬라이스를 타일 크기로
+      if (b.kind === 'bridge' || b.kind === 'fishPlatform') { // 1타일 다리·좌대: 판자 슬라이스를 타일 크기로
         e.anchor.set(0.5, 0.5);
         e.width = TILE; e.height = TILE;
         e.x = (b.x + 0.5) * TILE; e.y = (b.y + 0.5) * TILE;
@@ -419,6 +421,7 @@ export function createRenderer(world) {
       e.texture = buildingTexture(b);
     }
     if (b.kind === 'bridge') { rebuildLights(); return; }
+    if (b.kind === 'fishPlatform') { updateBuildingBadge(b, def); rebuildLights(); return; }
     // 완공된 특화 초소 = LPC 병기 스프라이트, 건물류 = Medieval RTS 스프라이트 (둘 다 원본 색 그대로)
     var siege = (b.kind === 'outpost' && b.stage === 'built' && b.branch && BRANCH_SIEGE[b.branch]);
     var mrtsBld = !!MRTS_KIND[b.kind] || (b.kind === 'outpost' && b.stage === 'built' && b.branch === 'spike');

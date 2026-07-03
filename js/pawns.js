@@ -8,7 +8,7 @@ import {
   idx, ix, iy, isWalkable, addItem, removeItem, natureDef, stackRoom,
   buildingDef, buildingFront, consumeGlobal, canAfford, totalRes,
   mineResource, mineWork, mineDrops, nearestEnemy, sheepById, storageFull,
-  upgradeMult, grantRelic,
+  upgradeMult, grantRelic, fishSpotTier,
 } from './world.js';
 import { findPath } from './path.js';
 import {
@@ -481,7 +481,8 @@ function finishWork(world, pawn, ctx) {
     if (world.fishDesig[j.idx]) {
       if (storageFull(world)) { ctx.onStorageFull(); }
       else {
-        var fish = catchFish(world.rodTier || 0, ctx.rng || Math.random);
+        var spotBonus = Math.max(0, fishSpotTier(world, ix(j.idx), iy(j.idx)));
+        var fish = catchFish(world.rodTier || 0, ctx.rng || Math.random, spotBonus);
         addItem(world, 0, 'food', fish.food);
         if (fish.gold) addItem(world, 0, 'gold', fish.gold);
         var fgold = fish.gold ? ' (금 +' + fish.gold + ')' : '';

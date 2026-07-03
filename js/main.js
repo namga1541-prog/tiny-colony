@@ -1,13 +1,13 @@
 // v0.3 부팅·게임 루프·입력
 import {
   MAP_W, MAP_H, MIN_PER_SEC, DAY_MIN, SPEED_MULT, BUILDS, PAWN_DEFS,
-  RAID, BRIDGE, TRAITS, HUMAN_IDS, WAREHOUSE_TIERS, BUILD_MIN_RANK, RANKS, DEFENSE_TIERS, OUTPOST_BRANCHES, ROLES, T_WATER,
+  RAID, BRIDGE, FISH_PLATFORM, TRAITS, HUMAN_IDS, WAREHOUSE_TIERS, BUILD_MIN_RANK, RANKS, DEFENSE_TIERS, OUTPOST_BRANCHES, ROLES, T_WATER,
 } from './config.js';
 import {
   createWorld, mulberry32, idx, ix, iy, isWalkable, footprintClear,
   addBuilding, removeBuilding, buildingDef, addItem, totalRes, dailyRegrowth,
   updateSheep, tickResearch, tickCrops, updateEnemies, spawnRaid,
-  canPlaceBridge, consumeGlobal, seasonDef, seasonIndex,
+  canPlaceBridge, fishSpotTier, footprintTouchesWater, consumeGlobal, seasonDef, seasonIndex,
   tickRanches, storageCap, totalStored, dailyMineRegen, tickTowers, canAfford,
   upgradeAdd, maxPop, canAdvanceRank, advanceRank, defenseStats,
 } from './world.js';
@@ -560,14 +560,11 @@ function applyTool(tool, a, b) {
   else if (tool === 'fish') {
     forRect(a, b, function (i, x, y) {
       if (world.terrain[i] !== 0 || world.fishDesig[i]) return; // 물 타일만
-      // 육지와 접한 물가여야 함 (일꾼이 옆에 설 수 있어야)
-      if (isWalkable(world, x + 1, y) || isWalkable(world, x - 1, y) ||
-          isWalkable(world, x, y + 1) || isWalkable(world, x, y - 1)) {
-        world.fishDesig[i] = true; count++;
-      }
+      // 육지(또는 좌대·선착장)와 접한 물가여야 함 (일꾼이 옆에 설 수 있어야)
+      if (fishSpotTier(world, x, y) >= 0) { world.fishDesig[i] = true; count++; }
     });
     if (count) UI.toast('🎣 낚시터 ' + count + '곳 지정');
-    else UI.toast('⚠️ 육지에 접한 물가에만 지정할 수 있습니다', true);
+    else UI.toast('⚠️ 육지(또는 좌대·선착장)에 접한 물가에만 지정할 수 있습니다', true);
   }
 
   else if (tool === 'bridge') {
@@ -580,6 +577,19 @@ function applyTool(tool, a, b) {
       count++;
     });
     if (count) UI.toast('🌉 다리 ' + count + '칸 건설');
+    else UI.toast('⚠️ 물 가장자리에만, 목재가 있어야 놓을 수 있습니다', true);
+  }
+
+  else if (tool === 'fishPlatform') {
+    forRect(a, b, function (i, x, y) {
+      if (!canPlaceBridge(world, x, y)) return; // 좌대도 다리와 동일한 배치 조건(물+인접 통행 가능)
+      if (!totalRes(world).wood || totalRes(world).wood < FISH_PLATFORM.cost.wood) return;
+      consumeGlobal(world, 'wood', FISH_PLATFORM.cost.wood);
+      var pb = addBuilding(world, 'fishPlatform', x, y, { stage: 'built' });
+      R.refreshBuilding(pb);
+      count++;
+    });
+    if (count) UI.toast('🎣 좌대 ' + count + '칸 건설 — 인접 낚시 희귀 확률 상승');
     else UI.toast('⚠️ 물 가장자리에만, 목재가 있어야 놓을 수 있습니다', true);
   }
 
@@ -679,6 +689,8 @@ function applyTool(tool, a, b) {
       UI.toast('🔒 ' + def.name + ' 은(는) 「' + rq.name + '」 단계에서 해금됩니다', true);
     } else if (def.escapePart && !world.invasionWon) {
       UI.toast('🔒 ' + def.name + ' 은(는) 대침공을 완전히 격퇴해야 해금됩니다', true);
+    } else if (def.requireCoast && !footprintTouchesWater(world, px, py, def.fw, def.fh)) {
+      UI.toast('⚠️ ' + def.name + ' 은(는) 물과 접한 곳에만 지을 수 있습니다', true);
     } else if (!footprintClear(world, px, py, def.fw, def.fh, false)) {
       UI.toast('⚠️ 그 위치에는 지을 수 없습니다 (' + def.fw + '×' + def.fh + ' 필요)', true);
     } else if (!canAfford(world, def.cost)) {
