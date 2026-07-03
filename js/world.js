@@ -2,7 +2,7 @@
 import {
   MAP_W, MAP_H, NATURE, STACK_MAX, BUILDS, GOLDMINE, IRONMINE, BRIDGE,
   RESEARCH_RATE_PER_PAWN, ENEMY, RAID, SEASON_DAYS, SEASONS, STORAGE, RANCH, REGROW,
-  ANIMAL_TYPES, WAREHOUSE_TIERS, UPGRADES, RANKS,
+  ANIMAL_TYPES, WAREHOUSE_TIERS, UPGRADES, RANKS, DEFENSE_TIERS, CANNON,
   T_WATER, T_GRASS, T_SAND,
 } from './config.js';
 
@@ -633,6 +633,17 @@ export function updateEnemies(world, pawns, dtMin, cb) {
 }
 
 // 방어 건물(망루·초소·성) 자동 공격: 사거리 내 최근접 적 타격
+// 방어건물의 현재 tier 공격 스탯 (DEFENSE_TIERS 우선, 없으면 BUILDS.attack 폴백)
+export function defenseStats(b) {
+  var tiers = DEFENSE_TIERS[b.kind];
+  if (tiers) {
+    var t = tiers[(b.tier || 1) - 1] || tiers[tiers.length - 1];
+    return { power: t.power, range: t.range, cd: t.cd, cannon: !!t.cannon };
+  }
+  var a = (BUILDS[b.kind] || {}).attack || { power: 0, range: 0, cd: 999 };
+  return { power: a.power, range: a.range, cd: a.cd, cannon: false };
+}
+
 export function tickTowers(world, dtMin, cb) {
   if (world.enemies.length === 0) return;
   for (var id in world.buildings) {
@@ -640,14 +651,25 @@ export function tickTowers(world, dtMin, cb) {
     if (b.stage !== 'built') continue;
     var def = BUILDS[b.kind];
     if (!def || !def.attack) continue;
+    var st = defenseStats(b);
     b.atkCd = (b.atkCd || 0) - dtMin;
     if (b.atkCd > 0) continue;
     var cx = b.x + def.fw / 2, cy = b.y + def.fh / 2;
-    var near = nearestEnemy(world, cx, cy, def.attack.range + upgradeAdd(world, 'towerrange'));
+    var near = nearestEnemy(world, cx, cy, st.range + upgradeAdd(world, 'towerrange'));
     if (!near) continue;
-    b.atkCd = def.attack.cd;
-    near.enemy.hp -= def.attack.power * upgradeMult(world, 'towerpower');
-    if (cb && cb.onTowerFire) cb.onTowerFire(b, near.enemy);
+    b.atkCd = st.cd;
+    var dmg = st.power * upgradeMult(world, 'towerpower');
+    if (st.cannon) { // 대포: 타겟 주변 반경 내 모든 적에게 광역 피해
+      var tx = near.enemy.x, ty = near.enemy.y;
+      for (var ei = 0; ei < world.enemies.length; ei++) {
+        var en = world.enemies[ei];
+        if (Math.abs(en.x - tx) + Math.abs(en.y - ty) <= CANNON.radius) en.hp -= dmg;
+      }
+      if (cb && cb.onCannonFire) cb.onCannonFire(b, near.enemy);
+    } else {
+      near.enemy.hp -= dmg;
+      if (cb && cb.onTowerFire) cb.onTowerFire(b, near.enemy);
+    }
   }
 }
 

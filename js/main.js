@@ -1,7 +1,7 @@
 // v0.3 부팅·게임 루프·입력
 import {
   MAP_W, MAP_H, MIN_PER_SEC, DAY_MIN, SPEED_MULT, BUILDS, PAWN_DEFS,
-  RAID, BRIDGE, TRAITS, HUMAN_IDS, WAREHOUSE_TIERS, BUILD_MIN_RANK, RANKS,
+  RAID, BRIDGE, TRAITS, HUMAN_IDS, WAREHOUSE_TIERS, BUILD_MIN_RANK, RANKS, DEFENSE_TIERS,
 } from './config.js';
 import {
   createWorld, mulberry32, idx, ix, iy, isWalkable, footprintClear,
@@ -9,7 +9,7 @@ import {
   updateSheep, tickResearch, tickCrops, updateEnemies, spawnRaid,
   canPlaceBridge, consumeGlobal, seasonDef, seasonIndex,
   tickRanches, storageCap, totalStored, dailyMineRegen, tickTowers, canAfford,
-  upgradeAdd, maxPop, canAdvanceRank, advanceRank,
+  upgradeAdd, maxPop, canAdvanceRank, advanceRank, defenseStats,
 } from './world.js';
 import { createPawn, updatePawn, manualInteract, equipWeapon } from './pawns.js';
 import { RESEARCH, WEAPONS, HIRE, hireCost, UPGRADES, UPGRADE_CATS } from './config.js';
@@ -204,6 +204,30 @@ var UI = createUI({
     UI.showBuilding(b);
     UI.toast('🔼 창고를 ' + b.tier + '단계로 업그레이드했습니다!');
     UI.addEvent('🔼 창고 업그레이드 (' + b.tier + '단계)');
+  },
+  onUpgradeBuilding: function (b) {
+    var tiers = DEFENSE_TIERS[b.kind];
+    if (!tiers) return;
+    var curTier = b.tier || 1;
+    var next = tiers[curTier]; // 0-based: 다음 단계
+    if (!next) return;
+    if (next.minRank !== undefined && (world.rank || 0) < next.minRank) {
+      UI.toast('🔒 「' + RANKS[next.minRank].name + '」 단계에서 해금됩니다', true); return;
+    }
+    if (!canAfford(world, next.cost)) { UI.toast('⚠️ 자재가 부족합니다', true); return; }
+    for (var t in next.cost) consumeGlobal(world, t, next.cost[t]);
+    b.tier = curTier + 1;
+    R.refreshBuilding(b);
+    UI.showBuilding(b);
+    var def = BUILDS[b.kind];
+    if (defenseStats(b).cannon) {
+      UI.toast('💥 ' + def.name + ' 에 대포를 장착했습니다! (광역 포격)');
+      UI.addEvent('💥 대포 장착 — ' + def.name);
+    } else {
+      UI.toast('🔼 ' + def.name + ' 을(를) ' + b.tier + '단계로 강화했습니다!');
+      UI.addEvent('🔼 ' + def.name + ' ' + b.tier + '단계');
+    }
+    Audio2.play('build');
   },
   onShowGoals: function () { UI.showGoals(GOALS, world); },
   onShowUpgrades: function () { UI.showUpgrades(UPGRADES, UPGRADE_CATS, world); },
@@ -854,6 +878,12 @@ var enemyCbs = {
   onTowerFire: function (b, e) {
     var def = BUILDS[b.kind];
     R.spawnAttackFx(b.x + (def.fw || 1) / 2, b.y + (def.fh || 1) / 2, e.x, e.y);
+    Audio2.play('attack');
+  },
+  onCannonFire: function (b, e) {
+    var def = BUILDS[b.kind];
+    R.spawnAttackFx(b.x + (def.fw || 1) / 2, b.y + (def.fh || 1) / 2, e.x, e.y); // 포탄 궤적
+    R.spawnBoomFx(e.x, e.y); // 착탄 광역 폭발
     Audio2.play('attack');
   },
 };

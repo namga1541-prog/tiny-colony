@@ -1,6 +1,6 @@
 // L1 시나리오 스모크 — 시드 고정, 헤드리스. stepWorld 추출이 올바른지 + 결정론 확인.
 import { bootSim, run, runDays, designateChop, give, snapshot } from './harness.mjs';
-import { addBuilding, storageCap, upgradeMult, upgradeAdd, maxPop, rankReqStatus, canAdvanceRank, advanceRank } from '../js/world.js';
+import { addBuilding, storageCap, upgradeMult, upgradeAdd, maxPop, rankReqStatus, canAdvanceRank, advanceRank, defenseStats, tickTowers } from '../js/world.js';
 import { findWorkJob } from '../js/jobs.js';
 
 var fails = 0;
@@ -163,6 +163,31 @@ console.log('[sim-smoke] 9) 발전 단계 — 요건 판정·승급·인구상�
   // 인구 상한 업그레이드가 발전 단계 위에 누적되는지
   w.upgrades.pop_max1 = true; // +4
   ok(maxPop(w) === 16, '단계(12) + 인구상한 업그레이드(+4) 누적 = 16');
+})();
+
+console.log('[sim-smoke] 10) 방어건물 tier + 대포 광역 (신규)');
+(function () {
+  function enemy(id, x, y) { return { id: id, x: x, y: y, px: x, py: y, hp: 100, cd: 0, dir: 0, phase: 0, anim: 0 }; }
+  var sim = bootSim(1);
+  var w = sim.world;
+  var castle = addBuilding(w, 'castle', 40, 40, { stage: 'built' });
+  var s1 = defenseStats(castle);
+  ok(s1.power === 18 && !s1.cannon, '성 1단계 = 공격력 18, 대포 아님');
+  castle.tier = 3;
+  var s3 = defenseStats(castle);
+  ok(s3.power === 42 && s3.cannon, '성 3단계 = 공격력 42, 대포(광역)');
+  // 대포: 뭉친 적 3마리 모두 피해 (사거리 내 + 서로 반경2 내)
+  w.enemies = [enemy(1, 43, 41), enemy(2, 44, 41), enemy(3, 43, 42)];
+  tickTowers(w, 20, {});
+  ok(w.enemies.every(function (e) { return e.hp < 100; }), '대포 발사 → 반경 내 적 3마리 모두 피해(광역)');
+
+  // 일반 망루(tier1): 단일 대상만 피해
+  var w2 = bootSim(2).world;
+  addBuilding(w2, 'tower', 40, 40, { stage: 'built' });
+  w2.enemies = [enemy(1, 43, 41), enemy(2, 44, 41), enemy(3, 43, 42)];
+  tickTowers(w2, 20, {});
+  var hurt = w2.enemies.filter(function (e) { return e.hp < 100; }).length;
+  ok(hurt === 1, '일반 망루는 단일 대상만 피해 (' + hurt + '마리)');
 })();
 
 console.log('');

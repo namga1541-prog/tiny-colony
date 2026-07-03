@@ -1,7 +1,7 @@
 // DOM HUD: 도구·시계·자원·정착민 패널·토스트·커스터마이징 모달·연구/제작 모달
 import { taskLabel } from './pawns.js';
-import { HUMANS, RESEARCH, WEAPONS, SKILL_LABEL, skillLevel, BUILDS, STORAGE, RODS, WAREHOUSE_TIERS, ROLES, RANKS, BUILD_MIN_RANK } from './config.js';
-import { totalRes, warehouseTier, warehouseCap, maxPop, rankReqStatus } from './world.js';
+import { HUMANS, RESEARCH, WEAPONS, SKILL_LABEL, skillLevel, BUILDS, STORAGE, RODS, WAREHOUSE_TIERS, ROLES, RANKS, BUILD_MIN_RANK, DEFENSE_TIERS } from './config.js';
+import { totalRes, warehouseTier, warehouseCap, maxPop, rankReqStatus, defenseStats } from './world.js';
 
 export function createUI(handlers) {
   var tool = 'select';
@@ -236,8 +236,10 @@ export function createUI(handlers) {
       : (b.kind === 'bridge' ? '물 위를 건널 수 있습니다.' : '');
     var lines = [];
     if (def && def.attack) {
-      lines.push('⚔️ 공격력 <b>' + def.attack.power + '</b>');
-      lines.push('🎯 사거리 <b>' + def.attack.range + '</b>');
+      var ds = defenseStats(b);
+      var tierN = DEFENSE_TIERS[b.kind] ? (b.tier || 1) : null;
+      lines.push('⚔️ 공격력 <b>' + ds.power + '</b>' + (ds.cannon ? ' 💥광역' : ''));
+      lines.push('🎯 사거리 <b>' + ds.range + '</b>' + (tierN ? ' · ' + tierN + '단계' : ''));
     }
     if (b.kind === 'warehouse' && b.stage === 'built') {
       lines.push('📦 저장 용량 <b>+' + warehouseCap(b) + '</b> (' + warehouseTier(b) + '단계)');
@@ -279,6 +281,33 @@ export function createUI(handlers) {
         upWrap.appendChild(btn);
       }
       bpStats.parentNode.appendChild(upWrap);
+    } else if (DEFENSE_TIERS[b.kind] && b.stage === 'built') {
+      var tiers = DEFENSE_TIERS[b.kind];
+      var curTierD = b.tier || 1;
+      var nextD = tiers[curTierD]; // 0-based: 다음 단계
+      var upWrapD = document.createElement('div');
+      upWrapD.className = 'bp-upgrade';
+      upWrapD.style.marginTop = '8px';
+      if (!nextD) {
+        upWrapD.innerHTML = '<span style="font-size:12px;color:#8d94a8">최대 단계</span>';
+      } else {
+        var lockedD = nextD.minRank !== undefined && (world.rank || 0) < nextD.minRank;
+        var cstD = Object.keys(nextD.cost).map(function (t) {
+          return ({ wood: '목재', gold: '금', iron: '철' }[t] || t) + ' ' + nextD.cost[t];
+        }).join(', ');
+        var btnD = document.createElement('button');
+        if (lockedD) {
+          btnD.textContent = '🔒 ' + RANKS[nextD.minRank].name + ' 단계 필요' + (nextD.cannon ? ' (대포)' : '');
+          btnD.disabled = true;
+        } else {
+          btnD.textContent = (nextD.cannon ? '💥 대포 장착 (' : '🔼 강화 (') + cstD + ')';
+          btnD.addEventListener('click', function () {
+            if (handlers.onUpgradeBuilding) handlers.onUpgradeBuilding(b);
+          });
+        }
+        upWrapD.appendChild(btnD);
+      }
+      bpStats.parentNode.appendChild(upWrapD);
     }
     buildPanel.classList.remove('hidden');
   }

@@ -962,6 +962,15 @@ export function createRenderer(world) {
       pushP('rise', x, y, (Math.random() - 0.5) * 14, -24, 0.7, 5, 0xffffff);
     }
   }
+  // 대포 착탄 폭발(광역): 확산 충격파 링 + 파편
+  function spawnBoomFx(tileX, tileY) {
+    var x = (tileX + 0.5) * TILE, y = (tileY + 0.5) * TILE;
+    workFxList.push({ kind: 'ring', x: x, y: y, life: 0.5, max: 0.5, size: 6, color: 0xffb24a, grow: TILE * 2.2, lw: 3 });
+    workFxList.push({ kind: 'ring', x: x, y: y, life: 0.4, max: 0.4, size: 3, color: 0xffe08a, grow: TILE * 1.2, lw: 2 });
+    for (var i = 0; i < 12; i++) {
+      pushP('grav', x, y, (Math.random() - 0.5) * 240, -110 - Math.random() * 130, 0.5, 3 + Math.random() * 2, 0xffcf6a);
+    }
+  }
   function tickWorkFx(dtSec) { // atkFxList 그린 뒤(fxLayer.clear 후) 이어서 그림 — 별도 clear 없음
     for (var i = workFxList.length - 1; i >= 0; i--) {
       var p = workFxList[i];
@@ -979,8 +988,8 @@ export function createRenderer(world) {
         fxLayer.drawCircle(p.x, p.y, p.size * (1 + (1 - t) * 1.6));
         fxLayer.endFill();
       } else if (p.kind === 'ring') {
-        fxLayer.lineStyle(2, p.color, t);
-        fxLayer.drawCircle(p.x, p.y, p.size + (1 - t) * 14);
+        fxLayer.lineStyle(p.lw || 2, p.color, t);
+        fxLayer.drawCircle(p.x, p.y, p.size + (1 - t) * (p.grow || 14));
         fxLayer.lineStyle(0);
       }
     }
@@ -1042,5 +1051,6 @@ export function createRenderer(world) {
     invalidateMinimapTerrain: function () { miniLandCache = null; },
     tick: tick,
     spawnAttackFx: spawnAttackFx,
+    spawnBoomFx: spawnBoomFx,
   };
 }

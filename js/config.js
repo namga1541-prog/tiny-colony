@@ -90,6 +90,26 @@ export const WAREHOUSE_TIERS = [
   { cap: 500, cost: { wood: 35, gold: 18 } },         // 3단계
 ];
 
+// ── 방어건물 업그레이드 tier: 공격 스탯(power·range·cd) + 업그레이드 비용 ──
+// 1단계는 건설에 포함(cost:null). 성 최종 tier 는 대포(cannon: 광역 피해) — 나라 단계에서만 해금.
+export const DEFENSE_TIERS = {
+  outpost: [
+    { power: 5,  range: 4, cd: 20, cost: null },
+    { power: 9,  range: 5, cd: 18, cost: { wood: 14, gold: 6 } },
+  ],
+  tower: [
+    { power: 10, range: 6, cd: 14, cost: null },
+    { power: 16, range: 7, cd: 12, cost: { wood: 20, gold: 12 } },
+    { power: 24, range: 8, cd: 10, cost: { wood: 30, gold: 20, iron: 10 } },
+  ],
+  castle: [
+    { power: 18, range: 8,  cd: 10, cost: null },
+    { power: 28, range: 9,  cd: 9,  cost: { wood: 40, gold: 25, iron: 15 } },
+    { power: 42, range: 10, cd: 8,  cost: { wood: 60, gold: 45, iron: 30 }, cannon: true, minRank: 4 }, // 대포 — 나라 단계 해금
+  ],
+};
+export const CANNON = { radius: 2 }; // 대포 광역 피해 반경(맨해튼 거리, 타일)
+
 // ── 목장 (5): 지어두면 주기적으로 식량 산출 + 양 번식 ──
 export const RANCH = { interval: 200, food: 4, breedChance: 0.2, maxSheep: 12 };
 
