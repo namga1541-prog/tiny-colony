@@ -319,64 +319,91 @@ console.log('[sim-smoke] 15) 원정 섬 — 생성·테마 콘텐츠·발견·�
   ok(spawned === 1 && cannAfter === 1, '식인종 전멸 후 리스폰 함수 호출 시 1체 보충(' + cannAfter + ')');
 })();
 
-console.log('[sim-smoke] 16) 나라의 시련(대침공) — 카운트다운→웨이브→승리, 정복자 조기처치 (신규)');
+// 침공 웨이브를 한 번에 전멸시켜 클리어 처리(테스트 헬퍼) — 정공법 케이스 재현
+function wipeCurrentWave(w) {
+  var wave = w.invasion.wave;
+  w.enemies.forEach(function (e) { if (e.wave === wave) e.hp = 0; });
+}
+
+console.log('[sim-smoke] 16) 나라의 시련(대침공) — 달력상 10일차·20일차 고정 발동, 나라 단계 무관 (신규)');
 (function () {
   var sim = bootSim(321);
   var w = sim.world;
-  give(sim, { food: 800, meal: 200 });
-  w.rank = 4; // 나라 단계로 강제 설정
-  run(sim, 1);
-  ok(w.invasion && w.invasion.phase === 'countdown', '나라 단계 도달 → 카운트다운 시작');
-  ok(w.invasion.triggerDay === w.day + INVASION.warnDays, '카운트다운 ' + INVASION.warnDays + '일로 설정');
+  give(sim, { food: 2000, meal: 500 });
+  // 2차(20일차)는 의도적으로 훨씬 가혹해서(8마리/웨이브×4웨이브) 정착민 3명이 무장 없이 버티지 못하고
+  // "전멸 위기 재도전" 분기가 섞여 들어가 상태기계 검증이 흔들린다 — 여기선 상태 전이만 보는 게 목적이므로
+  // 매 스텝 뒤 정착민을 안전하게 유지(다른 파일의 실제 전투 밸런스와는 무관, 테스트 전용 안전장치).
+  function safeRun(mins) {
+    run(sim, mins);
+    sim.pawns.forEach(function (p) { if (p.state === 'dead') p.state = 'idle'; p.hp = 100; });
+  }
+  safeRun(1); // 부팅 직후부터 첫 예정 침공(10일차) 카운트다운이 자동 시작
+  ok(w.invasion && w.invasion.phase === 'countdown', '게임 시작과 동시에 카운트다운 시작(나라 단계 요건 없음)');
+  ok((w.rank || 0) === 0, '아직 나라 단계는커녕 무리 단계 — 그래도 침공 예정됨');
+  ok(w.invasion.schedIndex === 0 && w.invasion.triggerDay === INVASION.schedule[0].day,
+    '1차 침공은 ' + INVASION.schedule[0].day + '일차로 예약');
 
   // 발동 조건을 즉시 성립하도록 당긴 뒤 밤(spawnHour)까지 진행
   w.invasion.triggerDay = w.day;
-  run(sim, 21 * 60);
-  ok(w.invasion.phase === 'active' && w.invasion.wave === 1, '침공 발동 → 1웨이브 active');
+  safeRun(21 * 60);
+  var sched0 = INVASION.schedule[0];
+  ok(w.invasion.phase === 'active' && w.invasion.wave === 1, '1차 침공 발동 → 1웨이브 active');
   var w1 = w.enemies.filter(function (e) { return e.wave === 1; });
-  ok(w1.length === INVASION.goblinsPerWave + INVASION.warlordsPerWave, '1웨이브 스폰 수 = 고블린+정복자 (' + w1.length + ')');
+  ok(w1.length === sched0.goblinsPerWave + sched0.warlordsPerWave, '1웨이브 스폰 수 = 고블린+정복자 (' + w1.length + ')');
   ok(w1.some(function (e) { return e.kind === 'warlord'; }), '1웨이브에 정복자 포함');
 
   // 정복자만 먼저 처치 → 잔당(고블린)도 함께 퇴각해 웨이브 조기 클리어
   w.enemies.forEach(function (e) { if (e.wave === 1 && e.kind === 'warlord') e.hp = 0; });
-  run(sim, 1);
+  safeRun(1);
   ok(w.invasion.phase === 'gap' && w.invasion.wave === 2, '정복자 처치 → 잔당도 함께 퇴각, 2웨이브 소강으로 전환');
-  ok(w.enemies.filter(function (e) { return e.wave === 1; }).length === 0, '1웨이브 잔당 전원 제거됨(조기 종료)');
 
-  // 소강 시간 경과 → 2웨이브 자동 스폰
-  run(sim, INVASION.waveGapMin + 1);
-  ok(w.invasion.phase === 'active' && w.invasion.wave === 2, '소강 종료 → 2웨이브 자동 발동');
+  // 나머지 웨이브(2·3)는 정공법 전멸로 클리어
+  for (var k = 2; k <= sched0.waves; k++) {
+    safeRun(INVASION.waveGapMin + 1);
+    ok(w.invasion.phase === 'active' && w.invasion.wave === k, k + '웨이브 자동 발동');
+    wipeCurrentWave(w);
+    safeRun(1);
+  }
+  ok(w.invasionsCompleted === 1, '1차 침공(' + sched0.day + '일차) 완료 카운트 1');
+  ok((w.relics.crown || 0) === sched0.relicCount, '1차 승리 보상 = 전설급 유물 ' + sched0.relicCount + '개');
+  ok(w.invasion.phase === 'countdown' && w.invasion.schedIndex === 1, '남은 예정 침공(20일차)으로 자동 전환');
+  ok(w.invasionWon !== true, '아직 2차(20일차)가 남아있어 최종 승리 플래그는 미설정');
 
-  // 2웨이브는 정공법으로 전멸(정복자 미처치 케이스도 정상 클리어되는지 확인)
-  w.enemies.forEach(function (e) { if (e.wave === 2) e.hp = 0; });
-  run(sim, 1);
-  ok(w.invasion.phase === 'gap' && w.invasion.wave === 3, '2웨이브 전멸 클리어 → 3웨이브 소강');
-  run(sim, INVASION.waveGapMin + 1);
-  ok(w.invasion.phase === 'active' && w.invasion.wave === 3, '3웨이브 자동 발동');
-
-  // 3웨이브(마지막) 전멸 → 승리 판정 + 전설급 유물 확정
-  w.enemies.forEach(function (e) { if (e.wave === 3) e.hp = 0; });
-  run(sim, 1);
-  ok(w.invasion.phase === 'won', '3웨이브까지 전부 격퇴 → 승리');
+  // 2차 침공(20일차) — 더 가혹한 설정(웨이브·적 수·보상 증가) 확인 후 전부 클리어
+  var sched1 = INVASION.schedule[1];
+  ok(sched1.waves >= sched0.waves && sched1.goblinsPerWave >= sched0.goblinsPerWave &&
+    sched1.warlordsPerWave >= sched0.warlordsPerWave && sched1.relicCount >= sched0.relicCount,
+    '2차(20일차) 설정이 1차보다 약하지 않음(더 가혹)');
+  w.invasion.triggerDay = w.day;
+  safeRun(21 * 60);
+  ok(w.invasion.phase === 'active' && w.invasion.wave === 1, '2차 침공 발동');
+  for (var k2 = 1; k2 <= sched1.waves; k2++) {
+    ok(w.invasion.wave === k2, k2 + '웨이브 진행 중');
+    wipeCurrentWave(w);
+    safeRun(k2 < sched1.waves ? INVASION.waveGapMin + 1 : 1);
+  }
+  ok(w.invasionsCompleted === 2, '2차 침공까지 완료 카운트 2');
+  ok(w.invasion.phase === 'won', '예정된 침공을 전부 격퇴 → 최종 승리');
   ok(w.invasionWon === true, 'invasionWon 플래그 설정(goals 판정용)');
-  ok((w.relics.crown || 0) >= 1, '전설급 유물(정복자의 왕관) 확정 획득');
+  ok((w.relics.crown || 0) === sched0.relicCount + sched1.relicCount,
+    '전설급 유물 누적 = 1차+2차 합(' + (w.relics.crown || 0) + ')');
 })();
 
-console.log('[sim-smoke] 17) 대침공 — 전멸 위기 시 게임오버 대신 재도전 카운트다운 (신규)');
+console.log('[sim-smoke] 17) 대침공 — 전멸 위기 시 게임오버 대신 같은 침공을 재도전 카운트다운으로 (신규)');
 (function () {
   var sim = bootSim(654);
   var w = sim.world;
-  give(sim, { food: 800, meal: 200 });
-  w.rank = 4;
+  give(sim, { food: 2000, meal: 500 });
   run(sim, 1);
   w.invasion.triggerDay = w.day;
   run(sim, 21 * 60);
-  ok(w.invasion.phase === 'active', '침공 발동');
+  ok(w.invasion.phase === 'active', '1차 침공 발동');
   // 생존자 2명 이하로 강제 설정(전멸 위기 재현)
   for (var i = 2; i < sim.pawns.length; i++) sim.pawns[i].state = 'dead';
   var beforeDay = w.day;
   run(sim, 1);
   ok(w.invasion.phase === 'countdown', '전멸 위기 → 게임오버 대신 침공 철수·재도전 카운트다운');
+  ok(w.invasion.schedIndex === 0, '재도전은 같은 1차 침공(스케줄 인덱스 유지) — 2차로 건너뛰지 않음');
   ok(w.invasion.triggerDay === beforeDay + INVASION.retryGapDays, '재도전까지 ' + INVASION.retryGapDays + '일 유예');
   ok(w.enemies.filter(function (e) { return e.wave === 1; }).length === 0, '철수한 침공군 제거됨');
 })();

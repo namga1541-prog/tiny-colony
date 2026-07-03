@@ -136,7 +136,8 @@ export function createWorld(seed) {
     rodTier: 0,         // 낚싯대 등급 (0 맨손 ~ 3 황금)
     fishDesig: {},      // idx -> true (낚시 지정된 물 타일)
     rank: 0,            // 발전 단계 (0 무리 ~ 4 나라) — RANKS 인덱스
-    invasion: null,     // 대침공(INVASION) 상태: null(미시작) | {phase, wave, triggerDay?, gapUntilMin?}
+    invasion: null,     // 대침공(INVASION) 상태: null(미시작) | {phase, schedIndex, wave, triggerDay?, gapUntilMin?}
+    invasionsCompleted: 0, // 완료한 예정 침공 수(INVASION.schedule 인덱스 진행도)
     relics: {},         // 유물 id -> 보유 개수 (스택). 습격 격퇴·괴민 처치로 획득
     dug: {},            // idx -> true. 삽으로 파낸 땅 (자원 재생 없음 · 건설 공간)
     islands: [],        // {id,name,icon,theme,cx,cy,r,discovered,cap} — 원정 섬 메타(발견·리스폰용)

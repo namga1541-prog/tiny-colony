@@ -43,6 +43,7 @@ if (saved) {
   world.relics = saved.relics || {};
   world.invasion = saved.invasion || null;
   world.invasionWon = saved.invasionWon || false;
+  world.invasionsCompleted = saved.invasionsCompleted || 0;
   world.dug = saved.dug || {};
   world.items = {};
   world.stockpile = saved.stockpile || {};

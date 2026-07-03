@@ -235,20 +235,22 @@ export const RAID = { firstDay: 4, intervalDays: 3, baseCount: 2, perDayExtra: 0
 // 식인종(원정 섬 상주 적) — 고블린보다 강하고 빠름. 습격과 무관하게 섬에 상시 서식.
 export const CANNIBAL = { hp: 60, power: 11, attackCd: 12, moveMinPerTile: 1.2, dropGold: 8, dropIron: 4, name: '식인종' };
 
-// ── 정복자 「워로드」: 나라 단계 대침공(INVASION) 전용 미니보스. GIANT × 1.3 배율 ──
+// ── 정복자 「워로드」: 대침공(INVASION) 전용 미니보스. GIANT × 1.3 배율 ──
 export const WARLORD = {
   hp: 390, power: 29, attackCd: 24, moveMinPerTile: 2.8,
   dropGold: 39, dropIron: 20, name: '정복자',
 };
 
-// ── 나라의 시련(대침공): 나라 단계 도달 warnDays 후 waves 회 파도식 습격. 정복자가 각 웨이브를 이끈다 ──
+// ── 나라의 시련(대침공): 달력상 고정된 날짜(10일차·20일차)에 파도식 습격. 정복자가 각 웨이브를 이끈다.
+// 나라 단계 도달 여부와 무관하게 무조건 발동 — 방어를 못 갖췄어도 시련을 겪는 가혹한 난이도.
+// schedule 순서대로 하나씩 진행되며, 뒤로 갈수록(20일차) 웨이브·적 수·보상이 늘어난다.
 export const INVASION = {
-  warnDays: 10,          // 나라 단계 도달 → 이 일수 후 침공 발동
-  waves: 3,
+  schedule: [
+    { day: 10, waves: 3, goblinsPerWave: 4, warlordsPerWave: 1, relicCount: 1 },
+    { day: 20, waves: 4, goblinsPerWave: 6, warlordsPerWave: 2, relicCount: 2 },
+  ],
   spawnHour: 20,          // GIANT_RAID/RAID 와 동일 시각대(밤 8시)
   waveGapMin: 90,          // 웨이브 클리어 후 다음 웨이브까지 소강 시간(게임분)
-  goblinsPerWave: 4,
-  warlordsPerWave: 1,
   retryGapDays: 3,          // 전멸 위기로 침공군이 물러간 뒤 재도전까지 유예일
 };
 

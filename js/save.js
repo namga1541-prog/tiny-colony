@@ -35,6 +35,7 @@ export function saveGame(world, pawns) {
     raidCleared: world.raidCleared,
     invasion: world.invasion,
     invasionWon: world.invasionWon,
+    invasionsCompleted: world.invasionsCompleted,
     pawns: pawns.map(function (p) {
       return {
         id: p.id, name: p.name, look: p.look, trait: p.trait, equipped: p.equipped, skills: p.skills, role: p.role,

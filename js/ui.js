@@ -483,15 +483,16 @@ export function createUI(handlers) {
       html += '<p class="dev-cur">현재 단계: <b>' + cur.icon + ' ' + cur.name + '</b> · 인구 상한 ' + maxPop(world) + '명</p>';
       if (world.invasion) {
         var inv = world.invasion;
+        var sched = INVASION.schedule[inv.schedIndex];
         if (inv.phase === 'countdown') {
           var dleft = Math.max(0, inv.triggerDay - world.day);
-          html += '<p class="dev-invasion warn">⚔️ 다음 대침공까지 <b>' + dleft + '일</b> 남았습니다. 방어를 준비하세요!</p>';
+          html += '<p class="dev-invasion warn">⚔️ ' + inv.triggerDay + '일차 대침공까지 <b>' + dleft + '일</b> 남았습니다. 방어를 준비하세요!</p>';
         } else if (inv.phase === 'active') {
-          html += '<p class="dev-invasion active">🏴 대침공 진행 중 — ' + inv.wave + '/' + INVASION.waves + '웨이브</p>';
+          html += '<p class="dev-invasion active">🏴 대침공 진행 중 — ' + inv.wave + '/' + sched.waves + '웨이브</p>';
         } else if (inv.phase === 'gap') {
-          html += '<p class="dev-invasion active">⏸️ 소강 중 — 곧 ' + inv.wave + '/' + INVASION.waves + '웨이브가 몰려옵니다</p>';
+          html += '<p class="dev-invasion active">⏸️ 소강 중 — 곧 ' + inv.wave + '/' + sched.waves + '웨이브가 몰려옵니다</p>';
         } else if (inv.phase === 'won') {
-          html += '<p class="dev-invasion won">🏆 대침공을 격퇴했습니다! 나라는 안전합니다.</p>';
+          html += '<p class="dev-invasion won">🏆 예정된 대침공을 전부 격퇴했습니다! 나라는 안전합니다.</p>';
         }
       }
       var st = rankReqStatus(world, alive);
