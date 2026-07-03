@@ -5,13 +5,13 @@
 //
 // 모든 렌더·UI·오디오 효과는 ctx 콜백으로만 방출한다(상태 변경과 효과 분리).
 // main.js 는 ctx 에 실제 R.*/UI.*/Audio2.* 를, 하네스는 기록용 stub 을 연결한다.
-import { DAY_MIN, RAID, GIANT_RAID, INVASION, GODDESS, MAP_W, MAP_H } from './config.js';
+import { DAY_MIN, RAID, GIANT_RAID, INVASION, GODDESS, TRADER, MAP_W, MAP_H } from './config.js';
 import {
   idx, addItem, mulberry32,
   updateSheep, tickTowers, updateEnemies, tickResearch, tickCrops, tickRanches,
   dailyRegrowth, dailyMineRegen, spawnRaid, seasonDef, seasonIndex, maxPop, grantRelic,
   dailyIslandRespawn, checkIslandDiscovery,
-  grantLegendaryRelic, warlordsAliveInWave,
+  grantLegendaryRelic, warlordsAliveInWave, shipComplete,
 } from './world.js';
 import { updatePawn } from './pawns.js';
 import { checkGoals } from './goals.js';
@@ -180,6 +180,29 @@ export function stepWorld(world, pawns, dtMin, rng, ctx, enemyCbs) {
     ctx.onGoddessDescend(gx, gy);
     ctx.onToast('🌺 섬의 수호신 「' + GODDESS.name + '」가 마을에 강림했습니다! 축복을 내리고 조용히 떠났습니다.', true);
     ctx.onEvent('🌺 여신 ' + GODDESS.name + ' 강림 — 축복 하사');
+    ctx.onSfx('success');
+  }
+
+  // 떠돌이 상인: 주기적으로 며칠간 머물며 잉여 자원을 금으로 사들임(main.js onTradeSell 이 실제 환전 처리)
+  if (!world.traderActive && world.day >= (world.nextTraderDay || TRADER.firstDay) && curHour >= TRADER.spawnHour) {
+    world.traderActive = true;
+    world.traderDepartDay = world.day + TRADER.stayDays;
+    world.nextTraderDay = world.day + TRADER.intervalDays;
+    ctx.onToast('🛒 떠돌이 상인이 마을을 방문했습니다! 잉여 자원을 금으로 바꿔 갈 수 있습니다', true);
+    ctx.onEvent('🛒 떠돌이 상인 방문');
+    ctx.onSfx('coin');
+  }
+  if (world.traderActive && world.day >= world.traderDepartDay) {
+    world.traderActive = false;
+    ctx.onToast('🛒 떠돌이 상인이 떠났습니다 — 다음 방문은 ' + TRADER.intervalDays + '일 후입니다', true);
+    ctx.onEvent('🛒 상인 떠남');
+  }
+
+  // 탈출선(엔드게임 메가프로젝트): 3부품(선체·엔진·반응로) 모두 완공 시 탈출 성공(1회성, 가벼운 연출)
+  if (!world.escaped && shipComplete(world)) {
+    world.escaped = true;
+    ctx.onToast('🚀 탈출선이 완성되어 하늘로 날아올랐습니다! 콜로니는 마침내 자유를 찾았습니다.', false);
+    ctx.onEvent('🚀 탈출선 발사 — 콜로니의 승리!');
     ctx.onSfx('success');
   }
 

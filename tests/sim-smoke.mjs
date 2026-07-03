@@ -1,7 +1,7 @@
 // L1 시나리오 스모크 — 시드 고정, 헤드리스. stepWorld 추출이 올바른지 + 결정론 확인.
 import { bootSim, run, runDays, designateChop, give, snapshot, DAY_MIN, MAP_W } from './harness.mjs';
-import { addBuilding, storageCap, upgradeMult, upgradeAdd, maxPop, rankReqStatus, canAdvanceRank, advanceRank, defenseStats, tickTowers, enemyStats, spawnRaid, mulberry32, grantRelic, dailyIslandRespawn, checkIslandDiscovery, updateEnemies, idx } from '../js/world.js';
-import { GIANT, ENEMY, CANNIBAL, ISLANDS, INVASION, OUTPOST_BRANCHES, RAIDER, INVWARRIOR, ZOMBIE, SKELETON, GIANT_JUMP, ARMOR, FRUITTREE, FISH, catchFish, GODDESS } from '../js/config.js';
+import { addBuilding, storageCap, upgradeMult, upgradeAdd, maxPop, rankReqStatus, canAdvanceRank, advanceRank, defenseStats, tickTowers, enemyStats, spawnRaid, mulberry32, grantRelic, dailyIslandRespawn, checkIslandDiscovery, updateEnemies, idx, shipComplete } from '../js/world.js';
+import { GIANT, ENEMY, CANNIBAL, ISLANDS, INVASION, OUTPOST_BRANCHES, RAIDER, INVWARRIOR, ZOMBIE, SKELETON, GIANT_JUMP, ARMOR, FRUITTREE, FISH, catchFish, GODDESS, TRADER, BUILDS, BUILD_MIN_RANK } from '../js/config.js';
 import { findWorkJob, releaseAllOf } from '../js/jobs.js';
 
 var fails = 0;
@@ -717,6 +717,54 @@ console.log('[sim-smoke] 28) 섬의 수호신 「아보랑카도」 — 지정�
   run(sim, 2 * DAY_MIN);
   ok((w.relics[GODDESS.relicId] || 0) === 1, '재강림 없이 1회성 유지(유물 개수 변동 없음)');
   ok(descendCalls.length === 1, '재강림 이펙트도 다시 호출되지 않음(1회성)');
+})();
+
+console.log('[sim-smoke] 29) 탈출선 — 3부품(선체·엔진·반응로) 모두 완공 시 탈출 성공 (신규)');
+(function () {
+  var sim = bootSim(701); var w = sim.world;
+  ok(!shipComplete(w), '부품 없으면 미완성');
+  addBuilding(w, 'shipHull', 40, 40, { stage: 'built' });
+  ok(!shipComplete(w), '1개만 완공 시 아직 미완성');
+  addBuilding(w, 'shipEngine', 50, 40, { stage: 'built' });
+  ok(!shipComplete(w), '2개만 완공 시 아직 미완성');
+  addBuilding(w, 'shipReactor', 60, 40, { stage: 'built' });
+  ok(shipComplete(w), '3개 모두 완공 시 탈출선 완성');
+  ok(!w.escaped, 'stepWorld 실행 전엔 아직 탈출 처리 안 됨');
+  var toasted = false;
+  sim.ctx.onToast = function (msg) { if (msg.indexOf('탈출선') >= 0) toasted = true; };
+  run(sim, 1);
+  ok(w.escaped, 'stepWorld 실행 후 탈출 성공 처리(world.escaped)');
+  ok(toasted, '탈출 성공 토스트 발생');
+  ok(w.goals.escape === true, '목표(도전과제) "탈출 성공" 달성 기록');
+  var before = w.escaped;
+  run(sim, DAY_MIN);
+  ok(w.escaped === before, '1회성 — 반복 처리되지 않음');
+})();
+
+console.log('[sim-smoke] 30) 떠돌이 상인 — 주기적 방문·체류·퇴장 (신규)');
+(function () {
+  var sim = bootSim(702); var w = sim.world;
+  ok(!w.traderActive, '초기엔 상인 없음');
+  run(sim, (TRADER.firstDay - 1) * DAY_MIN - 480 - 1); // firstDay 전날 23:59 근처까지
+  ok(!w.traderActive, TRADER.firstDay + '일 전에는 방문하지 않음');
+  run(sim, TRADER.spawnHour * 60 + 1); // firstDay spawnHour 도달
+  ok(w.traderActive, TRADER.firstDay + '일 ' + TRADER.spawnHour + '시에 상인 방문');
+  ok(w.traderDepartDay === TRADER.firstDay + TRADER.stayDays, '체류 종료일 = 방문일 + stayDays');
+  ok(w.nextTraderDay === TRADER.firstDay + TRADER.intervalDays, '다음 방문 예정일 = 방문일 + intervalDays');
+  run(sim, 2 * DAY_MIN);
+  ok(!w.traderActive, '체류 기간 지나면 떠남');
+  run(sim, 2 * DAY_MIN);
+  ok(w.traderActive, '주기가 돌아오면 다시 방문(반복)');
+  ok(['wood', 'iron', 'food', 'meal'].every(function (t) { return TRADER.rates[t] > 0; }),
+    '모든 판매 가능 자원에 환율 설정됨');
+})();
+
+console.log('[sim-smoke] 31) 탈출선 해금 조건 — 나라 단계 + 대침공 완전 격퇴 (신규)');
+(function () {
+  ['shipHull', 'shipEngine', 'shipReactor'].forEach(function (k) {
+    ok(BUILDS[k].escapePart === true, k + ' 은 escapePart 플래그 보유(대침공 격퇴 게이트용)');
+    ok(BUILD_MIN_RANK[k] === 4, k + ' 은 나라 단계(4)에서만 해금');
+  });
 })();
 
 console.log('');

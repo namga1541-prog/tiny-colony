@@ -12,7 +12,7 @@ import {
   upgradeAdd, maxPop, canAdvanceRank, advanceRank, defenseStats,
 } from './world.js';
 import { createPawn, updatePawn, manualInteract, equipWeapon, equipArmor } from './pawns.js';
-import { RESEARCH, ITEMS, HIRE, hireCost, UPGRADES, UPGRADE_CATS } from './config.js';
+import { RESEARCH, ITEMS, HIRE, hireCost, UPGRADES, UPGRADE_CATS, TRADER } from './config.js';
 import { releaseAllOf } from './jobs.js';
 import { GOALS, checkGoals } from './goals.js';
 import { stepWorld } from './sim.js';
@@ -42,6 +42,10 @@ if (saved) {
   world.rank = saved.rank || 0;
   world.relics = saved.relics || {};
   world.goddessVisited = saved.goddessVisited || false;
+  world.traderActive = saved.traderActive || false;
+  world.traderDepartDay = saved.traderDepartDay || 0;
+  world.nextTraderDay = saved.nextTraderDay || 0;
+  world.escaped = saved.escaped || false;
   world.invasion = saved.invasion || null;
   world.invasionWon = saved.invasionWon || false;
   world.invasionsCompleted = saved.invasionsCompleted || 0;
@@ -192,6 +196,17 @@ var UI = createUI({
     if ((world.rodTier || 0) < rod.tier) world.rodTier = rod.tier;
     UI.toast('🎣 ' + rod.name + ' 제작 — 희귀 어종 확률이 올랐습니다!');
     UI.addEvent('🎣 ' + rod.name + ' 제작');
+  },
+  onTradeSell: function (type, amt) {
+    if (!world.traderActive) { UI.toast('⚠️ 지금은 상인이 없습니다', true); return; }
+    var have = totalRes(world)[type] || 0;
+    var n = amt === 'all' ? have : Math.min(amt, have);
+    if (n <= 0) return;
+    consumeGlobal(world, type, n);
+    var gold = Math.floor(n * (TRADER.rates[type] || 0));
+    world.stock.gold = (world.stock.gold || 0) + gold;
+    var names = { wood: '목재', iron: '철', food: '식량', meal: '요리' };
+    UI.toast('🛒 ' + (names[type] || type) + ' ' + n + '개 판매 → 금 ' + gold + ' 획득');
   },
   onEquip: function (pawn, type) {
     var msg = equipWeapon(world, pawn, type);
@@ -662,6 +677,8 @@ function applyTool(tool, a, b) {
     if ((BUILD_MIN_RANK[tool] || 0) > (world.rank || 0)) {
       var rq = RANKS[BUILD_MIN_RANK[tool]];
       UI.toast('🔒 ' + def.name + ' 은(는) 「' + rq.name + '」 단계에서 해금됩니다', true);
+    } else if (def.escapePart && !world.invasionWon) {
+      UI.toast('🔒 ' + def.name + ' 은(는) 대침공을 완전히 격퇴해야 해금됩니다', true);
     } else if (!footprintClear(world, px, py, def.fw, def.fh, false)) {
       UI.toast('⚠️ 그 위치에는 지을 수 없습니다 (' + def.fw + '×' + def.fh + ' 필요)', true);
     } else if (!canAfford(world, def.cost)) {
@@ -1163,6 +1180,7 @@ R.app.ticker.add(function () {
     var pp = panelPawn();
     if (pp) UI.updatePawnPanel(pp);
     UI.updateRoster(pawns, controlled);
+    if (UI.refreshLocks) UI.refreshLocks();
   }
 });
 

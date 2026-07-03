@@ -1,6 +1,6 @@
 // DOM HUD: 도구·시계·자원·정착민 패널·토스트·커스터마이징 모달·연구/제작 모달
 import { taskLabel } from './pawns.js';
-import { HUMANS, RESEARCH, WEAPONS, ARMOR, SKILL_LABEL, skillLevel, BUILDS, STORAGE, RODS, WAREHOUSE_TIERS, ROLES, RANKS, BUILD_MIN_RANK, DEFENSE_TIERS, OUTPOST_BRANCHES, RELICS, INVASION } from './config.js';
+import { HUMANS, RESEARCH, WEAPONS, ARMOR, SKILL_LABEL, skillLevel, BUILDS, STORAGE, RODS, WAREHOUSE_TIERS, ROLES, RANKS, BUILD_MIN_RANK, DEFENSE_TIERS, OUTPOST_BRANCHES, RELICS, INVASION, TRADER } from './config.js';
 import { totalRes, warehouseTier, warehouseCap, maxPop, rankReqStatus, defenseStats } from './world.js';
 
 export function createUI(handlers) {
@@ -71,6 +71,8 @@ export function createUI(handlers) {
   if (btnRelics) btnRelics.addEventListener('click', showRelics);
   var btnDiscard = document.getElementById('btnDiscard');
   if (btnDiscard) btnDiscard.addEventListener('click', showDiscard);
+  var btnTrader = document.getElementById('btnTrader');
+  if (btnTrader) btnTrader.addEventListener('click', showTrader);
   var btnCancelAll = document.getElementById('btnCancelAll');
   if (btnCancelAll) btnCancelAll.addEventListener('click', function () {
     if (handlers.onCancelAll) handlers.onCancelAll();
@@ -83,8 +85,12 @@ export function createUI(handlers) {
     var btns = document.querySelectorAll('#toolbar .tool[data-tool]');
     for (var i = 0; i < btns.length; i++) {
       var k = btns[i].dataset.tool;
-      btns[i].classList.toggle('locked', (BUILD_MIN_RANK[k] || 0) > rank);
+      var def = BUILDS[k];
+      var locked = (BUILD_MIN_RANK[k] || 0) > rank || (def && def.escapePart && !world.invasionWon);
+      btns[i].classList.toggle('locked', locked);
     }
+    var btnTrader = document.getElementById('btnTrader');
+    if (btnTrader) btnTrader.classList.toggle('locked', !world.traderActive);
   }
   var btnHire = document.getElementById('btnHire');
   btnHire.addEventListener('click', function () {
@@ -641,6 +647,42 @@ export function createUI(handlers) {
     }
     render();
     overlay.querySelector('.dc-close').addEventListener('click', function () { overlay.remove(); });
+  }
+
+  // ── 떠돌이 상인 모달 ──
+  function showTrader() {
+    var names = { wood: '목재', iron: '철', food: '식량', meal: '요리' };
+    var types = ['wood', 'iron', 'food', 'meal'];
+    var overlay = openModal('<h2>🛒 떠돌이 상인</h2><div class="tr-body"></div>' +
+      '<div class="cm-actions"><button class="cm-ok tr-close">닫기</button></div>');
+    var body = overlay.querySelector('.tr-body');
+    function render() {
+      if (!world.traderActive) {
+        body.innerHTML = '<p class="dc-hint">지금은 상인이 없습니다. ' + TRADER.intervalDays + '일 주기로 며칠씩 머물며 잉여 자원을 사갑니다.</p>';
+        return;
+      }
+      var s = totalRes(world);
+      body.innerHTML = '<p class="dc-hint">잉여 자원을 금으로 바꿔갑니다 — 떠나기 전까지만 거래 가능합니다.</p>' +
+        types.map(function (t) {
+          var rate = TRADER.rates[t] || 0;
+          return '<div class="dc-row"><span class="dc-name">' + names[t] + '</span>' +
+            '<b class="dc-amt">' + (s[t] || 0) + '</b>' +
+            '<span style="font-size:11px;color:#8d94a8">개당 금' + rate + '</span>' +
+            '<span class="dc-btns">' +
+            '<button data-t="' + t + '" data-n="10">10개</button>' +
+            '<button data-t="' + t + '" data-n="50">50개</button>' +
+            '<button data-t="' + t + '" data-n="all">전부</button></span></div>';
+        }).join('');
+      Array.prototype.forEach.call(body.querySelectorAll('button'), function (b) {
+        b.addEventListener('click', function () {
+          var n = b.dataset.n;
+          if (handlers.onTradeSell) handlers.onTradeSell(b.dataset.t, n === 'all' ? 'all' : +n);
+          render();
+        });
+      });
+    }
+    render();
+    overlay.querySelector('.tr-close').addEventListener('click', function () { overlay.remove(); });
   }
 
   // ── 제작 모달 (무기 + 낚싯대) ──

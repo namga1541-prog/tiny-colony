@@ -64,6 +64,16 @@ export function warlordsAliveInWave(world, waveNo) {
   return n;
 }
 
+// 탈출선(엔드게임 메가프로젝트) 3부품(선체·엔진·반응로)이 모두 완공됐는지
+export function shipComplete(world) {
+  var need = { shipHull: false, shipEngine: false, shipReactor: false };
+  for (var id in world.buildings) {
+    var b = world.buildings[id];
+    if (b.stage === 'built' && need.hasOwnProperty(b.kind)) need[b.kind] = true;
+  }
+  return need.shipHull && need.shipEngine && need.shipReactor;
+}
+
 function pickAnimalType(rng) {
   // 양이 가장 흔함
   var r = rng();
@@ -142,6 +152,10 @@ export function createWorld(seed) {
     invasionsCompleted: 0, // 완료한 예정 침공 수(INVASION.schedule 인덱스 진행도)
     relics: {},         // 유물 id -> 보유 개수 (스택). 습격 격퇴·괴민 처치로 획득
     goddessVisited: false, // 섬의 수호신 「아보랑카도」 강림(1회성) 여부
+    traderActive: false, // 떠돌이 상인 방문 중 여부
+    traderDepartDay: 0,  // 상인이 떠나는 날짜(traderActive 일 때만 의미 있음)
+    nextTraderDay: 0,    // 다음 상인 방문 예정일(0 이면 TRADER.firstDay 로 폴백)
+    escaped: false,      // 탈출선(선체·엔진·반응로) 완성 후 탈출 성공(1회성) 여부
     dug: {},            // idx -> true. 삽으로 파낸 땅 (자원 재생 없음 · 건설 공간)
     islands: [],        // {id,name,icon,theme,cx,cy,r,discovered,cap} — 원정 섬 메타(발견·리스폰용)
   };

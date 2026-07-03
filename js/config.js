@@ -58,6 +58,29 @@ export const BUILDS = {
     attack: { power: 18, range: 8, cd: 10 },
     desc: '콜로니의 심장. 넓은 사거리로 강력하게 방어합니다.',
   },
+  // ── 탈출선(엔드게임 메가프로젝트): 나라 단계 + 대침공 완전 격퇴 후에만 건설 가능(main.js 게이트).
+  // 3부품(선체·엔진·반응로) 모두 완공되면 탈출 성공(sim.js). 카스텔 스프라이트 재사용 + 다른 색조로 구분.
+  shipHull: {
+    name: '탈출선 - 선체', cost: { wood: 400, gold: 150, iron: 100 }, work: 900, hp: 300,
+    fw: 5, fh: 3, solid: true, light: true,
+    img: 'Castle', imgC: 'Castle_C', pw: 320, ph: 256, tint: 0xaab8c4, // 은회색 금속 선체
+    escapePart: true,
+    desc: '탈출선의 뼈대. 대규모 목재·금·철이 필요합니다.',
+  },
+  shipEngine: {
+    name: '탈출선 - 엔진', cost: { iron: 250, gold: 150 }, work: 700, hp: 300,
+    fw: 5, fh: 3, solid: true, light: true,
+    img: 'Castle', imgC: 'Castle_C', pw: 320, ph: 256, tint: 0xe0925a, // 주황(추진 열기)
+    escapePart: true,
+    desc: '탈출선을 추진할 엔진. 철이 대량으로 필요합니다.',
+  },
+  shipReactor: {
+    name: '탈출선 - 반응로', cost: { gold: 250, iron: 200, food: 150 }, work: 700, hp: 300,
+    fw: 5, fh: 3, solid: true, light: true,
+    img: 'Castle', imgC: 'Castle_C', pw: 320, ph: 256, tint: 0x7fe0a0, // 청록(동력)
+    escapePart: true,
+    desc: '엔진에 동력을 공급하는 반응로. 금·철·식량이 필요합니다.',
+  },
   campfire: {
     name: '모닥불', cost: { wood: 2 }, work: 10, hp: 30,
     fw: 1, fh: 1, solid: false, light: true,
@@ -339,7 +362,10 @@ export const RANKS = [
   { id: 'nation',  name: '나라', icon: '🏛️', popCap: 40, req: { pop: 24, builds: { castle: 1 }, res: { gold: 150 } } },
 ];
 // 건물별 최소 해금 단계(RANKS 인덱스). 목록에 없는 건물은 0(무리)부터 건설 가능.
-export const BUILD_MIN_RANK = { smithy: 1, ranch: 1, outpost: 2, tower: 2, clinic: 2, castle: 3 };
+export const BUILD_MIN_RANK = {
+  smithy: 1, ranch: 1, outpost: 2, tower: 2, clinic: 2, castle: 3,
+  shipHull: 4, shipEngine: 4, shipReactor: 4, // 나라 단계 전용(main.js 에서 대침공 완전 격퇴도 추가로 요구)
+};
 
 // ── 유물(Relic) — 아이작풍 로그라이트: 습격 격퇴·괴민 처치 시 무작위 획득, 콜로니에 영구 패시브 ──
 // effect.key 는 UPGRADES 와 동일 배율 풀을 공유 → 업그레이드·다른 유물과 자동 시너지(누적).
@@ -362,6 +388,13 @@ export const RELICS = {
 
 // ── 섬의 수호신 「아보랑카도」: GODDESS.day 일 밤, 전투 없이 마을에 강림해 축복(RELICS.avorlancado)을 내리고 떠난다 ──
 export const GODDESS = { day: 7, spawnHour: 20, name: '아보랑카도', relicId: 'avorlancado' };
+
+// ── 떠돌이 상인: 주기적으로 며칠간 머무르며 잉여 자원(목재·철·식량·요리)을 금으로 사들임 ──
+// rates: 자원 1개당 지급하는 금(내림). 잉여 자원 처리 + 탈출선 등 금 소요 프로젝트로 이어지는 순환 고리.
+export const TRADER = {
+  firstDay: 6, intervalDays: 4, spawnHour: 10, stayDays: 2,
+  rates: { wood: 0.15, iron: 0.5, food: 0.2, meal: 0.6 },
+};
 
 // ── 낚시 ──
 // rodTier: 0=맨손, 1=나무, 2=강철, 3=황금. 높을수록 희귀 어종 확률↑·시간↓
