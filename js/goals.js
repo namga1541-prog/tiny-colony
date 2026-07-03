@@ -24,6 +24,7 @@ export var GOALS = [
   { id: 'raid', name: '첫 격퇴', desc: '고블린 습격을 한 번 막아낸다', test: function (w) { return !!w.raidCleared; } },
   { id: 'iron', name: '제철', desc: '철 20을 비축한다', test: function (w) { return totalRes(w).iron >= 20; } },
   { id: 'castle', name: '왕국의 위용', desc: '성을 완공한다', test: function (w) { return countBuilt(w, 'castle') >= 1; } },
+  { id: 'invasion', name: '나라의 시련', desc: '대침공을 완전히 격퇴한다', test: function (w) { return !!w.invasionWon; } },
 ];
 
 // 새로 달성된 목표 배열 반환 (알림용)

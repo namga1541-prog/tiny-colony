@@ -5,12 +5,13 @@
 //
 // 모든 렌더·UI·오디오 효과는 ctx 콜백으로만 방출한다(상태 변경과 효과 분리).
 // main.js 는 ctx 에 실제 R.*/UI.*/Audio2.* 를, 하네스는 기록용 stub 을 연결한다.
-import { DAY_MIN, RAID, GIANT_RAID, MAP_W, MAP_H } from './config.js';
+import { DAY_MIN, RAID, GIANT_RAID, INVASION, MAP_W, MAP_H } from './config.js';
 import {
   idx, addItem, mulberry32,
   updateSheep, tickTowers, updateEnemies, tickResearch, tickCrops, tickRanches,
   dailyRegrowth, dailyMineRegen, spawnRaid, seasonDef, seasonIndex, maxPop, grantRelic,
   dailyIslandRespawn, checkIslandDiscovery,
+  grantLegendaryRelic, warlordsAliveInWave,
 } from './world.js';
 import { updatePawn } from './pawns.js';
 import { checkGoals } from './goals.js';
@@ -57,8 +58,8 @@ export function stepWorld(world, pawns, dtMin, rng, ctx, enemyCbs) {
     ctx.onSfx('success');
   }
 
-  // 습격 격퇴 판정: 습격 중이었는데 적이 전멸하면
-  if (world.raidActive && world.enemies.length === 0) {
+  // 습격 격퇴 판정: 습격 중이었는데 적이 전멸하면 (대침공 진행 중엔 아래 전용 블록이 처리)
+  if (world.raidActive && world.enemies.length === 0 && !(world.invasion && world.invasion.phase === 'active')) {
     world.raidActive = false;
     world.raidCleared = true;
     var mult = Math.max(1, 1 + Math.floor((world.day - RAID.firstDay) * 0.3));
@@ -107,9 +108,19 @@ export function stepWorld(world, pawns, dtMin, rng, ctx, enemyCbs) {
     }
   }
 
-  // 습격 스케줄: 지정일 밤 spawnHour 에 상륙
+  // 나라의 시련(대침공): 나라 단계 도달 시 카운트다운 시작 (1회만 트리거, 매 프레임 확인)
+  // advanceRank()는 UI 클릭(main.js)에서만 호출되므로 stepWorld가 직접 world.rank 를 감시해야 함.
+  if (!world.invasion && (world.rank || 0) >= 4) {
+    world.invasion = { phase: 'countdown', triggerDay: world.day + INVASION.warnDays, wave: 0 };
+    ctx.onToast('🏛️ 나라의 위엄에 도전자들이 모여듭니다 — ' + INVASION.warnDays + '일 후 대침공이 시작됩니다!', true);
+    ctx.onEvent('⚠️ 대침공 예고 (D-' + INVASION.warnDays + ')');
+    ctx.onSfx('alert');
+  }
+  var invasionBusy = !!(world.invasion && (world.invasion.phase === 'active' || world.invasion.phase === 'gap'));
+
+  // 습격 스케줄: 지정일 밤 spawnHour 에 상륙 (대침공 진행 중엔 겹치지 않도록 보류)
   var curHour = (world.timeMin % DAY_MIN) / 60;
-  if (world.day >= world.nextRaidDay && curHour >= RAID.spawnHour && !world.raidToday) {
+  if (world.day >= world.nextRaidDay && curHour >= RAID.spawnHour && !world.raidToday && !invasionBusy) {
     world.raidToday = true;
     var cnt = RAID.baseCount + Math.floor((world.day - RAID.firstDay) * RAID.perDayExtra);
     var got = spawnRaid(world, cnt, rng);
@@ -123,8 +134,8 @@ export function stepWorld(world, pawns, dtMin, rng, ctx, enemyCbs) {
   }
   if (curHour < RAID.spawnHour) world.raidToday = false;
 
-  // 무지성 거인 「괴민」: 5일밤(5·10·15…)마다 상륙
-  if (world.day % GIANT_RAID.everyDays === 0 && curHour >= GIANT_RAID.spawnHour && !world.giantToday) {
+  // 무지성 거인 「괴민」: 5일밤(5·10·15…)마다 상륙 (대침공 진행 중엔 겹치지 않도록 보류)
+  if (world.day % GIANT_RAID.everyDays === 0 && curHour >= GIANT_RAID.spawnHour && !world.giantToday && !invasionBusy) {
     world.giantToday = true;
     var gcnt = GIANT_RAID.baseCount + Math.floor((world.day - GIANT_RAID.everyDays) / 15);
     var gg = spawnRaid(world, gcnt, rng, 'giant');
@@ -137,6 +148,67 @@ export function stepWorld(world, pawns, dtMin, rng, ctx, enemyCbs) {
     }
   }
   if (curHour < GIANT_RAID.spawnHour) world.giantToday = false;
+
+  // 대침공 진행: countdown(예고) → active(웨이브 전투) → gap(소강) → won(승리) / 전멸위기 시 countdown 재시작
+  if (world.invasion) {
+    var inv = world.invasion;
+    if (inv.phase === 'countdown' && world.day >= inv.triggerDay && curHour >= INVASION.spawnHour) {
+      inv.phase = 'active';
+      inv.wave = 1;
+      spawnRaid(world, INVASION.goblinsPerWave, rng, 'goblin', 1);
+      spawnRaid(world, INVASION.warlordsPerWave, rng, 'warlord', 1);
+      world.raidActive = true;
+      ctx.onToast('🏴 대침공이 시작되었습니다! 「정복자」가 이끄는 1웨이브 상륙!', true);
+      ctx.onEvent('🏴 대침공 웨이브 1/' + INVASION.waves);
+      ctx.onSfx('alert');
+    } else if (inv.phase === 'active') {
+      if (aliveNow <= 2) {
+        // 전멸 위기: 이번 웨이브 침공군을 철수시키고 재도전 카운트다운을 다시 시작 (게임오버·자원손실 없음)
+        world.enemies = world.enemies.filter(function (e) { return e.wave !== inv.wave; });
+        world.raidActive = false;
+        world.invasion = { phase: 'countdown', triggerDay: world.day + INVASION.retryGapDays, wave: 0 };
+        ctx.onToast('🏳️ 콜로니가 위기에 빠지자 침공군이 일시 물러갔습니다. ' + INVASION.retryGapDays + '일 후 다시 옵니다', true);
+        ctx.onEvent('🏳️ 대침공 철수(재정비)');
+        ctx.onSfx('alert');
+      } else {
+        var waveLeft = world.enemies.filter(function (e) { return e.wave === inv.wave; }).length;
+        var warlordsLeft = warlordsAliveInWave(world, inv.wave);
+        // 정복자를 먼저 쓰러뜨리면 리더를 잃은 잔당도 함께 퇴각(웨이브 즉시 클리어)
+        var cleared = waveLeft > 0 && warlordsLeft === 0;
+        if (cleared || waveLeft === 0) {
+          if (cleared) world.enemies = world.enemies.filter(function (e) { return e.wave !== inv.wave; });
+          if (inv.wave >= INVASION.waves) {
+            // 승리: 가벼운 토스트+효과음 연출, 전설급 유물 확정 지급, goals.js 판정용 플래그
+            world.invasion = { phase: 'won', wave: inv.wave };
+            world.raidActive = false;
+            world.invasionWon = true;
+            ctx.onToast('🎉 콜로니의 승리! 대침공을 완전히 격퇴했습니다!', false);
+            ctx.onEvent('🎉 콜로니의 승리 — 대침공 격퇴');
+            ctx.onSfx('success');
+            var leg = grantLegendaryRelic(world, rng);
+            ctx.onToast('👑 전설급 유물 획득: ' + leg.def.icon + ' ' + leg.def.name + ' — ' + leg.def.desc);
+            ctx.onEvent('👑 전설 유물 ' + leg.def.icon + ' ' + leg.def.name);
+            ctx.onSfx('coin');
+          } else {
+            world.invasion = { phase: 'gap', wave: inv.wave + 1, gapUntilMin: world.timeMin + INVASION.waveGapMin };
+            world.raidActive = false;
+            ctx.onToast('⏸️ ' + inv.wave + '웨이브 격퇴! 곧 ' + (inv.wave + 1) + '웨이브가 몰려옵니다 — 정비하세요', true);
+            ctx.onEvent('⏸️ 웨이브 ' + inv.wave + ' 격퇴 (소강)');
+            ctx.onSfx('success');
+          }
+        }
+      }
+    } else if (inv.phase === 'gap' && world.timeMin >= inv.gapUntilMin) {
+      var nextWave = inv.wave;
+      spawnRaid(world, INVASION.goblinsPerWave, rng, 'goblin', nextWave);
+      spawnRaid(world, INVASION.warlordsPerWave, rng, 'warlord', nextWave);
+      world.invasion = { phase: 'active', wave: nextWave };
+      world.raidActive = true;
+      ctx.onToast('🏴 ' + nextWave + '웨이브 상륙!', true);
+      ctx.onEvent('🏴 대침공 웨이브 ' + nextWave + '/' + INVASION.waves);
+      ctx.onSfx('alert');
+    }
+  }
 
   // 목표 달성 체크
   var newGoals = checkGoals(world, pawns);

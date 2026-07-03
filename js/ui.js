@@ -1,6 +1,6 @@
 // DOM HUD: 도구·시계·자원·정착민 패널·토스트·커스터마이징 모달·연구/제작 모달
 import { taskLabel } from './pawns.js';
-import { HUMANS, RESEARCH, WEAPONS, SKILL_LABEL, skillLevel, BUILDS, STORAGE, RODS, WAREHOUSE_TIERS, ROLES, RANKS, BUILD_MIN_RANK, DEFENSE_TIERS, RELICS } from './config.js';
+import { HUMANS, RESEARCH, WEAPONS, SKILL_LABEL, skillLevel, BUILDS, STORAGE, RODS, WAREHOUSE_TIERS, ROLES, RANKS, BUILD_MIN_RANK, DEFENSE_TIERS, RELICS, INVASION } from './config.js';
 import { totalRes, warehouseTier, warehouseCap, maxPop, rankReqStatus, defenseStats } from './world.js';
 
 export function createUI(handlers) {
@@ -467,6 +467,19 @@ export function createUI(handlers) {
       }).join('<span class="dev-arrow">›</span>');
       var html = '<div class="dev-ladder">' + ladder + '</div>';
       html += '<p class="dev-cur">현재 단계: <b>' + cur.icon + ' ' + cur.name + '</b> · 인구 상한 ' + maxPop(world) + '명</p>';
+      if (world.invasion) {
+        var inv = world.invasion;
+        if (inv.phase === 'countdown') {
+          var dleft = Math.max(0, inv.triggerDay - world.day);
+          html += '<p class="dev-invasion warn">⚔️ 다음 대침공까지 <b>' + dleft + '일</b> 남았습니다. 방어를 준비하세요!</p>';
+        } else if (inv.phase === 'active') {
+          html += '<p class="dev-invasion active">🏴 대침공 진행 중 — ' + inv.wave + '/' + INVASION.waves + '웨이브</p>';
+        } else if (inv.phase === 'gap') {
+          html += '<p class="dev-invasion active">⏸️ 소강 중 — 곧 ' + inv.wave + '/' + INVASION.waves + '웨이브가 몰려옵니다</p>';
+        } else if (inv.phase === 'won') {
+          html += '<p class="dev-invasion won">🏆 대침공을 격퇴했습니다! 나라는 안전합니다.</p>';
+        }
+      }
       var st = rankReqStatus(world, alive);
       if (!st) {
         html += '<p class="dev-max">🏆 최고 단계에 도달했습니다!</p>';

@@ -235,6 +235,23 @@ export const RAID = { firstDay: 4, intervalDays: 3, baseCount: 2, perDayExtra: 0
 // 식인종(원정 섬 상주 적) — 고블린보다 강하고 빠름. 습격과 무관하게 섬에 상시 서식.
 export const CANNIBAL = { hp: 60, power: 11, attackCd: 12, moveMinPerTile: 1.2, dropGold: 8, dropIron: 4, name: '식인종' };
 
+// ── 정복자 「워로드」: 나라 단계 대침공(INVASION) 전용 미니보스. GIANT × 1.3 배율 ──
+export const WARLORD = {
+  hp: 390, power: 29, attackCd: 24, moveMinPerTile: 2.8,
+  dropGold: 39, dropIron: 20, name: '정복자',
+};
+
+// ── 나라의 시련(대침공): 나라 단계 도달 warnDays 후 waves 회 파도식 습격. 정복자가 각 웨이브를 이끈다 ──
+export const INVASION = {
+  warnDays: 10,          // 나라 단계 도달 → 이 일수 후 침공 발동
+  waves: 3,
+  spawnHour: 20,          // GIANT_RAID/RAID 와 동일 시각대(밤 8시)
+  waveGapMin: 90,          // 웨이브 클리어 후 다음 웨이브까지 소강 시간(게임분)
+  goblinsPerWave: 4,
+  warlordsPerWave: 1,
+  retryGapDays: 3,          // 전멸 위기로 침공군이 물러간 뒤 재도전까지 유예일
+};
+
 // ── 요리 (모닥불에서) ──
 export const COOK = { work: 15, foodPerMeal: 2, mealEatAmount: 95 };
 
@@ -279,6 +296,8 @@ export const RELICS = {
   scope:    { name: '매의 눈',         icon: '🦅', effect: { key: 'towerrange', add: 2 },          desc: '방어건물 사거리 +2' },
   banner:   { name: '정착 깃발',       icon: '🚩', effect: { key: 'maxpop', add: 3 },              desc: '인구 상한 +3' },
   poultice: { name: '치유의 고약',     icon: '💊', effect: { key: 'healspeed', mult: 1.5 },        desc: '치료소 회복 속도 +50%' },
+  // 대침공(INVASION) 승리 전용 확정 보상 — rarity 필드로 구분, grantLegendaryRelic 에서만 선택됨.
+  crown:    { name: '정복자의 왕관',   icon: '👑', rarity: 'legendary', effect: { key: 'speed_all', mult: 1.25 }, desc: '모든 작업 속도 +25% (전설)' },
 };
 
 // ── 낚시 ──

@@ -41,6 +41,8 @@ if (saved) {
   world.fishDesig = saved.fishDesig || {};
   world.rank = saved.rank || 0;
   world.relics = saved.relics || {};
+  world.invasion = saved.invasion || null;
+  world.invasionWon = saved.invasionWon || false;
   world.dug = saved.dug || {};
   world.items = {};
   world.stockpile = saved.stockpile || {};

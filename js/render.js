@@ -768,6 +768,7 @@ export function createRenderer(world) {
         var frames = en.moving ? goblinWalk : goblinIdle;
         sp.texture = frames[(((animTime / 0.12) | 0) + en.anim) % 6];
         if (en.kind === 'cannibal') sp.tint = 0x8a2020; // 어두운 핏빛 색조로 고블린과 구분(원정 섬 상주 식인종)
+        if (en.kind === 'warlord') sp.tint = 0x5a1f8a; // 보라색 틴트로 정복자 구분(대침공 미니보스, 고블린 스프라이트 재사용)
       }
       sp.zIndex = sp.y;
       if (isG) { // 이름표 「괴민」 + HP바 (머리 위)
