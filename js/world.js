@@ -2,7 +2,7 @@
 import {
   MAP_W, MAP_H, NATURE, STACK_MAX, BUILDS, BUILDING_HP_DEFAULT, GOLDMINE, IRONMINE, BRIDGE,
   RESEARCH_RATE_PER_PAWN, ENEMY, RAID, GIANT, GIANT_FAST_MULT, GIANT_JUMP, SEASON_DAYS, SEASONS, STORAGE, RANCH, REGROW,
-  ANIMAL_TYPES, WAREHOUSE_TIERS, UPGRADES, RANKS, DEFENSE_TIERS, OUTPOST_BRANCHES, CANNON, RELICS, ISLANDS, CANNIBAL, WARLORD, RAIDER, INVWARRIOR, ZOMBIE, SKELETON,
+  ANIMAL_TYPES, WAREHOUSE_TIERS, UPGRADES, RANKS, DEFENSE_TIERS, OUTPOST_BRANCHES, CANNON, RELICS, ISLANDS, CANNIBAL, WARLORD, RAIDER, INVWARRIOR, ZOMBIE, SKELETON, DEMON,
   ARMOR, FISH_PLATFORM, LODGE_FARM_RADIUS,
   T_WATER, T_GRASS, T_SAND,
 } from './config.js';
@@ -158,6 +158,8 @@ export function createWorld(seed) {
     traderDepartDay: 0,  // 상인이 떠나는 날짜(traderActive 일 때만 의미 있음)
     nextTraderDay: 0,    // 다음 상인 방문 예정일(0 이면 TRADER.firstDay 로 폴백)
     escaped: false,      // 탈출선(선체·엔진·반응로) 완성 후 탈출 성공(1회성) 여부
+    autoEquip: false,    // 자동 무장 토글(관리): 유휴 정착민이 창고 무기를 미리 장착
+    bossDefeated: false, // 최종 보스 「악마후배」 처치 여부
     dug: {},            // idx -> true. 삽으로 파낸 땅 (자원 재생 없음 · 건설 공간)
     islands: [],        // {id,name,icon,theme,cx,cy,r,discovered,cap} — 원정 섬 메타(발견·리스폰용)
   };
@@ -223,9 +225,9 @@ export function createWorld(seed) {
     }
   }
 
-  // 금광·철광 (넓은 맵에 맞춰 증가)
+  // 금광·철광 (넓은 맵에 맞춰 증가) — 철광은 강철·탈출선 수요가 커 더 넉넉히 배치
   var mines = 3 + ((rng() * 3) | 0);
-  var ironMines = 2 + ((rng() * 2) | 0);
+  var ironMines = 5 + ((rng() * 3) | 0);
   var tries = 0;
   while ((mines > 0 || ironMines > 0) && tries++ < 400) {
     var mx = 4 + ((rng() * (MAP_W - 8)) | 0);
@@ -308,6 +310,15 @@ export function createWorld(seed) {
           });
         }
       }
+    } else if (isl.theme === 'boss') {
+      // 최종 보스 「악마후배」 1체를 섬 중앙에 배치 (1회성 — 처치 시 리스폰 없음)
+      var bx = Math.round(isl.cx), by = Math.round(isl.cy);
+      if (!isWalkable(world, bx, by)) { var bsp = islandSpot(isl, false); if (bsp) { bx = bsp.x; by = bsp.y; } }
+      world.enemies.push({
+        id: world.nextEid++, x: bx, y: by, px: bx, py: by,
+        hp: DEMON.hp, maxHp: DEMON.hp, cd: 0, dir: -1, anim: 0, kind: 'demon', boss: true,
+      });
+      isl.boss = true;
     }
   }
 
@@ -817,6 +828,7 @@ export function enemyStats(e) {
   if (e && e.kind === 'warrior') return INVWARRIOR;
   if (e && e.kind === 'zombie') return ZOMBIE;
   if (e && e.kind === 'skeleton') return SKELETON;
+  if (e && e.kind === 'demon') return DEMON;
   return ENEMY;
 }
 
@@ -975,6 +987,7 @@ export function updateEnemies(world, pawns, dtMin, cb) {
       // 처치 → 전리품 드랍 (거인은 철도)
       addItem(world, idx(e.x, e.y), 'gold', st.dropGold);
       if (st.dropIron) addItem(world, idx(e.x, e.y), 'iron', st.dropIron);
+      if (e.kind === 'demon') world.bossJustKilled = true; // 최종 보스 처치 — sim.js 가 전설 유물·안내 처리
       if (cb.onEnemyDown) cb.onEnemyDown(e);
       continue;
     }

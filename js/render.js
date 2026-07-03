@@ -167,6 +167,7 @@ export function createRenderer(world) {
     warlord:  { idle: fxWarlord.idle, walk: fxWarlord.walk, scale: 1.4 }, // 정복자=보라 기사(크게)
     zombie:   { idle: fxZombie, walk: fxZombie, scale: 2.1, anchorY: 0.94 },     // 좀비(느린 살덩이) — 고블린과 비슷한 시각 크기
     skeleton: { idle: fxSkeleton, walk: fxSkeleton, scale: 2.0, anchorY: 0.94 }, // 스켈레톤(걷기 사이클) — 고블린과 비슷한 시각 크기
+    demon:    { idle: fxWarlord.idle, walk: fxWarlord.walk, tint: 0x5a0d0d, scale: 3.2, anchorY: 0.82 }, // 최종 보스=검붉은 거대 기사
   };
 
   // 사람 스프라이트 크롭. dir: 0정면 1뒤 2좌 3우.
@@ -929,25 +930,27 @@ export function createRenderer(world) {
         sp.y += (en.atkDY || 0) * ap * amp;
       }
       sp.zIndex = sp.y;
-      if (isG) { // 이름표 「괴민」 + HP바 (머리 위)
+      var isBoss = en.kind === 'demon' || en.boss;
+      if (isG || isBoss) { // 이름표 + HP바 (머리 위) — 괴민·최종 보스
         var dec = enemyDecor[en.id];
+        var nm = isBoss ? '악마후배' : '괴민';
         if (!dec) {
-          var lbl = new PIXI.Text('괴민', {
-            fontFamily: 'Malgun Gothic', fontSize: 30, fill: 0xffd7d0, fontWeight: '700',
+          var lbl = new PIXI.Text(nm, {
+            fontFamily: 'Malgun Gothic', fontSize: 30, fill: isBoss ? 0xff6a6a : 0xffd7d0, fontWeight: '700',
             stroke: 0x3a1414, strokeThickness: 6,
           });
-          lbl.anchor.set(0.5, 1); lbl.scale.set(0.75);
+          lbl.anchor.set(0.5, 1); lbl.scale.set(isBoss ? 0.95 : 0.75);
           var bar = new PIXI.Graphics();
           objLayer.addChild(lbl); objLayer.addChild(bar);
           dec = enemyDecor[en.id] = { lbl: lbl, bar: bar };
         }
-        var topY = sp.y - GS * 15; // 머리 위 (16px * S * ~0.9)
+        var topY = isBoss ? sp.y - 150 : sp.y - GS * 15; // 머리 위
         dec.lbl.x = sp.x; dec.lbl.y = topY - 8; dec.lbl.zIndex = 1000001;
-        var bw = 70, bh = 7, frac = Math.max(0, (en.hp || 0) / (en.maxHp || 1));
+        var bw = isBoss ? 110 : 70, bh = isBoss ? 9 : 7, frac = Math.max(0, (en.hp || 0) / (en.maxHp || 1));
         dec.bar.zIndex = 1000001;
         dec.bar.clear();
         dec.bar.beginFill(0x000000, 0.55); dec.bar.drawRect(sp.x - bw / 2 - 1, topY - 1, bw + 2, bh + 2); dec.bar.endFill();
-        dec.bar.beginFill(0xff4d4d); dec.bar.drawRect(sp.x - bw / 2, topY, bw * frac, bh); dec.bar.endFill();
+        dec.bar.beginFill(isBoss ? 0xb01818 : 0xff4d4d); dec.bar.drawRect(sp.x - bw / 2, topY, bw * frac, bh); dec.bar.endFill();
       }
     }
     for (var id in enemySprites) {

@@ -1,7 +1,7 @@
 // L1 시나리오 스모크 — 시드 고정, 헤드리스. stepWorld 추출이 올바른지 + 결정론 확인.
 import { bootSim, run, runDays, designateChop, give, snapshot, DAY_MIN, MAP_W } from './harness.mjs';
 import { addBuilding, storageCap, upgradeMult, upgradeAdd, maxPop, rankReqStatus, canAdvanceRank, advanceRank, defenseStats, tickTowers, enemyStats, spawnRaid, mulberry32, grantRelic, dailyIslandRespawn, checkIslandDiscovery, updateEnemies, idx, shipComplete, fishSpotTier, footprintTouchesWater, canPlaceBridge, isWalkable, autoDesignateLodges, footprintAdjacentMine } from '../js/world.js';
-import { GIANT, ENEMY, CANNIBAL, ISLANDS, INVASION, OUTPOST_BRANCHES, RAIDER, INVWARRIOR, ZOMBIE, SKELETON, GIANT_JUMP, ARMOR, FRUITTREE, FISH, catchFish, GODDESS, TRADER, BUILDS, BUILD_MIN_RANK, FISH_PLATFORM } from '../js/config.js';
+import { GIANT, ENEMY, CANNIBAL, ISLANDS, INVASION, OUTPOST_BRANCHES, RAIDER, INVWARRIOR, ZOMBIE, SKELETON, GIANT_JUMP, ARMOR, FRUITTREE, FISH, catchFish, GODDESS, TRADER, BUILDS, BUILD_MIN_RANK, FISH_PLATFORM, DEMON } from '../js/config.js';
 import { findWorkJob, releaseAllOf } from '../js/jobs.js';
 
 var fails = 0;
@@ -895,6 +895,59 @@ console.log('[sim-smoke] 34) 일꾼 오두막 — 광부(인접 광산 자동 �
   autoDesignateLodges(w2);
   ok(Object.keys(w2.farmZone).length > 0, '농업 연구 후 주변 잔디가 자동 농사 구역이 됨 (' + Object.keys(w2.farmZone).length + '칸)');
   ok(!w2.farmZone[idx(50, 50)], '오두막 자리 자체는 농사 구역에서 제외');
+})();
+
+console.log('[sim-smoke] 35) 최종 보스 「악마후배」 — 먼 섬 상주 + 괴민 10배 체력 + 처치 시 막대한 보상 (신규)');
+(function () {
+  // 보스 섬 정의 존재 + 시작 대륙(맵 중앙)에서 가장 먼 섬
+  var demonDef = ISLANDS.find(function (i) { return i.theme === 'boss'; });
+  ok(!!demonDef, 'ISLANDS 에 보스(악마의 섬) 정의 존재');
+  ok(enemyStats({ kind: 'demon' }).hp === DEMON.hp, '악마후배 종류 스탯 = DEMON');
+  ok(DEMON.hp === GIANT.hp * 10, '악마후배 체력 = 괴민의 10배 (' + DEMON.hp + ')');
+  ok(DEMON.dropGold >= 1000 && DEMON.dropIron >= 500, '처치 보상이 막대함(금·철)');
+
+  // 월드 생성 시 보스 1체 상주 + 섬 중앙에서 가장 먼 위치인지
+  var w = bootSim(1101).world;
+  var demons = w.enemies.filter(function (e) { return e.kind === 'demon'; });
+  ok(demons.length === 1, '월드에 악마후배 1체 상주 (' + demons.length + ')');
+  ok(demons[0].hp === DEMON.hp && demons[0].boss === true, '보스 플래그·풀피 초기화');
+  // 보스 섬이 다른 원정 섬들보다 시작점(맵 중앙 48,48)에서 멀거나 비슷하게 외딴가
+  var bIsl = w.islands.find(function (i) { return i.theme === 'boss'; });
+  ok(!!bIsl, '보스 섬 메타 생성됨');
+
+  // 처치 → world.bossJustKilled 플래그 → sim 이 보상 처리
+  var sim = bootSim(1102);
+  var w2 = sim.world;
+  var boss = w2.enemies.filter(function (e) { return e.kind === 'demon'; })[0];
+  var goldBefore = w2.stock.gold || 0, ironBefore = w2.stock.iron || 0;
+  boss.hp = 0; // 즉사 처리
+  updateEnemies(w2, sim.pawns, 1, {});
+  ok(w2.bossJustKilled === true, '보스 처치 시 bossJustKilled 플래그 설정');
+  ok((w2.stock.gold || 0) >= goldBefore + DEMON.dropGold, '막대한 금 드랍 (' + goldBefore + '→' + (w2.stock.gold || 0) + ')');
+  ok((w2.stock.iron || 0) >= ironBefore + DEMON.dropIron, '막대한 철 드랍');
+  ok(!w2.enemies.some(function (e) { return e.kind === 'demon'; }), '처치된 보스는 제거됨(리스폰 없음)');
+  // sim.stepWorld 가 전설 유물 + 보스 격파 플래그 처리
+  var relicBefore = Object.values(w2.relics || {}).reduce(function (a, b) { return a + b; }, 0);
+  run(sim, 1);
+  ok(w2.bossDefeated === true, 'stepWorld 후 bossDefeated 설정');
+  ok(w2.bossJustKilled === false, '보상 처리 후 플래그 해제(1회성)');
+  var relicAfter = Object.values(w2.relics || {}).reduce(function (a, b) { return a + b; }, 0);
+  ok(relicAfter > relicBefore, '처치 보상으로 전설 유물 지급 (' + relicBefore + '→' + relicAfter + ')');
+})();
+
+console.log('[sim-smoke] 36) 자동 무장 토글 — 켜면 유휴 정착민이 창고 무기를 미리 장착 (신규)');
+(function () {
+  var sim = bootSim(1201); var w = sim.world;
+  give(sim, { food: 300, meal: 50 });
+  w.stock.sword = 3;
+  w.autoEquip = false;
+  run(sim, 30);
+  ok(sim.pawns.every(function (p) { return !p.equipped; }), '자동 무장 OFF: 적이 없으면 무기 미장착');
+  w.autoEquip = true;
+  run(sim, 30);
+  var armed = sim.pawns.filter(function (p) { return p.equipped; }).length;
+  ok(armed > 0, '자동 무장 ON: 유휴 정착민이 창고 무기를 미리 장착 (' + armed + '명)');
+  ok((w.stock.sword || 0) < 3, '장착한 만큼 창고 무기 소비됨 (남은 ' + (w.stock.sword || 0) + ')');
 })();
 
 console.log('');

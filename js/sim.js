@@ -68,6 +68,17 @@ export function stepWorld(world, pawns, dtMin, rng, ctx, enemyCbs) {
   // 일꾼 오두막 자동 지정(광부=인접 광산 채굴, 농부=주변 농사 구역). 바뀌면 구역 오버레이 갱신.
   if (autoDesignateLodges(world) && ctx.onZonesChanged) ctx.onZonesChanged();
 
+  // 최종 보스 「악마후배」 처치 보상: 이미 막대한 금·철을 떨궜고(updateEnemies), 여기서 전설 유물 확정 + 승전 연출.
+  if (world.bossJustKilled) {
+    world.bossJustKilled = false;
+    world.bossDefeated = true;
+    var bossRelic = grantLegendaryRelic(world, rng);
+    ctx.onToast('👹 최종 보스 「악마후배」를 쓰러뜨렸습니다! 막대한 금·철과 전설 유물을 획득했습니다!', false);
+    ctx.onEvent('👹 악마후배 처치 — 최종 보스 격파!');
+    ctx.onToast('👑 전설급 유물 획득: ' + bossRelic.def.icon + ' ' + bossRelic.def.name);
+    ctx.onSfx('success');
+  }
+
   // 원정 섬 발견: 정착민이 섬 반경 안에 들어오면 즉시 안내
   var newlyFound = checkIslandDiscovery(world, pawns);
   for (var nf = 0; nf < newlyFound.length; nf++) {

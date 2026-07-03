@@ -73,6 +73,16 @@ export function createUI(handlers) {
   if (btnDiscard) btnDiscard.addEventListener('click', showDiscard);
   var btnTrader = document.getElementById('btnTrader');
   if (btnTrader) btnTrader.addEventListener('click', showTrader);
+  var btnAutoEquip = document.getElementById('btnAutoEquip');
+  if (btnAutoEquip) btnAutoEquip.addEventListener('click', function () {
+    if (handlers.onToggleAutoEquip) handlers.onToggleAutoEquip();
+  });
+  function updateAutoEquipBtn() {
+    if (!btnAutoEquip) return;
+    btnAutoEquip.textContent = world.autoEquip ? '🗡️ 자동무장: 켜짐' : '🗡️ 자동무장: 꺼짐';
+    btnAutoEquip.classList.toggle('eq-active', !!world.autoEquip);
+  }
+  updateAutoEquipBtn();
   var btnCancelAll = document.getElementById('btnCancelAll');
   if (btnCancelAll) btnCancelAll.addEventListener('click', function () {
     if (handlers.onCancelAll) handlers.onCancelAll();
@@ -861,6 +871,7 @@ export function createUI(handlers) {
     showUpgrades: showUpgrades,
     showDevelopment: showDevelopment,
     refreshLocks: refreshLocks,
+    updateAutoEquipBtn: updateAutoEquipBtn,
     getTool: function () { return tool; },
     setTool: setTool,
     setHireInfo: setHireInfo,

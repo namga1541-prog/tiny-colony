@@ -343,6 +343,13 @@ export const WARLORD = {
   dropGold: 39, dropIron: 20, name: '정복자',
 };
 
+// ── 최종 보스 「악마후배」: 가장 먼 섬에 상주. 괴민의 10배 체력 + 압도적 화력. 처치 시 막대한 보상 + 전설 유물 확정 ──
+export const DEMON = {
+  hp: GIANT.hp * 10, // 9000 (괴민 900의 10배)
+  power: 60, attackCd: 18, moveMinPerTile: 2.4,
+  dropGold: 2000, dropIron: 800, name: '악마후배',
+};
+
 // ── 나라의 시련(대침공): 달력상 고정된 날짜(10일차·20일차)에 파도식 습격. 정복자가 각 웨이브를 이끈다.
 // 나라 단계 도달 여부와 무관하게 무조건 발동 — 방어를 못 갖췄어도 시련을 겪는 가혹한 난이도.
 // schedule 순서대로 하나씩 진행되며, 뒤로 갈수록(20일차) 웨이브·적 수·보상이 늘어난다.
@@ -476,6 +483,8 @@ export const ISLANDS = [
   { id: 'treasure', theme: 'treasure', name: '보물섬',    icon: '💰', cxf: 0.125, cyf: 0.125, rf: 0.075 },
   { id: 'cannibal', theme: 'cannibal', name: '식인종의 섬', icon: '💀', cxf: 0.885, cyf: 0.885, rf: 0.075 },
   { id: 'rareland', theme: 'rare',     name: '비경의 섬',   icon: '🦄', cxf: 0.575, cyf: 0.935, rf: 0.075 },
+  // 최종 보스 「악마후배」의 섬 — 시작 지점(맵 중앙)에서 멀리 떨어진 좌하단 외딴 구석, 조금 더 크게
+  { id: 'demon',    theme: 'boss',     name: '악마의 섬',   icon: '👹', cxf: 0.09,  cyf: 0.92,  rf: 0.09 },
 ];
 
 // ── 계절 (6일 = 1계절, 24일 = 1년) ──

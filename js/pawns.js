@@ -761,6 +761,11 @@ export function updatePawn(world, pawn, dtMin, ctx) {
   pawn.mood += (moodTarget - pawn.mood) * Math.min(1, moodRate * dtMin);
   pawn.mood = Math.max(0, Math.min(100, pawn.mood));
 
+  // 자동 무장 토글(관리 탭): 켜져 있으면 유휴 정착민이 창고 무기를 미리(전투 전에) 장착 — 강한 것 우선, 조용히
+  if (world.autoEquip && !pawn.manual && !pawn.equipped && hasStockWeapon(world)) {
+    tryAutoArm(world, pawn);
+  }
+
   // 전투: 적이 있으면 AI가 자동 대응 (직접 조종 중이면 Space 즉발 공격 또는 ⚔️ 자동공격 토글)
   if (!pawn.manual && world.enemies.length > 0) {
     if (handleCombat(world, pawn, dtMin, ctx)) return;

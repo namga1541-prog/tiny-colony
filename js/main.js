@@ -46,6 +46,8 @@ if (saved) {
   world.traderDepartDay = saved.traderDepartDay || 0;
   world.nextTraderDay = saved.nextTraderDay || 0;
   world.escaped = saved.escaped || false;
+  world.autoEquip = saved.autoEquip || false;
+  world.bossDefeated = saved.bossDefeated || false;
   world.invasion = saved.invasion || null;
   world.invasionWon = saved.invasionWon || false;
   world.invasionsCompleted = saved.invasionsCompleted || 0;
@@ -227,6 +229,13 @@ var UI = createUI({
     targets.forEach(function (p) { p.autoAttack = on; });
     UI.toast(on ? '⚔️ 자동공격 ON — 사거리 안의 적을 자동으로 공격합니다 (이동은 직접 조작)' : '⚔️ 자동공격 OFF');
     UI.updatePawnPanel(pawn);
+  },
+  onToggleAutoEquip: function () {
+    world.autoEquip = !world.autoEquip;
+    UI.toast(world.autoEquip
+      ? '🗡️ 자동 무장 ON — 유휴 정착민이 창고의 무기를 알아서 장착합니다'
+      : '🗡️ 자동 무장 OFF');
+    if (UI.updateAutoEquipBtn) UI.updateAutoEquipBtn();
   },
   onSetRole: function (pawn, role) {
     var newRole = (pawn.role === role) ? 'none' : role; // 패널 정착민 기준 토글
