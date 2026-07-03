@@ -19,11 +19,15 @@ import { stepWorld } from './sim.js';
 import { createAudio } from './audio.js';
 import { createRenderer } from './render.js';
 import { createUI } from './ui.js';
-import { saveGame, loadSaveData, clearSave } from './save.js';
+import { saveGame, loadSaveData, clearSave, hasSave } from './save.js';
 
 // ── 월드 준비 ──
 var world, pawns;
 var saved = loadSaveData();
+// 저장은 있었지만(hasSave) 버전 불일치·손상 등으로 불러오기 실패 → 새 게임으로 유도됨.
+// 안내 없이 새 게임 화면이 뜨면 "저장이 사라졌다"로 오해하기 쉬워, 이유를 명확히 알림.
+var hadIncompatibleSave = !saved && hasSave();
+if (hadIncompatibleSave) clearSave(); // 못 쓰는 구버전 데이터 정리(다음 저장이 새 형식으로 덮어씀)
 
 if (saved) {
   world = createWorld(saved.seed);
@@ -1054,6 +1058,9 @@ R.app.ticker.add(function () {
 if (!saved) {
   // 새 게임: 커스터마이징 먼저
   setSpeed(0);
+  if (hadIncompatibleSave) {
+    UI.toast('⚠️ 이전 저장 데이터를 이 버전에서 불러올 수 없어 새 게임으로 시작합니다 (게임 업데이트로 인한 호환 문제)', true);
+  }
   setTimeout(function () {
     UI.showCustomize(pawns, '🏝️ 정착민 커스터마이징 — 이름과 외형을 정해 주세요', function () {
       setSpeed(1);
