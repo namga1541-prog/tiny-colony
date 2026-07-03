@@ -1,7 +1,7 @@
 // v0.3 월드: 바다 위의 섬 + 다중타일 건물(풋프린트) + 금광 + 양
 import {
-  MAP_W, MAP_H, NATURE, STACK_MAX, BUILDS, GOLDMINE, IRONMINE, BRIDGE,
-  RESEARCH_RATE_PER_PAWN, ENEMY, RAID, GIANT, GIANT_FAST_MULT, SEASON_DAYS, SEASONS, STORAGE, RANCH, REGROW,
+  MAP_W, MAP_H, NATURE, STACK_MAX, BUILDS, BUILDING_HP_DEFAULT, GOLDMINE, IRONMINE, BRIDGE,
+  RESEARCH_RATE_PER_PAWN, ENEMY, RAID, GIANT, GIANT_FAST_MULT, GIANT_JUMP, SEASON_DAYS, SEASONS, STORAGE, RANCH, REGROW,
   ANIMAL_TYPES, WAREHOUSE_TIERS, UPGRADES, RANKS, DEFENSE_TIERS, OUTPOST_BRANCHES, CANNON, RELICS, ISLANDS, CANNIBAL, WARLORD, RAIDER, INVWARRIOR, ZOMBIE, SKELETON,
   T_WATER, T_GRASS, T_SAND,
 } from './config.js';
@@ -333,6 +333,8 @@ export function addBuilding(world, kind, x, y, opts) {
   if (opts && opts.natural) b.natural = true;
   if (opts && opts.charges !== undefined) { b.charges = opts.charges; b.maxCharges = opts.charges; }
   if (kind === 'warehouse') b.tier = 1;
+  // 내구도: 자연물(광산 등)·다리 제외한 일반 건물만 적에게 파괴될 수 있음
+  if (!b.natural && kind !== 'bridge') { b.maxHp = def.hp || BUILDING_HP_DEFAULT; b.hp = b.maxHp; }
   world.buildings[b.id] = b;
   for (var dy = 0; dy < def.fh; dy++) {
     for (var dx = 0; dx < def.fw; dx++) {
@@ -749,7 +751,43 @@ export function nearestEnemy(world, x, y, maxDist) {
   return best ? { enemy: best, dist: bestD } : null;
 }
 
-// 적 이동·공격 (정착민 공격은 pawns.js 에서). cb: {onHit(pawn,dmg), onPawnDeath(pawn), onEnemyGone}
+// 건물 풋프린트에서 (ex,ey) 에 가장 가까운 타일 좌표 (대형 건물의 "가까운 벽" 접근용)
+function closestPointOnBuilding(ex, ey, b, def) {
+  var cx = Math.max(b.x, Math.min(ex, b.x + def.fw - 1));
+  var cy = Math.max(b.y, Math.min(ey, b.y + def.fh - 1));
+  return { x: cx, y: cy };
+}
+
+// 적의 공격 대상 탐색: 정착민을 우선하되(거리 보정), 정착민이 멀거나 없으면 가장 가까운 건물·작물도 노림
+// (담 너머 갇혀도 근처 건물·밭을 부수며 진행) — 반환: {kind:'pawn'|'building'|'crop', ref, x, y, dist}
+function nearestAttackable(world, pawns, ex, ey) {
+  var best = null, bestScore = Infinity;
+  for (var p = 0; p < pawns.length; p++) {
+    if (pawns[p].state === 'dead') continue;
+    var dp = Math.abs(pawns[p].px - ex) + Math.abs(pawns[p].py - ey);
+    var score = Math.max(0, dp - 2); // 정착민은 2칸 더 가까운 것처럼 취급(우선 타겟)
+    if (score < bestScore) { bestScore = score; best = { kind: 'pawn', ref: pawns[p], x: pawns[p].px, y: pawns[p].py, dist: dp }; }
+  }
+  for (var id in world.buildings) {
+    var b = world.buildings[id];
+    if (b.stage !== 'built' || b.natural || b.kind === 'bridge') continue;
+    var def = buildingDef(b.kind);
+    var pt = closestPointOnBuilding(ex, ey, b, def);
+    var db = Math.abs(pt.x - ex) + Math.abs(pt.y - ey);
+    if (db < bestScore) { bestScore = db; best = { kind: 'building', ref: b, x: pt.x, y: pt.y, dist: db }; }
+  }
+  for (var ci in world.crops) {
+    var c = world.crops[ci];
+    if (!c || c.stage === 'empty') continue;
+    var cx = ix(+ci), cy = iy(+ci);
+    var dc = Math.abs(cx - ex) + Math.abs(cy - ey);
+    if (dc < bestScore) { bestScore = dc; best = { kind: 'crop', ref: { idx: +ci }, x: cx, y: cy, dist: dc }; }
+  }
+  return best;
+}
+
+// 적 이동·공격 (정착민 공격은 pawns.js 에서). cb: {onHit(pawn,dmg), onPawnDeath(pawn), onEnemyGone,
+//   onBuildingDestroyed(b), onCropDestroyed(idx), onGiantJump(e,x,y)}
 export function updateEnemies(world, pawns, dtMin, cb) {
   var alive = [];
   for (var n = 0; n < world.enemies.length; n++) {
@@ -762,28 +800,83 @@ export function updateEnemies(world, pawns, dtMin, cb) {
       if (cb.onEnemyDown) cb.onEnemyDown(e);
       continue;
     }
-    // 목표: 가장 가까운 살아있는 정착민
-    var tgt = null, tgtD = Infinity;
-    for (var p = 0; p < pawns.length; p++) {
-      if (pawns[p].state === 'dead') continue;
-      var d = Math.abs(pawns[p].px - e.px) + Math.abs(pawns[p].py - e.py);
-      if (d < tgtD) { tgtD = d; tgt = pawns[p]; }
+    // 괴민 점프: 쿨다운마다 목표 방향으로 도약(통행 불가 지형 무시) → 벽·숲에 막혀도 뚫고 진행 + 착지 지점 광역 파괴
+    if (e.kind === 'giant') {
+      e.jumpCd = (e.jumpCd === undefined ? GIANT_JUMP.cooldown : e.jumpCd) - dtMin;
+      if (e.jumpCd <= 0) {
+        e.jumpCd = GIANT_JUMP.cooldown;
+        var jt = nearestAttackable(world, pawns, e.px, e.py);
+        var jx = jt ? Math.sign(jt.x - e.px) : (e.dir || 1);
+        var jy = jt ? Math.sign(jt.y - e.py) : 0;
+        if (jx === 0 && jy === 0) jx = e.dir || 1;
+        var lx = Math.max(1, Math.min(MAP_W - 2, Math.round(e.px + jx * GIANT_JUMP.distance)));
+        var ly = Math.max(1, Math.min(MAP_H - 2, Math.round(e.py + jy * GIANT_JUMP.distance)));
+        e.px = lx; e.py = ly; e.x = lx; e.y = ly;
+        if (jx !== 0) e.dir = jx;
+        // 착지 반경: 나무 파괴, 정착민·건물 피해
+        for (var ddy = -GIANT_JUMP.radius; ddy <= GIANT_JUMP.radius; ddy++) {
+          for (var ddx = -GIANT_JUMP.radius; ddx <= GIANT_JUMP.radius; ddx++) {
+            var lxx = lx + ddx, lyy = ly + ddy;
+            if (Math.abs(ddx) + Math.abs(ddy) > GIANT_JUMP.radius) continue;
+            if (!inMap(lxx, lyy)) continue;
+            var li = idx(lxx, lyy);
+            var lo = world.objects[li];
+            if (lo && lo.kind === 'tree') world.objects[li] = { kind: 'stump' };
+          }
+        }
+        for (var lp = 0; lp < pawns.length; lp++) {
+          var lpw = pawns[lp];
+          if (lpw.state === 'dead') continue;
+          if (Math.abs(lpw.px - lx) + Math.abs(lpw.py - ly) <= GIANT_JUMP.radius) {
+            lpw.hp = Math.max(0, lpw.hp - GIANT_JUMP.damage);
+            if (cb.onHit) cb.onHit(lpw, GIANT_JUMP.damage);
+            if (lpw.hp <= 0 && lpw.state !== 'dead') { lpw.state = 'dead'; lpw.job = null; if (cb.onPawnDeath) cb.onPawnDeath(lpw); }
+          }
+        }
+        for (var lid in world.buildings) {
+          var lb = world.buildings[lid];
+          if (lb.stage !== 'built' || lb.natural || lb.kind === 'bridge') continue;
+          var ldef = buildingDef(lb.kind);
+          var lpt = closestPointOnBuilding(lx, ly, lb, ldef);
+          if (Math.abs(lpt.x - lx) + Math.abs(lpt.y - ly) <= GIANT_JUMP.radius) {
+            lb.hp = Math.max(0, (lb.hp != null ? lb.hp : BUILDING_HP_DEFAULT) - GIANT_JUMP.damage);
+            if (lb.hp <= 0) { if (cb.onBuildingDestroyed) cb.onBuildingDestroyed(lb); removeBuilding(world, lb); }
+            else if (cb.onBuildingHit) cb.onBuildingHit(lb, GIANT_JUMP.damage);
+          }
+        }
+        if (cb.onGiantJump) cb.onGiantJump(e, lx, ly);
+        alive.push(e);
+        continue; // 이번 틱은 점프로 소모 — 일반 이동/공격 생략
+      }
     }
+    // 목표: 정착민 우선, 없거나 멀면 가까운 건물·작물
+    var tgt = nearestAttackable(world, pawns, e.px, e.py);
     if (tgt) {
-      if (tgtD <= 1.05) {
+      var adjacentR = tgt.kind === 'pawn' ? 1.05 : 1.05;
+      if (tgt.dist <= adjacentR) {
         // 인접 → 공격
         e.cd -= dtMin;
         e.moving = false;
         if (e.cd <= 0) {
           e.cd = st.attackCd;
-          tgt.hp = Math.max(0, tgt.hp - st.power);
-          if (cb.onHit) cb.onHit(tgt, st.power);
-          if (e.kind === 'giant' && cb.onGiantSmash) cb.onGiantSmash(e, tgt); // 주먹질 충격
-
-          if (tgt.hp <= 0 && tgt.state !== 'dead') {
-            tgt.state = 'dead';
-            tgt.job = null;
-            if (cb.onPawnDeath) cb.onPawnDeath(tgt);
+          if (tgt.kind === 'pawn') {
+            var pw = tgt.ref;
+            pw.hp = Math.max(0, pw.hp - st.power);
+            if (cb.onHit) cb.onHit(pw, st.power);
+            if (e.kind === 'giant' && cb.onGiantSmash) cb.onGiantSmash(e, pw); // 주먹질 충격
+            if (pw.hp <= 0 && pw.state !== 'dead') {
+              pw.state = 'dead';
+              pw.job = null;
+              if (cb.onPawnDeath) cb.onPawnDeath(pw);
+            }
+          } else if (tgt.kind === 'building') {
+            var bld = tgt.ref;
+            bld.hp = Math.max(0, (bld.hp != null ? bld.hp : BUILDING_HP_DEFAULT) - st.power);
+            if (bld.hp <= 0) { if (cb.onBuildingDestroyed) cb.onBuildingDestroyed(bld); removeBuilding(world, bld); }
+            else if (cb.onBuildingHit) cb.onBuildingHit(bld, st.power);
+          } else if (tgt.kind === 'crop') {
+            delete world.crops[tgt.ref.idx];
+            if (cb.onCropDestroyed) cb.onCropDestroyed(tgt.ref.idx);
           }
         }
       } else {
@@ -791,11 +884,11 @@ export function updateEnemies(world, pawns, dtMin, cb) {
         e.moving = true;
         var mmpt = e.fast ? st.moveMinPerTile * GIANT_FAST_MULT : st.moveMinPerTile;
         var step = dtMin / mmpt;
-        var vx = Math.sign(tgt.px - e.px), vy = Math.sign(tgt.py - e.py);
+        var vx = Math.sign(tgt.x - e.px), vy = Math.sign(tgt.y - e.py);
         if (vx !== 0) e.dir = vx;
         // 우선 큰 축 이동
         var movedAxis = false;
-        if (Math.abs(tgt.px - e.px) >= Math.abs(tgt.py - e.py)) {
+        if (Math.abs(tgt.x - e.px) >= Math.abs(tgt.y - e.py)) {
           if (vx !== 0 && isWalkable(world, Math.round(e.px + vx), Math.round(e.py))) { e.px += vx * step; movedAxis = true; }
           else if (vy !== 0 && isWalkable(world, Math.round(e.px), Math.round(e.py + vy))) { e.py += vy * step; movedAxis = true; }
         } else {

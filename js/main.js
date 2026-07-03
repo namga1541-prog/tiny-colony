@@ -1020,6 +1020,21 @@ var enemyCbs = {
     R.spawnBoomFx(tgt.x, tgt.y);
     Audio2.play('attack');
   },
+  onBuildingHit: function (b, dmg) { /* 잦은 이벤트라 파괴 시에만 알림(아래) */ },
+  onBuildingDestroyed: function (b) {
+    var def = BUILDS[b.kind];
+    R.spawnBoomFx(b.x, b.y);
+    R.removeBuildingSprite(b.id);
+    UI.toast('🔥 ' + (def ? def.name : b.kind) + '이(가) 파괴되었습니다!', true);
+    UI.addEvent('🔥 ' + (def ? def.name : b.kind) + ' 파괴됨');
+    Audio2.play('alert');
+  },
+  onCropDestroyed: function (cropIdx) { R.refreshCrop(cropIdx); },
+  onGiantJump: function (e, x, y) { // 괴민 도약: 착지 이펙트 + 안내
+    R.spawnBoomFx(x, y);
+    Audio2.play('attack');
+    UI.toast('🦶 괴민이 크게 뛰어올라 착지했습니다!', true);
+  },
 };
 
 // 계절 초기 표시 (prevSeason 은 stepWorld 가 world.prevSeason 으로 추적)

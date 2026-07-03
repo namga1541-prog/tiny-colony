@@ -1,7 +1,7 @@
 // L1 시나리오 스모크 — 시드 고정, 헤드리스. stepWorld 추출이 올바른지 + 결정론 확인.
 import { bootSim, run, runDays, designateChop, give, snapshot } from './harness.mjs';
-import { addBuilding, storageCap, upgradeMult, upgradeAdd, maxPop, rankReqStatus, canAdvanceRank, advanceRank, defenseStats, tickTowers, enemyStats, spawnRaid, mulberry32, grantRelic, dailyIslandRespawn, checkIslandDiscovery } from '../js/world.js';
-import { GIANT, ENEMY, CANNIBAL, ISLANDS, INVASION, OUTPOST_BRANCHES, RAIDER, INVWARRIOR, ZOMBIE, SKELETON } from '../js/config.js';
+import { addBuilding, storageCap, upgradeMult, upgradeAdd, maxPop, rankReqStatus, canAdvanceRank, advanceRank, defenseStats, tickTowers, enemyStats, spawnRaid, mulberry32, grantRelic, dailyIslandRespawn, checkIslandDiscovery, updateEnemies, idx } from '../js/world.js';
+import { GIANT, ENEMY, CANNIBAL, ISLANDS, INVASION, OUTPOST_BRANCHES, RAIDER, INVWARRIOR, ZOMBIE, SKELETON, GIANT_JUMP } from '../js/config.js';
 import { findWorkJob, releaseAllOf } from '../js/jobs.js';
 
 var fails = 0;
@@ -416,9 +416,15 @@ console.log('[sim-smoke] 17) 대침공 — 전멸 위기 시 게임오버 대신
   var sim = bootSim(654);
   var w = sim.world;
   give(sim, { food: 2000, meal: 500 });
+  // 침공 발동 전까지는 정착민을 보호(1분 단위 힐) — 전멸위기 시점은 아래서 직접 통제해야 하므로
   run(sim, 1);
   w.invasion.triggerDay = w.day;
-  run(sim, 21 * 60);
+  var left = 21 * 60;
+  while (left > 0) {
+    var d = Math.min(1, left); left -= d;
+    run(sim, d);
+    sim.pawns.forEach(function (p) { if (p.state === 'dead') p.state = 'idle'; p.hp = 100; });
+  }
   ok(w.invasion.phase === 'active', '1차 침공 발동');
   // 생존자 2명 이하로 강제 설정(전멸 위기 재현)
   for (var i = 2; i < sim.pawns.length; i++) sim.pawns[i].state = 'dead';
@@ -569,6 +575,55 @@ console.log('[sim-smoke] 22) 괴민 강화 — HP 3배 + 빠른 괴민(대침공
   run(s, 30);
   var slowMoved = Math.abs(slow.px - sx0), quickMoved = Math.abs(quick.px - qx0);
   ok(quickMoved > slowMoved, '빠른 괴민이 일반 괴민보다 더 멀리 이동 (' + quickMoved.toFixed(2) + ' > ' + slowMoved.toFixed(2) + ')');
+})();
+
+console.log('[sim-smoke] 23) 적이 정착민 없거나 멀면 근처 건물·작물도 공격(파괴) (신규)');
+(function () {
+  var sim = bootSim(201); var w = sim.world;
+  sim.pawns.forEach(function (p) { p.px = 2; p.py = 2; p.x = 2; p.y = 2; }); // 정착민을 멀리 치워 우선순위에서 배제
+  var b = addBuilding(w, 'house', 40, 40, { stage: 'built' });
+  ok(b.hp === b.maxHp && b.hp > 0, '완공 건물은 hp/maxHp 보유 (' + b.hp + '/' + b.maxHp + ')');
+  var e1 = { id: w.nextEid++, x: 42, y: 40, px: 42, py: 40, hp: 999, maxHp: 999, cd: 0, dir: -1, anim: 0, kind: 'goblin', wave: 0 };
+  w.enemies.push(e1);
+  var hpBefore = b.hp;
+  for (var i = 0; i < 25; i++) updateEnemies(w, sim.pawns, 10, {});
+  ok(!w.buildings[b.id] || w.buildings[b.id].hp < hpBefore,
+    '정착민이 멀면 근처 건물을 반복 공격해 파괴함 (' + (w.buildings[b.id] ? '남은hp ' + w.buildings[b.id].hp : '파괴됨') + ')');
+
+  // 작물도 동일하게 공격 대상이 됨
+  var w2 = bootSim(202).world;
+  var sim2 = { world: w2, pawns: [] };
+  var pawns2 = [{ id: 0, state: 'idle', px: 2, py: 2, x: 2, y: 2, hp: 100 }];
+  w2.crops[idx(40, 40)] = { stage: 'ready', timer: 0 };
+  var e2 = { id: w2.nextEid++, x: 41, y: 40, px: 41, py: 40, hp: 999, maxHp: 999, cd: 0, dir: -1, anim: 0, kind: 'goblin', wave: 0 };
+  w2.enemies.push(e2);
+  updateEnemies(w2, pawns2, 20, {});
+  ok(!w2.crops[idx(40, 40)], '정착민이 멀면 근처 작물도 공격해 파괴함');
+
+  // 정착민이 더 가까우면 정착민을 우선 타겟
+  var w3 = bootSim(203).world;
+  var b3 = addBuilding(w3, 'house', 40, 40, { stage: 'built' });
+  var pawns3 = [{ id: 0, state: 'idle', px: 43, py: 40, x: 43, y: 40, hp: 100 }]; // 건물보다 정착민이 더 가까움
+  var e3 = { id: w3.nextEid++, x: 43, y: 41, px: 43, py: 41, hp: 999, maxHp: 999, cd: 0, dir: -1, anim: 0, kind: 'goblin', wave: 0 };
+  w3.enemies.push(e3);
+  updateEnemies(w3, pawns3, 20, {});
+  ok(pawns3[0].hp < 100 && b3.hp === b3.maxHp, '정착민이 더 가까우면 건물 대신 정착민을 우선 공격');
+})();
+
+console.log('[sim-smoke] 24) 괴민 점프 — 쿨다운마다 장애물 무시하고 도약 + 착지 반경 파괴 (신규)');
+(function () {
+  var sim = bootSim(301); var w = sim.world;
+  var landX = 40 + GIANT_JUMP.distance;
+  sim.pawns.forEach(function (p) { p.px = landX; p.py = 50; p.x = landX; p.y = 50; }); // 착지 지점에 배치(방향 유도 겸 피해 확인)
+  var g = { id: w.nextEid++, x: 40, y: 50, px: 40, py: 50, hp: 900, maxHp: 900, cd: 0, dir: 1, anim: 0, kind: 'giant', wave: 0, jumpCd: 0 };
+  w.enemies.push(g);
+  w.objects[idx(landX, 50)] = { kind: 'tree' }; // 착지 지점에 나무(파괴 확인용)
+  updateEnemies(w, sim.pawns, 1, {});
+  ok(g.px === landX && g.py === 50, '괴민이 목표 방향으로 정확히 ' + GIANT_JUMP.distance + '칸 도약 (' + g.px + ',' + g.py + ')');
+  ok(g.jumpCd > 0 && g.jumpCd <= GIANT_JUMP.cooldown, '점프 후 쿨다운 재설정 (' + g.jumpCd + ')');
+  ok(w.objects[idx(landX, 50)].kind === 'stump', '착지 지점의 나무가 파괴됨(그루터기로)');
+  ok(sim.pawns.every(function (p) { return p.hp === 100 - GIANT_JUMP.damage; }),
+    '착지 반경 내 정착민이 피해를 입음 (hp ' + sim.pawns[0].hp + ')');
 })();
 
 console.log('');

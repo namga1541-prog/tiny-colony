@@ -13,14 +13,14 @@ export const T_WATER = 0, T_GRASS = 1, T_SAND = 2;
 // 건설 정의 — 완성형 건물 (fw/fh = 점유 타일 풋프린트)
 export const BUILDS = {
   house: {
-    name: '집', cost: { wood: 10 }, work: 60,
+    name: '집', cost: { wood: 10 }, work: 60, hp: 80,
     fw: 2, fh: 2, solid: true, light: true,
     img: 'House', imgC: 'House_C', pw: 128, ph: 192,
     town: { sx: 0, sy: 64, sw: 64, sh: 64 }, tint: 0xe6d2b0, // 회색지붕 집 + 따뜻한 크림색조(집=거주)
     desc: '정착촌의 기본 건물입니다.',
   },
   smithy: {
-    name: '대장간', cost: { wood: 12, gold: 4 }, work: 70,
+    name: '대장간', cost: { wood: 12, gold: 4 }, work: 70, hp: 100,
     fw: 2, fh: 2, solid: true, light: true,
     img: 'House', imgC: 'House_C', pw: 128, ph: 192,
     town: { sx: 0, sy: 64, sw: 64, sh: 64 }, tint: 0x7f8aa6, // 회색집 + 강철 청회색(대장간)
@@ -28,14 +28,14 @@ export const BUILDS = {
     desc: '검·활 등 무기를 제작하는 곳입니다. 제작 주문은 대장간에서 처리됩니다.',
   },
   warehouse: {
-    name: '창고', cost: { wood: 12 }, work: 55,
+    name: '창고', cost: { wood: 12 }, work: 55, hp: 90,
     fw: 2, fh: 2, solid: true,
     img: 'House', imgC: 'House_C', pw: 128, ph: 192,
     town: { sx: 64, sy: 64, sw: 64, sh: 64 }, tint: 0xd99a4e, // 빨간지붕집 + 나무·호박색조(창고=물류)
     desc: '저장 용량을 크게 늘립니다.',
   },
   tower: {
-    name: '망루', cost: { wood: 15, gold: 5 }, work: 80,
+    name: '망루', cost: { wood: 15, gold: 5 }, work: 80, hp: 160,
     fw: 2, fh: 2, solid: true, light: true,
     img: 'Tower', imgC: 'Tower_C', pw: 128, ph: 256,
     town: { sx: 128, sy: 48, sw: 48, sh: 48 }, // 목책 요새(방어)
@@ -43,7 +43,7 @@ export const BUILDS = {
     desc: '사거리 안의 고블린을 자동으로 공격합니다. 밤을 밝힙니다.',
   },
   outpost: {
-    name: '초소', cost: { wood: 8 }, work: 40,
+    name: '초소', cost: { wood: 8 }, work: 40, hp: 110,
     fw: 2, fh: 2, solid: true,
     img: 'Tower', imgC: 'Tower_C', pw: 128, ph: 256,
     town: { sx: 128, sy: 48, sw: 48, sh: 48 }, tint: 0xcbb088, // 목책 + 밝은 색조(초소)
@@ -51,7 +51,7 @@ export const BUILDS = {
     desc: '저렴한 방어 초소. 가까운 적을 약하게 공격합니다.',
   },
   castle: {
-    name: '성', cost: { wood: 30, gold: 10 }, work: 150,
+    name: '성', cost: { wood: 30, gold: 10 }, work: 150, hp: 260,
     fw: 5, fh: 3, solid: true, light: true,
     img: 'Castle', imgC: 'Castle_C', pw: 320, ph: 256,
     town: { sx: 0, sy: 128, sw: 80, sh: 48 }, // Tiny Town 석조 성문
@@ -59,26 +59,27 @@ export const BUILDS = {
     desc: '콜로니의 심장. 넓은 사거리로 강력하게 방어합니다.',
   },
   campfire: {
-    name: '모닥불', cost: { wood: 2 }, work: 10,
+    name: '모닥불', cost: { wood: 2 }, work: 10, hp: 30,
     fw: 1, fh: 1, solid: false, light: true,
     img: null, pw: 128, ph: 128, // Fire 애니메이션으로 렌더
     desc: '밤을 밝힙니다.',
   },
   ranch: {
-    name: '목장', cost: { wood: 14 }, work: 60,
+    name: '목장', cost: { wood: 14 }, work: 60, hp: 90,
     fw: 2, fh: 2, solid: true,
     img: 'House', imgC: 'House_C', pw: 128, ph: 192,
     town: { sx: 64, sy: 64, sw: 64, sh: 64 }, tint: 0xa8e08a, // 빨강집 + 초록조(목장)
     desc: '주기적으로 식량을 생산하고 가축(양·돼지·소·닭)을 번식시킵니다.',
   },
   clinic: {
-    name: '치료소', cost: { wood: 10, gold: 3 }, work: 60,
+    name: '치료소', cost: { wood: 10, gold: 3 }, work: 60, hp: 100,
     fw: 2, fh: 2, solid: true, light: true,
     img: 'House', imgC: 'House_C', pw: 128, ph: 192,
     town: { sx: 0, sy: 64, sw: 64, sh: 64 }, tint: 0xdfeaff, // 회색집 + 청백색조(치료소=청결·의료)
     desc: '부상당한 정착민이 찾아와 빠르게 회복합니다.',
   },
 };
+export const BUILDING_HP_DEFAULT = 100; // hp 미지정 건물종류(에셋팩 신규 추가 등) 폴백
 
 // ── 저장고 용량 (2): 기본 + 창고당 증가. 초과분은 저장 불가(폐기) ──
 export const STORAGE = { base: 120, perWarehouse: 180 };
@@ -263,6 +264,9 @@ export const GIANT = {
   dropGold: 30, dropIron: 15, hpPerDay: 8, name: '괴민',
 };
 export const GIANT_FAST_MULT = 0.55; // 빠른 괴민(대침공 추가 투입): 이동 소요시간 ×0.55 → 약 1.8배 빠름
+// 괴민 점프: 벽·숲에 막혀도 목표 방향으로 도약해 뚫고 나감(통행 불가 지형 무시) + 착지 지점 광역 파괴.
+// cooldown 180 게임분 = 기본 배속(MIN_PER_SEC=6)에서 실제 약 30초.
+export const GIANT_JUMP = { cooldown: 180, distance: 5, radius: 2, damage: 60 };
 export const GIANT_RAID = { everyDays: 5, spawnHour: 20, baseCount: 1 }; // 5·10·15…일 밤 8시
 export const RAID = { firstDay: 4, intervalDays: 3, baseCount: 2, perDayExtra: 0.4, spawnHour: 20,
   perPop: 0.4, hpPerDay: 1.5, loot: { gold: 4, iron: 2 } };
