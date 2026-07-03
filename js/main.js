@@ -11,8 +11,8 @@ import {
   tickRanches, storageCap, totalStored, dailyMineRegen, tickTowers, canAfford,
   upgradeAdd, maxPop, canAdvanceRank, advanceRank, defenseStats,
 } from './world.js';
-import { createPawn, updatePawn, manualInteract, equipWeapon } from './pawns.js';
-import { RESEARCH, WEAPONS, HIRE, hireCost, UPGRADES, UPGRADE_CATS } from './config.js';
+import { createPawn, updatePawn, manualInteract, equipWeapon, equipArmor } from './pawns.js';
+import { RESEARCH, ITEMS, HIRE, hireCost, UPGRADES, UPGRADE_CATS } from './config.js';
 import { releaseAllOf } from './jobs.js';
 import { GOALS, checkGoals } from './goals.js';
 import { stepWorld } from './sim.js';
@@ -41,6 +41,7 @@ if (saved) {
   world.fishDesig = saved.fishDesig || {};
   world.rank = saved.rank || 0;
   world.relics = saved.relics || {};
+  world.goddessVisited = saved.goddessVisited || false;
   world.invasion = saved.invasion || null;
   world.invasionWon = saved.invasionWon || false;
   world.invasionsCompleted = saved.invasionsCompleted || 0;
@@ -56,6 +57,7 @@ if (saved) {
   world.research = saved.research || { points: 0, unlocked: {} };
   world.upgrades = saved.upgrades || {};
   world.farmZone = saved.farmZone || {};
+  world.orchardZone = saved.orchardZone || {};
   world.crops = saved.crops || {};
   world.craftQueue = saved.craftQueue || [];
   world.enemies = saved.enemies || [];
@@ -64,7 +66,7 @@ if (saved) {
   world.goals = saved.goals || {};
   world.nextRaidDay = saved.nextRaidDay || RAID.firstDay;
   pawns = saved.pawns.map(function (p) {
-    var pw = createPawn(p.id, { name: p.name, look: p.look, color: p.color, trait: p.trait, equipped: p.equipped, skills: p.skills, role: p.role }, p.x, p.y);
+    var pw = createPawn(p.id, { name: p.name, look: p.look, color: p.color, trait: p.trait, equipped: p.equipped, armor: p.armor, skills: p.skills, role: p.role }, p.x, p.y);
     pw.hunger = p.hunger; pw.hp = p.hp;
     pw.mood = p.mood === undefined ? 70 : p.mood;
     pw.carry = p.carry || null;
@@ -182,7 +184,7 @@ var UI = createUI({
   },
   onQueueCraft: function (type) {
     world.craftQueue.push({ type: type });
-    UI.toast('⚒️ ' + WEAPONS[type].name + ' 제작 주문 접수');
+    UI.toast('⚒️ ' + ITEMS[type].name + ' 제작 주문 접수');
   },
   onCraftRod: function (rod) {
     if (!canAfford(world, rod.cost)) { UI.toast('⚠️ 자재가 부족합니다', true); return; }
@@ -195,6 +197,11 @@ var UI = createUI({
     var msg = equipWeapon(world, pawn, type);
     if (msg) UI.toast(msg);
     R.updatePawnSprite(pawn);
+    UI.updatePawnPanel(pawn);
+  },
+  onEquipArmor: function (pawn, type) {
+    var msg = equipArmor(world, pawn, type);
+    if (msg) UI.toast(msg);
     UI.updatePawnPanel(pawn);
   },
   onToggleAutoAttack: function () {
@@ -566,7 +573,7 @@ function applyTool(tool, a, b) {
       UI.showResearch();
     } else {
       forRect(a, b, function (i, x, y) {
-        if (!world.farmZone[i] && isWalkable(world, x, y) &&
+        if (!world.farmZone[i] && !world.orchardZone[i] && isWalkable(world, x, y) &&
             world.occupancy[i] === undefined && !world.objects[i] && !world.stockpile[i]) {
           world.farmZone[i] = true;
           count++;
@@ -576,11 +583,32 @@ function applyTool(tool, a, b) {
     }
   }
 
+  else if (tool === 'orchard') {
+    if (!world.research.unlocked.farming) {
+      UI.toast('🔒 먼저 "농업" 기술을 연구해야 합니다', true);
+      UI.showResearch();
+    } else {
+      forRect(a, b, function (i, x, y) {
+        if (!world.farmZone[i] && !world.orchardZone[i] && isWalkable(world, x, y) &&
+            world.occupancy[i] === undefined && !world.objects[i] && !world.stockpile[i]) {
+          world.orchardZone[i] = true;
+          count++;
+        }
+      });
+      if (count) UI.toast('🍎 과일나무 구역 ' + count + '칸 지정 — 한 번 심으면 베지 않고 계속 열매를 맺습니다');
+    }
+  }
+
   else if (tool === 'cancel') {
     forRect(a, b, function (i) {
       if (world.designations[i]) { delete world.designations[i]; count++; }
       if (world.farmZone[i]) {
         delete world.farmZone[i];
+        if (world.crops[i]) { delete world.crops[i]; R.refreshCrop(i); }
+        count++;
+      }
+      if (world.orchardZone[i]) {
+        delete world.orchardZone[i];
         if (world.crops[i]) { delete world.crops[i]; R.refreshCrop(i); }
         count++;
       }

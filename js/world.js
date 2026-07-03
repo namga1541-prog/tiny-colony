@@ -3,6 +3,7 @@ import {
   MAP_W, MAP_H, NATURE, STACK_MAX, BUILDS, BUILDING_HP_DEFAULT, GOLDMINE, IRONMINE, BRIDGE,
   RESEARCH_RATE_PER_PAWN, ENEMY, RAID, GIANT, GIANT_FAST_MULT, GIANT_JUMP, SEASON_DAYS, SEASONS, STORAGE, RANCH, REGROW,
   ANIMAL_TYPES, WAREHOUSE_TIERS, UPGRADES, RANKS, DEFENSE_TIERS, OUTPOST_BRANCHES, CANNON, RELICS, ISLANDS, CANNIBAL, WARLORD, RAIDER, INVWARRIOR, ZOMBIE, SKELETON,
+  ARMOR,
   T_WATER, T_GRASS, T_SAND,
 } from './config.js';
 
@@ -127,7 +128,8 @@ export function createWorld(seed) {
     research: { points: 0, unlocked: {} },
     upgrades: {},       // 구매한 콜로니 업그레이드 id -> true
     farmZone: {},       // idx -> true
-    crops: {},          // idx -> {stage:'empty'|'growing'|'ready', timer}
+    orchardZone: {},    // idx -> true (과일나무 심는 구역 — farmZone 과 별개, 수확해도 나무는 유지되고 재성장)
+    crops: {},          // idx -> {stage:'empty'|'growing'|'ready', timer, kind:'wheat'|'fruit'(생략 시 wheat)}
     craftQueue: [],      // [{type:'sword'|'bow'}]
     enemies: [],        // {id,x,y,px,py,hp,cd,dir,phase,anim}
     nextEid: 1,
@@ -139,6 +141,7 @@ export function createWorld(seed) {
     invasion: null,     // 대침공(INVASION) 상태: null(미시작) | {phase, schedIndex, wave, triggerDay?, gapUntilMin?}
     invasionsCompleted: 0, // 완료한 예정 침공 수(INVASION.schedule 인덱스 진행도)
     relics: {},         // 유물 id -> 보유 개수 (스택). 습격 격퇴·괴민 처치로 획득
+    goddessVisited: false, // 섬의 수호신 「아보랑카도」 강림(1회성) 여부
     dug: {},            // idx -> true. 삽으로 파낸 땅 (자원 재생 없음 · 건설 공간)
     islands: [],        // {id,name,icon,theme,cx,cy,r,discovered,cap} — 원정 섬 메타(발견·리스폰용)
   };
@@ -433,6 +436,7 @@ export function totalRes(world) {
     wood: s.wood || 0, gold: s.gold || 0, food: s.food || 0,
     iron: s.iron || 0, meal: s.meal || 0,
     sword: s.sword || 0, bow: s.bow || 0, ironSword: s.ironSword || 0, ironBow: s.ironBow || 0,
+    leatherArmor: s.leatherArmor || 0, ironArmor: s.ironArmor || 0,
   };
 }
 
@@ -544,7 +548,7 @@ export function dailyRegrowth(world, rng) {
   // 빈 잔디 타일에 놓을 수 있는지
   function freeGrass(ii) {
     return world.terrain[ii] === T_GRASS && !world.objects[ii] && !(world.dug && world.dug[ii]) &&
-      world.occupancy[ii] === undefined && !world.stockpile[ii] && !world.items[ii] && !world.farmZone[ii];
+      world.occupancy[ii] === undefined && !world.stockpile[ii] && !world.items[ii] && !world.farmZone[ii] && !world.orchardZone[ii];
   }
 
   // 버섯 (식량원) 목표치까지 보충
@@ -786,6 +790,11 @@ function nearestAttackable(world, pawns, ex, ey) {
   return best;
 }
 
+// 착용 방어구의 피해 경감치(defense). 미착용 시 0. 최소 1 데미지는 항상 관통(무적 방지)은 호출부에서 처리.
+function armorDefense(pawn) {
+  return (pawn.armor && ARMOR[pawn.armor]) ? ARMOR[pawn.armor].defense : 0;
+}
+
 // 적 이동·공격 (정착민 공격은 pawns.js 에서). cb: {onHit(pawn,dmg), onPawnDeath(pawn), onEnemyGone,
 //   onBuildingDestroyed(b), onCropDestroyed(idx), onGiantJump(e,x,y)}
 export function updateEnemies(world, pawns, dtMin, cb) {
@@ -828,8 +837,9 @@ export function updateEnemies(world, pawns, dtMin, cb) {
           var lpw = pawns[lp];
           if (lpw.state === 'dead') continue;
           if (Math.abs(lpw.px - lx) + Math.abs(lpw.py - ly) <= GIANT_JUMP.radius) {
-            lpw.hp = Math.max(0, lpw.hp - GIANT_JUMP.damage);
-            if (cb.onHit) cb.onHit(lpw, GIANT_JUMP.damage);
+            var jdmg = Math.max(1, GIANT_JUMP.damage - armorDefense(lpw));
+            lpw.hp = Math.max(0, lpw.hp - jdmg);
+            if (cb.onHit) cb.onHit(lpw, jdmg);
             if (lpw.hp <= 0 && lpw.state !== 'dead') { lpw.state = 'dead'; lpw.job = null; if (cb.onPawnDeath) cb.onPawnDeath(lpw); }
           }
         }
@@ -861,8 +871,9 @@ export function updateEnemies(world, pawns, dtMin, cb) {
           e.cd = st.attackCd;
           if (tgt.kind === 'pawn') {
             var pw = tgt.ref;
-            pw.hp = Math.max(0, pw.hp - st.power);
-            if (cb.onHit) cb.onHit(pw, st.power);
+            var pdmg = Math.max(1, st.power - armorDefense(pw));
+            pw.hp = Math.max(0, pw.hp - pdmg);
+            if (cb.onHit) cb.onHit(pw, pdmg);
             if (e.kind === 'giant' && cb.onGiantSmash) cb.onGiantSmash(e, pw); // 주먹질 충격
             if (pw.hp <= 0 && pw.state !== 'dead') {
               pw.state = 'dead';

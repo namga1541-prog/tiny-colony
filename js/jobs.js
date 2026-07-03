@@ -1,5 +1,5 @@
 // 작업 탐색·예약 시스템 (v0.3 — 건물 id 기반)
-import { BUILDS, WEAPONS, COOK, ROLES } from './config.js';
+import { BUILDS, ITEMS, COOK, ROLES } from './config.js';
 import {
   ix, iy, idx, isWalkable, stackRoom, buildingDef, buildingFront, canAfford, totalRes,
 } from './world.js';
@@ -107,7 +107,7 @@ function collectCraft(world, pawn) {
   // 대기열에서 '살 수 있는' 첫 주문 선택 — 맨 앞이 자재 부족(예: 철 없는 강철검)이어도 뒤 주문은 진행.
   var order = null;
   for (var qi = 0; qi < world.craftQueue.length; qi++) {
-    var o = world.craftQueue[qi], wd = WEAPONS[o.type];
+    var o = world.craftQueue[qi], wd = ITEMS[o.type];
     if (wd && canAfford(world, wd.cost)) { order = o; break; }
   }
   if (!order) return cands;
@@ -157,6 +157,18 @@ function collectFarm(world, pawn) {
     } else if (!crop) {
       if (world.reserved['crop:' + ii] !== undefined || !reachable(world, ii)) continue;
       cands.push({ type: 'plant', idx: ii, _d: dist(pawn, ii) });
+    }
+  }
+  // 과일나무 구역(orchardZone) — farmZone 과 별개, 같은 plant/harvestCrop 작업으로 처리
+  for (var oi in world.orchardZone) {
+    var oii = +oi;
+    var ocrop = world.crops[oi];
+    if (ocrop && ocrop.stage === 'ready') {
+      if (world.reserved['crop:' + oii] !== undefined) continue;
+      cands.push({ type: 'harvestCrop', idx: oii, _d: dist(pawn, oii) });
+    } else if (!ocrop) {
+      if (world.reserved['crop:' + oii] !== undefined || !reachable(world, oii)) continue;
+      cands.push({ type: 'plant', idx: oii, _d: dist(pawn, oii) });
     }
   }
   return cands;

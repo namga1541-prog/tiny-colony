@@ -1,6 +1,6 @@
 // 정착민 AI (v0.3): 욕구 → 상태기계 → 작업 수행
 import {
-  NEEDS, NATURE, BUILDS, WALK_MIN_PER_TILE, TRAITS, CROP, WEAPONS,
+  NEEDS, NATURE, BUILDS, WALK_MIN_PER_TILE, TRAITS, CROP, FRUITTREE, WEAPONS, ARMOR, ITEMS,
   COMBAT, COOK, HUNT, CLINIC, ANIMALS, FISHING, FISH, catchFish, skillMult,
   ROLES, ROLE_SPEED_BONUS,
 } from './config.js';
@@ -30,6 +30,7 @@ export function createPawn(id, def, x, y, rng) {
     skills: def.skills || {},   // {woodcutting, mining, construction, farming, combat} → xp
     role: def.role || 'none',   // 특화 역할 (config.ROLES 키). 'none' = 자유
     equipped: def.equipped || null, // 'sword' | 'bow' | null
+    armor: def.armor || null,       // 'leatherArmor' | 'ironArmor' | null
     autoAttack: true,    // 무기 든 채 직접 조종 중에도 사거리 내 적 자동 공격(기본 ON, ⚔️로 끔)
     face: 1,             // 1 우 / -1 좌
     x: x, y: y,
@@ -56,6 +57,15 @@ export function equipWeapon(world, pawn, weaponType) {
   return '🗡️ ' + pawn.name + ' 이(가) ' + wdef.name + ' 을(를) 장착했습니다';
 }
 
+// 정착민에게 방어구 착용 (창고 자원에서 즉시 소비) — 무기와 별개 슬롯
+export function equipArmor(world, pawn, armorType) {
+  var adef = ARMOR[armorType];
+  if (!adef) return null;
+  if (consumeGlobal(world, armorType, 1) < 1) return '⚠️ ' + adef.name + ' 이(가) 없습니다';
+  pawn.armor = armorType;
+  return '🛡️ ' + pawn.name + ' 이(가) ' + adef.name + ' 을(를) 착용했습니다';
+}
+
 export function taskLabel(pawn) {
   if (pawn.state === 'dead') return '💀 사망';
   if (pawn.manual) {
@@ -78,7 +88,7 @@ export function taskLabel(pawn) {
     if (j.type === 'plant') return '🌱 파종 중';
     if (j.type === 'harvestCrop') return '🌾 수확 중';
     if (j.type === 'fish') return '🎣 낚시 중';
-    if (j.type === 'craft') return '⚒️ ' + (WEAPONS[j.order.type] || {}).name + ' 제작 중';
+    if (j.type === 'craft') return '⚒️ ' + (ITEMS[j.order.type] || {}).name + ' 제작 중';
   }
   var names = {
     eat: '식량 가지러 가는 중', eatShroom: '버섯 찾아가는 중',
@@ -292,22 +302,23 @@ function onArrive(world, pawn, ctx) {
       break;
     }
     case 'plant': {
-      if (!world.farmZone[j.idx] || world.crops[j.idx]) return abandonJob(world, pawn);
+      var isOrchard = !!world.orchardZone[j.idx];
+      if ((!world.farmZone[j.idx] && !isOrchard) || world.crops[j.idx]) return abandonJob(world, pawn);
       pawn.state = 'working';
-      pawn.workLeft = CROP.plantWork;
+      pawn.workLeft = isOrchard ? FRUITTREE.plantWork : CROP.plantWork;
       break;
     }
     case 'harvestCrop': {
       var cr = world.crops[j.idx];
       if (!cr || cr.stage !== 'ready') return abandonJob(world, pawn);
       pawn.state = 'working';
-      pawn.workLeft = CROP.harvestWork;
+      pawn.workLeft = cr.kind === 'fruit' ? FRUITTREE.harvestWork : CROP.harvestWork;
       break;
     }
     case 'craft': {
       var order = j.order;
       if (!order || world.craftQueue.indexOf(order) < 0) return abandonJob(world, pawn);
-      var wdef = WEAPONS[order.type];
+      var wdef = ITEMS[order.type];
       if (!wdef || !canAfford(world, wdef.cost)) return abandonJob(world, pawn);
       pawn.state = 'working';
       pawn.workLeft = wdef.work;
@@ -519,9 +530,14 @@ function finishWork(world, pawn, ctx) {
   }
 
   if (j.type === 'plant') {
-    if (world.farmZone[j.idx] && !world.crops[j.idx]) {
-      world.crops[j.idx] = { stage: 'growing', timer: CROP.growTime };
-      ctx.onCropChange(j.idx);
+    if (!world.crops[j.idx]) {
+      if (world.farmZone[j.idx]) {
+        world.crops[j.idx] = { stage: 'growing', timer: CROP.growTime, kind: 'wheat' };
+        ctx.onCropChange(j.idx);
+      } else if (world.orchardZone[j.idx]) {
+        world.crops[j.idx] = { stage: 'growing', timer: FRUITTREE.growTime, kind: 'fruit' };
+        ctx.onCropChange(j.idx);
+      }
     }
     releaseAllOf(world, pawn.id);
     pawn.job = null;
@@ -532,11 +548,21 @@ function finishWork(world, pawn, ctx) {
   if (j.type === 'harvestCrop') {
     var cr = world.crops[j.idx];
     if (cr && cr.stage === 'ready') {
-      delete world.crops[j.idx];
-      if (storageFull(world)) ctx.onStorageFull();
-      else { addItem(world, j.idx, 'food', CROP.yield); ctx.onItemChange(j.idx); }
-      ctx.onCropChange(j.idx);
-      ctx.onEvent(pawn.name + '이(가) 밀을 수확했습니다');
+      if (cr.kind === 'fruit') {
+        // 과일나무는 베지 않고 다시 자람 — 재파종 불필요
+        if (storageFull(world)) ctx.onStorageFull();
+        else { addItem(world, j.idx, 'food', FRUITTREE.yield); ctx.onItemChange(j.idx); }
+        cr.stage = 'growing';
+        cr.timer = FRUITTREE.regrowTime;
+        ctx.onCropChange(j.idx);
+        ctx.onEvent(pawn.name + '이(가) 과일을 수확했습니다');
+      } else {
+        delete world.crops[j.idx];
+        if (storageFull(world)) ctx.onStorageFull();
+        else { addItem(world, j.idx, 'food', CROP.yield); ctx.onItemChange(j.idx); }
+        ctx.onCropChange(j.idx);
+        ctx.onEvent(pawn.name + '이(가) 밀을 수확했습니다');
+      }
     }
     releaseAllOf(world, pawn.id);
     pawn.job = null;
@@ -548,7 +574,7 @@ function finishWork(world, pawn, ctx) {
     var pending = j.order;
     var qi = pending ? world.craftQueue.indexOf(pending) : -1;
     if (qi >= 0) {
-      var wdef = WEAPONS[pending.type];
+      var wdef = ITEMS[pending.type];
       if (wdef && canAfford(world, wdef.cost)) {
         for (var rt in wdef.cost) consumeGlobal(world, rt, wdef.cost[rt]);
         var dropIdx = idx(pawn.x, pawn.y);
@@ -631,6 +657,14 @@ function tryAutoArm(world, pawn) {
   }
   return null;
 }
+// 창고의 방어구를 강한 순서로 자동 착용 (무기와 별개 슬롯 — 둘 다 갖출 수 있음)
+function tryAutoArmor(world, pawn) {
+  var order = ['ironArmor', 'leatherArmor'];
+  for (var i = 0; i < order.length; i++) {
+    if (consumeGlobal(world, order[i], 1) >= 1) { pawn.armor = order[i]; return order[i]; }
+  }
+  return null;
+}
 
 // 적 대응. 교전/도주하면 true(이번 틱 작업 스킵)
 function handleCombat(world, pawn, dtMin, ctx) {
@@ -652,6 +686,11 @@ function handleCombat(world, pawn, dtMin, ctx) {
       range = pawnRange(pawn);
       if (ctx && ctx.onToast) ctx.onToast('🗡️ ' + pawn.name + ' 이(가) ' + WEAPONS[got].name + ' 을(를) 들고 맞섭니다!');
     }
+  }
+  // 무기와 별개로 방어구도 창고에 있으면 자동 착용
+  if (!pawn.armor) {
+    var gotA = tryAutoArmor(world, pawn);
+    if (gotA && ctx && ctx.onToast) ctx.onToast('🛡️ ' + pawn.name + ' 이(가) ' + ARMOR[gotA].name + ' 을(를) 착용했습니다!');
   }
   // 기존 작업 취소하고 전투 개입
   if (pawn.job) { releaseAllOf(world, pawn.id); pawn.job = null; pawn.path = null; }
@@ -745,7 +784,7 @@ export function updatePawn(world, pawn, dtMin, ctx) {
       if (j.type === 'gather' && (!world.objects[j.idx] || (!j.manual && !world.designations[j.idx]))) {
         return abandonJob(world, pawn);
       }
-      if (j.type === 'plant' && !world.farmZone[j.idx]) return abandonJob(world, pawn);
+      if (j.type === 'plant' && !world.farmZone[j.idx] && !world.orchardZone[j.idx]) return abandonJob(world, pawn);
       if (j.type === 'fish' && !world.fishDesig[j.idx]) return abandonJob(world, pawn);
       if (j.type === 'harvestCrop' &&
           (!world.crops[j.idx] || world.crops[j.idx].stage !== 'ready')) return abandonJob(world, pawn);

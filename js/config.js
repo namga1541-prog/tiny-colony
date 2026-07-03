@@ -238,6 +238,8 @@ export const UPGRADES = {
 
 // ── 농사 ──
 export const CROP = { plantWork: 12, growTime: 380, harvestWork: 10, yield: 3 };
+// 과일나무: 밀과 달리 수확해도 베이지 않고 다시 자람(재파종 불필요) — regrowTime 후 재수확 가능.
+export const FRUITTREE = { plantWork: 16, growTime: 520, harvestWork: 10, yield: 5, regrowTime: 300 };
 
 // ── 대장간 (건물 불필요 — 지은 집에서 제작) ──
 // power=공격력, range=사거리(타일). iron 계열은 강철 연구 후 해금
@@ -247,6 +249,13 @@ export const WEAPONS = {
   ironSword: { name: '강철검', cost: { wood: 3, iron: 4 },  work: 60, equip: 'warrior', power: 20, range: 1, iron: true },
   ironBow:   { name: '강철활', cost: { wood: 3, iron: 4 },  work: 60, equip: 'archer',  power: 16, range: 6, iron: true },
 };
+// 방어구 — 착용 시 피격 데미지를 defense 만큼 경감(최소 1 데미지는 항상 관통). iron 계열은 강철 연구 후 해금.
+export const ARMOR = {
+  leatherArmor: { name: '가죽 갑옷', cost: { wood: 6, food: 2 }, work: 45, equip: 'armor', defense: 4 },
+  ironArmor:    { name: '강철 갑옷', cost: { wood: 3, iron: 5 }, work: 65, equip: 'armor', defense: 9, iron: true },
+};
+// 대장간 제작 대기열이 무기·방어구를 동일하게 다룰 수 있도록 합친 조회 테이블(SSOT).
+export const ITEMS = Object.assign({}, WEAPONS, ARMOR);
 
 // ── 전투 ──
 export const COMBAT = {
@@ -347,7 +356,12 @@ export const RELICS = {
   poultice: { name: '치유의 고약',     icon: '💊', effect: { key: 'healspeed', mult: 1.5 },        desc: '치료소 회복 속도 +50%' },
   // 대침공(INVASION) 승리 전용 확정 보상 — rarity 필드로 구분, grantLegendaryRelic 에서만 선택됨.
   crown:    { name: '정복자의 왕관',   icon: '👑', rarity: 'legendary', effect: { key: 'speed_all', mult: 1.25 }, desc: '모든 작업 속도 +25% (전설)' },
+  // 섬의 수호신 「아보랑카도」가 GODDESS.day 일밤에 내리는 축복 — 전투 없이 확정 지급(sim.js).
+  avorlancado: { name: '아보랑카도의 축복', icon: '🌺', rarity: 'legendary', effect: { key: 'speed_all', mult: 1.2 }, desc: '섬의 수호신이 내린 축복 — 모든 작업 속도 +20% (전설)' },
 };
+
+// ── 섬의 수호신 「아보랑카도」: GODDESS.day 일 밤, 전투 없이 마을에 강림해 축복(RELICS.avorlancado)을 내리고 떠난다 ──
+export const GODDESS = { day: 7, spawnHour: 20, name: '아보랑카도', relicId: 'avorlancado' };
 
 // ── 낚시 ──
 // rodTier: 0=맨손, 1=나무, 2=강철, 3=황금. 높을수록 희귀 어종 확률↑·시간↓
@@ -367,6 +381,9 @@ export const FISH = [
   { name: '금붕어',     food: 9,  gold: 0,  weight: 3,  rare: 2 },
   { name: '전설의 잉어', food: 17, gold: 0,  weight: 0.7, rare: 3 },
   { name: '황금 잉어',   food: 8,  gold: 30, weight: 1.0, rare: 3 }, // 유일한 금 산출 어종(초희귀, ≈1%)
+  { name: '심해 아귀왕', food: 20, gold: 0,  weight: 0.6, rare: 3 },
+  { name: '오색 산천어', food: 14, gold: 0,  weight: 0.8, rare: 3 },
+  { name: '인어의 눈물고기', food: 12, gold: 0, weight: 0.5, rare: 3 },
 ];
 export function catchFish(rodTier, rng) {
   var total = 0, i, w = [];

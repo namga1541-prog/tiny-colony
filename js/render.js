@@ -110,6 +110,8 @@ export function createRenderer(world) {
   }
   var cropGrowingTex = rpgTex(649); // 새싹
   var cropReadyTex = rpgTex(594);   // 열매 맺은 밀 (수확 가능)
+  var fruitGrowingTex = rpgTex(538); // 열매 없는 어린 나무
+  var fruitReadyTex = rpgTex(536);   // 열매 맺은 나무 (수확 가능)
   var ITEM_TEX = {
     wood: function () { return tx('W_Idle', 0, 0, 128, 128); },
     gold: function () { return tx('G_Idle', 0, 0, 128, 128); },
@@ -122,8 +124,14 @@ export function createRenderer(world) {
     bow: function () { return tx('Archer_Blue', 0, 0, 192, 192); },
     ironSword: function () { return tx('Warrior_Blue', 0, 0, 192, 192); },
     ironBow: function () { return tx('Archer_Blue', 0, 0, 192, 192); },
+    // 방어구도 별도 아이콘 없어 전사 스프라이트 재사용, tint 로 무기와 구분
+    leatherArmor: function () { return tx('Warrior_Blue', 0, 0, 192, 192); },
+    ironArmor: function () { return tx('Warrior_Blue', 0, 0, 192, 192); },
   };
-  var ITEM_TINT = { iron: 0xb8c0cc, meal: 0xffcf87, ironSword: 0xc8d0dc, ironBow: 0xc8d0dc };
+  var ITEM_TINT = {
+    iron: 0xb8c0cc, meal: 0xffcf87, ironSword: 0xc8d0dc, ironBow: 0xc8d0dc,
+    leatherArmor: 0xc79a5c, ironArmor: 0x8d97a8,
+  };
 
   // 고블린(적) 프레임: 7열 시트, row0 idle / row1 walk / row2 attack
   var goblinIdle = [], goblinWalk = [], goblinAtk = [];
@@ -305,7 +313,8 @@ export function createRenderer(world) {
       groundDecor.addChild(e);
       cropSprites[i] = e;
     }
-    e.texture = c.stage === 'ready' ? cropReadyTex : cropGrowingTex;
+    if (c.kind === 'fruit') e.texture = c.stage === 'ready' ? fruitReadyTex : fruitGrowingTex;
+    else e.texture = c.stage === 'ready' ? cropReadyTex : cropGrowingTex;
   }
 
   function buildingTexture(b) {
@@ -515,6 +524,14 @@ export function createRenderer(world) {
       zoneGfx.drawRect(ix(+i) * TILE, iy(+i) * TILE, TILE, TILE);
       zoneGfx.endFill();
       zoneGfx.lineStyle(2, 0xc98a4b, 0.5);
+      zoneGfx.drawRect(ix(+i) * TILE + 1, iy(+i) * TILE + 1, TILE - 2, TILE - 2);
+      zoneGfx.lineStyle(0);
+    }
+    for (i in world.orchardZone) {
+      zoneGfx.beginFill(0x3f7a2e, 0.28);
+      zoneGfx.drawRect(ix(+i) * TILE, iy(+i) * TILE, TILE, TILE);
+      zoneGfx.endFill();
+      zoneGfx.lineStyle(2, 0x6fd44b, 0.5);
       zoneGfx.drawRect(ix(+i) * TILE + 1, iy(+i) * TILE + 1, TILE - 2, TILE - 2);
       zoneGfx.lineStyle(0);
     }

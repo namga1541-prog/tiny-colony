@@ -1,6 +1,6 @@
 // DOM HUD: 도구·시계·자원·정착민 패널·토스트·커스터마이징 모달·연구/제작 모달
 import { taskLabel } from './pawns.js';
-import { HUMANS, RESEARCH, WEAPONS, SKILL_LABEL, skillLevel, BUILDS, STORAGE, RODS, WAREHOUSE_TIERS, ROLES, RANKS, BUILD_MIN_RANK, DEFENSE_TIERS, OUTPOST_BRANCHES, RELICS, INVASION } from './config.js';
+import { HUMANS, RESEARCH, WEAPONS, ARMOR, SKILL_LABEL, skillLevel, BUILDS, STORAGE, RODS, WAREHOUSE_TIERS, ROLES, RANKS, BUILD_MIN_RANK, DEFENSE_TIERS, OUTPOST_BRANCHES, RELICS, INVASION } from './config.js';
 import { totalRes, warehouseTier, warehouseCap, maxPop, rankReqStatus, defenseStats } from './world.js';
 
 export function createUI(handlers) {
@@ -246,6 +246,19 @@ export function createUI(handlers) {
       if (!pawnEquip.children.length) {
         pawnEquip.innerHTML = '<span style="font-size:11px;color:#8d94a8">무기 없음 (⚒️ 제작에서 검·활 제작)</span>';
       }
+      var alabels = { leatherArmor: '🥼가죽갑옷', ironArmor: '🛡️강철갑옷' };
+      var alist = ['leatherArmor'];
+      if (world.research.unlocked.steel) alist.push('ironArmor');
+      alist.forEach(function (at) {
+        if ((res[at] || 0) <= 0 && pawn.armor !== at) return;
+        var btn = document.createElement('button');
+        btn.textContent = alabels[at] + ' (' + (res[at] || 0) + ')';
+        if (pawn.armor === at) btn.classList.add('eq-active');
+        btn.addEventListener('click', function () {
+          if (handlers.onEquipArmor) handlers.onEquipArmor(pawn, at);
+        });
+        pawnEquip.appendChild(btn);
+      });
     }
     if (btnAutoAttack) {
       if (pawn.state === 'dead') {
@@ -698,6 +711,28 @@ export function createUI(handlers) {
           item.className = 'cr-item';
           item.innerHTML = '<h3>' + wdef.name + ' <span style="font-size:11px;color:#9aa3b5">공격력 ' + wdef.power +
             (wdef.range > 1 ? ' · 원거리' : '') + '</span></h3><p>' + costStr(wdef.cost, res) + '</p>' +
+            '<button class="cr-order">제작 주문</button>' +
+            (queued ? '<div class="cr-queue">대기 중인 주문: ' + queued + '개</div>' : '');
+          rows.appendChild(item);
+          item.querySelector('.cr-order').addEventListener('click', function () {
+            if (handlers.onQueueCraft) handlers.onQueueCraft(type);
+            render();
+          });
+        });
+
+        // 방어구 — 무기와 같은 대장간·대기열 공유, 피격 데미지 경감(착용은 전투 시 자동)
+        var aHead = document.createElement('p');
+        aHead.style.cssText = 'font-size:13px;color:#ffd76e;margin:12px 0 4px;';
+        aHead.textContent = '🛡️ 방어구';
+        rows.appendChild(aHead);
+        Object.keys(ARMOR).forEach(function (type) {
+          var adef = ARMOR[type];
+          if (adef.iron && !world.research.unlocked.steel) return;
+          var queued = world.craftQueue.filter(function (o) { return o.type === type; }).length;
+          var item = document.createElement('div');
+          item.className = 'cr-item';
+          item.innerHTML = '<h3>' + adef.name + ' <span style="font-size:11px;color:#9aa3b5">방어력 ' + adef.defense +
+            '</span></h3><p>' + costStr(adef.cost, res) + '</p>' +
             '<button class="cr-order">제작 주문</button>' +
             (queued ? '<div class="cr-queue">대기 중인 주문: ' + queued + '개</div>' : '');
           rows.appendChild(item);

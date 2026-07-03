@@ -5,7 +5,7 @@
 //
 // 모든 렌더·UI·오디오 효과는 ctx 콜백으로만 방출한다(상태 변경과 효과 분리).
 // main.js 는 ctx 에 실제 R.*/UI.*/Audio2.* 를, 하네스는 기록용 stub 을 연결한다.
-import { DAY_MIN, RAID, GIANT_RAID, INVASION, MAP_W, MAP_H } from './config.js';
+import { DAY_MIN, RAID, GIANT_RAID, INVASION, GODDESS, MAP_W, MAP_H } from './config.js';
 import {
   idx, addItem, mulberry32,
   updateSheep, tickTowers, updateEnemies, tickResearch, tickCrops, tickRanches,
@@ -163,6 +163,16 @@ export function stepWorld(world, pawns, dtMin, rng, ctx, enemyCbs) {
     }
   }
   if (curHour < GIANT_RAID.spawnHour) world.giantToday = false;
+
+  // 섬의 수호신 「아보랑카도」: GODDESS.day 일 밤, 전투 없이 강림해 축복을 내리고 떠남(1회성)
+  if (!world.goddessVisited && world.day >= GODDESS.day && curHour >= GODDESS.spawnHour) {
+    world.goddessVisited = true;
+    world.relics = world.relics || {};
+    world.relics[GODDESS.relicId] = (world.relics[GODDESS.relicId] || 0) + 1;
+    ctx.onToast('🌺 섬의 수호신 「' + GODDESS.name + '」가 마을에 강림했습니다! 축복을 내리고 조용히 떠났습니다.', true);
+    ctx.onEvent('🌺 여신 ' + GODDESS.name + ' 강림 — 축복 하사');
+    ctx.onSfx('success');
+  }
 
   // 대침공 진행: countdown(예고) → active(웨이브 전투) → gap(소강) → won(승리) / 전멸위기 시 countdown 재시작
   // schedIndex 로 현재 몇 번째 침공(10일차/20일차)인지 추적 — 뒤로 갈수록 sched 값이 더 가혹해짐.

@@ -1,7 +1,7 @@
 // L1 시나리오 스모크 — 시드 고정, 헤드리스. stepWorld 추출이 올바른지 + 결정론 확인.
-import { bootSim, run, runDays, designateChop, give, snapshot } from './harness.mjs';
+import { bootSim, run, runDays, designateChop, give, snapshot, DAY_MIN, MAP_W } from './harness.mjs';
 import { addBuilding, storageCap, upgradeMult, upgradeAdd, maxPop, rankReqStatus, canAdvanceRank, advanceRank, defenseStats, tickTowers, enemyStats, spawnRaid, mulberry32, grantRelic, dailyIslandRespawn, checkIslandDiscovery, updateEnemies, idx } from '../js/world.js';
-import { GIANT, ENEMY, CANNIBAL, ISLANDS, INVASION, OUTPOST_BRANCHES, RAIDER, INVWARRIOR, ZOMBIE, SKELETON, GIANT_JUMP } from '../js/config.js';
+import { GIANT, ENEMY, CANNIBAL, ISLANDS, INVASION, OUTPOST_BRANCHES, RAIDER, INVWARRIOR, ZOMBIE, SKELETON, GIANT_JUMP, ARMOR, FRUITTREE, FISH, catchFish, GODDESS } from '../js/config.js';
 import { findWorkJob, releaseAllOf } from '../js/jobs.js';
 
 var fails = 0;
@@ -407,8 +407,11 @@ console.log('[sim-smoke] 16) 나라의 시련(대침공) — 달력상 10일차�
   ok(w.invasionsCompleted === 2, '2차 침공까지 완료 카운트 2');
   ok(w.invasion.phase === 'won', '예정된 침공을 전부 격퇴 → 최종 승리');
   ok(w.invasionWon === true, 'invasionWon 플래그 설정(goals 판정용)');
-  ok((w.relics.crown || 0) === sched0.relicCount + sched1.relicCount,
-    '전설급 유물 누적 = 1차+2차 합(' + (w.relics.crown || 0) + ')');
+  // 전설급 유물 후보가 여럿(crown·avorlancado 등)이라 어느 것으로 갈릴 수 있음 — 합계로 검증.
+  // 진행 중 7일밤을 지나며 여신 강림(avorlancado 확정 1개)도 함께 섞이므로 그만큼 제외하고 비교.
+  var legendaryTotal = (w.relics.crown || 0) + (w.relics.avorlancado || 0) - (w.goddessVisited ? 1 : 0);
+  ok(legendaryTotal === sched0.relicCount + sched1.relicCount,
+    '전설급 유물 누적(종류 무관, 여신 강림분 제외) = 1차+2차 합(' + legendaryTotal + ')');
 })();
 
 console.log('[sim-smoke] 17) 대침공 — 전멸 위기 시 게임오버 대신 같은 침공을 재도전 카운트다운으로 (신규)');
@@ -624,6 +627,90 @@ console.log('[sim-smoke] 24) 괴민 점프 — 쿨다운마다 장애물 무시�
   ok(w.objects[idx(landX, 50)].kind === 'stump', '착지 지점의 나무가 파괴됨(그루터기로)');
   ok(sim.pawns.every(function (p) { return p.hp === 100 - GIANT_JUMP.damage; }),
     '착지 반경 내 정착민이 피해를 입음 (hp ' + sim.pawns[0].hp + ')');
+})();
+
+console.log('[sim-smoke] 25) 방어구 — 착용 시 피격 데미지 경감 + 자동 착용 (신규)');
+(function () {
+  // 무방어 vs 가죽갑옷 vs 강철갑옷 — 같은 고블린 공격력(ENEMY.power)에 대한 경감 확인
+  function hitOnce(armor) {
+    var w = bootSim(401).world;
+    var pawns = [{ id: 0, state: 'idle', px: 40, py: 40, x: 40, y: 40, hp: 100, armor: armor }];
+    var e = { id: w.nextEid++, x: 40, y: 41, px: 40, py: 41, hp: 999, maxHp: 999, cd: 0, dir: -1, anim: 0, kind: 'goblin', wave: 0 };
+    w.enemies.push(e);
+    updateEnemies(w, pawns, 20, {});
+    return 100 - pawns[0].hp;
+  }
+  var dmgNone = hitOnce(null);
+  var dmgLeather = hitOnce('leatherArmor');
+  var dmgIron = hitOnce('ironArmor');
+  ok(dmgNone === ENEMY.power, '무방어 피해 = 고블린 공격력 그대로 (' + dmgNone + ')');
+  ok(dmgLeather === Math.max(1, ENEMY.power - ARMOR.leatherArmor.defense), '가죽갑옷 착용 시 피해 경감 (' + dmgLeather + ')');
+  ok(dmgIron === Math.max(1, ENEMY.power - ARMOR.ironArmor.defense), '강철갑옷 착용 시 피해 더 경감 (' + dmgIron + ')');
+  ok(dmgIron <= dmgLeather, '강철갑옷이 가죽갑옷보다 경감 효과가 크거나 같음');
+
+  // 자동 착용: 창고에 방어구가 있으면 전투 개입 시 무기와 별개로 자동 착용
+  function goblinNear(w, p, dx) {
+    var x = Math.round(p.px) + dx, y = Math.round(p.py);
+    var e = { id: w.nextEid++, x: x, y: y, px: x, py: y, hp: 100, maxHp: 100, cd: 0, dir: 1, anim: 0, kind: 'goblin', wave: 0 };
+    w.enemies.push(e); return e;
+  }
+  var sim = bootSim(402); var w = sim.world; var p = sim.pawns[0];
+  p.manual = false; p.equipped = null; p.armor = null; w.stock.sword = 3; w.stock.leatherArmor = 2;
+  goblinNear(w, p, 2);
+  run(sim, 40);
+  ok(p.armor === 'leatherArmor', '창고에 방어구가 있으면 전투 개입 시 자동 착용 (armor=' + p.armor + ')');
+  ok((w.stock.leatherArmor || 0) < 2, '착용 시 방어구 재고 소비됨');
+})();
+
+console.log('[sim-smoke] 26) 과일나무 — 심으면 베지 않고 계속 열매를 맺음(재파종 불필요) (신규)');
+(function () {
+  var sim = bootSim(501); var w = sim.world;
+  give(sim, { food: 40, meal: 10 }); // 저장고 기본 용량(120) 안쪽으로 — 과수확분(+5)이 들어갈 여유 확보
+  w.research.unlocked.farming = true;
+  var cx = MAP_W / 2 | 0, cy = 50;
+  var i = idx(cx, cy);
+  delete w.objects[i]; delete w.stockpile[i]; delete w.items[i];
+  w.orchardZone[i] = true;
+
+  var MAXT = 2000, t;
+  // 파종될 때까지 5분 단위로 세밀히 폴링(과수확으로 인한 상태 스킵 방지)
+  for (t = 0; !w.crops[i] && t < MAXT; t += 5) run(sim, 5);
+  ok(!!w.crops[i], '과일나무 구역을 지정하면 자동으로 파종됨');
+  ok(w.crops[i] && w.crops[i].kind === 'fruit', '심어진 작물의 종류 = fruit (' + (w.crops[i] && w.crops[i].kind) + ')');
+
+  for (t = 0; w.crops[i] && w.crops[i].stage !== 'ready' && t < MAXT; t += 5) run(sim, 5);
+  ok(w.crops[i] && w.crops[i].stage === 'ready', '충분한 시간 경과 후 열매를 맺음(ready)');
+
+  var foodBefore = w.stock.food || 0;
+  for (t = 0; w.crops[i] && w.crops[i].stage === 'ready' && t < MAXT; t += 5) run(sim, 5);
+  ok((w.stock.food || 0) > foodBefore, '수확 시 식량 획득 (' + foodBefore + '→' + (w.stock.food || 0) + ')');
+  ok(!!w.crops[i], '수확해도 나무는 삭제되지 않음(재파종 불필요)');
+  ok(w.crops[i].kind === 'fruit' && w.crops[i].stage !== 'ready', '나무가 다시 자라기 시작(재성장 타이머로 리셋)');
+})();
+
+console.log('[sim-smoke] 27) 낚시 — 초희귀 어종 확장 (신규)');
+(function () {
+  var legendary = FISH.filter(function (f) { return f.rare === 3; });
+  ok(legendary.length >= 5, '초희귀(rare=3) 어종이 다양해짐 (' + legendary.length + '종)');
+  var goldFish = FISH.filter(function (f) { return f.gold > 0; });
+  ok(goldFish.length === 1 && goldFish[0].name === '황금 잉어', '금은 여전히 황금 잉어에서만 나옴(유일 금 산출 어종)');
+  var rng1 = mulberry32(9001), rng2 = mulberry32(9001);
+  var a = catchFish(3, rng1), b = catchFish(3, rng2);
+  ok(a.name === b.name, '동일 시드로 catchFish 결과 재현(결정론)');
+})();
+
+console.log('[sim-smoke] 28) 섬의 수호신 「아보랑카도」 — 지정일 밤 1회성 강림, 축복(유물) 확정 지급 (신규)');
+(function () {
+  var sim = bootSim(601); var w = sim.world;
+  give(sim, { food: 500, meal: 100 });
+  ok(!w.goddessVisited, '초기엔 아직 강림 전');
+  run(sim, (GODDESS.day - 1) * DAY_MIN - 480 - 1); // GODDESS.day 전날 23:59 근처까지
+  ok(!w.goddessVisited, GODDESS.day + '일 이전에는 강림하지 않음');
+  run(sim, 1201); // GODDESS.day 일 밤(spawnHour)까지 도달
+  ok(w.goddessVisited, GODDESS.day + '일 밤에 강림');
+  ok((w.relics[GODDESS.relicId] || 0) === 1, '축복(유물) 1개 확정 지급 (' + (w.relics[GODDESS.relicId] || 0) + ')');
+  run(sim, 2 * DAY_MIN);
+  ok((w.relics[GODDESS.relicId] || 0) === 1, '재강림 없이 1회성 유지(유물 개수 변동 없음)');
 })();
 
 console.log('');
