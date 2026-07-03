@@ -284,10 +284,10 @@ export const WARLORD = {
 // 나라 단계 도달 여부와 무관하게 무조건 발동 — 방어를 못 갖췄어도 시련을 겪는 가혹한 난이도.
 // schedule 순서대로 하나씩 진행되며, 뒤로 갈수록(20일차) 웨이브·적 수·보상이 늘어난다.
 export const INVASION = {
-  // 웨이브마다 여러 종족 혼합 상륙(고블린·약탈자·침략전사 + 정복자). 10일차엔 빠른 괴민도 추가.
+  // 웨이브마다 여러 종족 혼합 상륙(고블린·약탈자·침략전사 + 정복자). 10·20일차 모두 빠른 괴민 3체 동반.
   schedule: [
     { day: 10, waves: 3, goblinsPerWave: 3, raidersPerWave: 6, warriorsPerWave: 2, warlordsPerWave: 1, relicCount: 1, giants: 3 },
-    { day: 20, waves: 4, goblinsPerWave: 4, raidersPerWave: 8, warriorsPerWave: 3, warlordsPerWave: 2, relicCount: 2 },
+    { day: 20, waves: 4, goblinsPerWave: 4, raidersPerWave: 8, warriorsPerWave: 3, warlordsPerWave: 2, relicCount: 2, giants: 3 },
   ],
   spawnHour: 20,          // GIANT_RAID/RAID 와 동일 시각대(밤 8시)
   waveGapMin: 90,          // 웨이브 클리어 후 다음 웨이브까지 소강 시간(게임분)

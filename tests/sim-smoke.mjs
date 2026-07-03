@@ -390,6 +390,10 @@ console.log('[sim-smoke] 16) 나라의 시련(대침공) — 달력상 10일차�
   w.invasion.triggerDay = w.day;
   safeRun(21 * 60);
   ok(w.invasion.phase === 'active' && w.invasion.wave === 1, '2차 침공 발동');
+  var w1_2 = w.enemies.filter(function (e) { return e.wave === 1; });
+  var fastGiants2 = w1_2.filter(function (e) { return e.kind === 'giant' && e.fast; });
+  ok(fastGiants2.length === (sched1.giants || 0) && fastGiants2.length > 0,
+    '20일차 침공에도 빠른 괴민 ' + (sched1.giants || 0) + '체 추가 (' + fastGiants2.length + ')');
   for (var k2 = 1; k2 <= sched1.waves; k2++) {
     ok(w.invasion.wave === k2, k2 + '웨이브 진행 중');
     wipeCurrentWave(w);
