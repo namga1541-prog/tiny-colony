@@ -654,6 +654,21 @@ function handleCombat(world, pawn, dtMin, ctx) {
   return true;
 }
 
+// 직접 조종 중 자동공격 토글(⚔️ 버튼): 이동은 플레이어가 계속 담당, 사거리 내 적은 쿨다운마다 자동 공격.
+// handleCombat 과 달리 상태·이동을 가로채지 않음 — 조종성을 유지한 채 배경에서 공격만 발동.
+function autoAttackTick(world, pawn, dtMin, ctx) {
+  var near = nearestEnemy(world, pawn.px, pawn.py, pawnRange(pawn));
+  if (!near) return;
+  var e = near.enemy;
+  pawn.face = e.px > pawn.px ? 1 : -1;
+  pawn.atkCd = (pawn.atkCd || 0) - dtMin;
+  if (pawn.atkCd <= 0) {
+    pawn.atkCd = COMBAT.attackCd;
+    e.hp -= pawnPower(pawn);
+    gainSkill(pawn, 'combat', 4);
+  }
+}
+
 // ── 매 틱 ──
 export function updatePawn(world, pawn, dtMin, ctx) {
   if (pawn.state === 'dead') return;
@@ -680,9 +695,11 @@ export function updatePawn(world, pawn, dtMin, ctx) {
   pawn.mood += (moodTarget - pawn.mood) * Math.min(1, moodRate * dtMin);
   pawn.mood = Math.max(0, Math.min(100, pawn.mood));
 
-  // 전투: 적이 있으면 AI가 자동 대응 (직접 조종 중이면 플레이어가 Space로)
+  // 전투: 적이 있으면 AI가 자동 대응 (직접 조종 중이면 Space 즉발 공격 또는 ⚔️ 자동공격 토글)
   if (!pawn.manual && world.enemies.length > 0) {
     if (handleCombat(world, pawn, dtMin, ctx)) return;
+  } else if (pawn.manual && pawn.autoAttack && world.enemies.length > 0) {
+    autoAttackTick(world, pawn, dtMin, ctx);
   }
 
   // 건설 지시가 있으면 저순위 작업(벌목·채굴·운반 등)을 중단하고 건설을 먼저 하도록 양보

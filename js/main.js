@@ -111,6 +111,7 @@ function selectPawns(list) {
     releaseAllOf(world, p.id);
     p.job = null;
     p.path = null;
+    p.avoidJobType = null; // 재선택은 새 지시의 시작점 — 이전 작업취소로 걸어둔 회피를 초기화
     if (p.state !== 'working') p.state = 'idle';
     p.manual = true;
   });
@@ -195,6 +196,15 @@ var UI = createUI({
     R.updatePawnSprite(pawn);
     UI.updatePawnPanel(pawn);
   },
+  onToggleAutoAttack: function () {
+    var pawn = panelPawn();
+    if (!pawn || pawn.state === 'dead') return;
+    var on = !pawn.autoAttack;
+    var targets = controlled.length ? controlled : [pawn];
+    targets.forEach(function (p) { p.autoAttack = on; });
+    UI.toast(on ? '⚔️ 자동공격 ON — 사거리 안의 적을 자동으로 공격합니다 (이동은 직접 조작)' : '⚔️ 자동공격 OFF');
+    UI.updatePawnPanel(pawn);
+  },
   onSetRole: function (pawn, role) {
     var newRole = (pawn.role === role) ? 'none' : role; // 패널 정착민 기준 토글
     // 선택한 정착민 전원에 적용 (2명 선택 → 어부 = 둘 다 어부). 선택 없으면 해당 정착민만.
@@ -277,8 +287,11 @@ var UI = createUI({
   },
   onCancelAll: function () {
     var cancelTypes = { gather: 1, mine: 1, fish: 1, plant: 1, harvestCrop: 1, haul: 1, cook: 1, hunt: 1, craft: 1 };
-    function stop(p) {
+    function stop(p, markAvoid) {
       if (p.job && cancelTypes[p.job.type]) {
+        // 선택 취소 시엔 이 정착민에게만 그 작업 종류를 다시 자동 배정하지 않도록 표시
+        // (남은 지시·다른 정착민은 그대로 — jobs.js findWorkJob 에서 걸러짐)
+        if (markAvoid) p.avoidJobType = p.job.type;
         releaseAllOf(world, p.id);
         p.job = null; p.path = null; p.workLeft = 0;
         if (p.state === 'working' || p.state === 'moving') p.state = 'idle';
@@ -289,8 +302,8 @@ var UI = createUI({
     var sel = controlled.filter(function (p) { return p.state !== 'dead'; });
     if (sel.length) {
       // 선택한 정착민만: 그들의 현재 작업만 취소. 전체 지시·다른 정착민은 그대로 유지.
-      sel.forEach(stop);
-      UI.toast('🚫 선택한 ' + sel.length + '명의 작업만 취소했습니다 (다른 정착민은 계속 작업)');
+      sel.forEach(function (p) { stop(p, true); });
+      UI.toast('🚫 선택한 ' + sel.length + '명의 작업만 취소했습니다 (그 작업은 이 정착민에게 다시 배정되지 않습니다)');
       return;
     }
     // 선택 없음 → 전체 예약 취소 (모든 지시 삭제 + 전원 재배치)
@@ -299,7 +312,7 @@ var UI = createUI({
     for (var i = 0; i < pawns.length; i++) {
       var p = pawns[i];
       if (p.state === 'dead' || p.manual) continue;
-      if (stop(p)) n++;
+      if (stop(p, false)) n++;
     }
     R.refreshZones();
     UI.toast(n ? '🚫 전체 예약 작업 취소 — 정착민 ' + n + '명 재배치' : '🚫 취소할 예약 작업이 없습니다');

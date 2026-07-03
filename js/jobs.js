@@ -239,6 +239,12 @@ function reserveJob(world, job, pawn) {
   else if (job.type === 'fish') reserve(world, 'fish:' + job.idx, pawn.id);
 }
 
+// 정착민별 회피 작업 종류 제거 (🚫 작업취소로 "이 작업은 다시 하지 마" 지정된 경우)
+function excludeAvoid(cands, pawn) {
+  if (!pawn.avoidJobType) return cands;
+  return cands.filter(function (c) { return c.type !== pawn.avoidJobType; });
+}
+
 // 역할 우선 탐색: 역할 작업 카테고리에서만 후보를 모아 가장 가까운 것 선택.
 function findRoleWork(world, pawn, jobTypes) {
   var seen = [], cands = [];
@@ -246,7 +252,7 @@ function findRoleWork(world, pawn, jobTypes) {
     var col = COLLECTOR[jobTypes[k]];
     if (!col || seen.indexOf(col) >= 0) continue;
     seen.push(col);
-    cands = cands.concat(col(world, pawn));
+    cands = cands.concat(excludeAvoid(col(world, pawn), pawn));
   }
   var job = nearest(pawn, cands, function (c) { return c._d; });
   if (job) reserveJob(world, job, pawn);
@@ -255,16 +261,16 @@ function findRoleWork(world, pawn, jobTypes) {
 
 // 일반 우선순위 캐스케이드: 건설 > 운반 > 제작 > 채집 > 채굴 > 농사 > 요리 > 사냥 > 낚시 > 비축.
 function findDefaultWork(world, pawn) {
-  var cands = collectBuild(world, pawn);
-  if (!cands.length) cands = collectDeliver(world, pawn);
-  if (!cands.length) cands = collectCraft(world, pawn);
-  if (!cands.length) cands = collectGather(world, pawn);
-  if (!cands.length) cands = collectMine(world, pawn);
-  if (!cands.length) cands = collectFarm(world, pawn);
-  if (!cands.length) cands = collectCook(world, pawn);
-  if (!cands.length) cands = collectHunt(world, pawn);
-  if (!cands.length) cands = collectFish(world, pawn);
-  if (!cands.length) cands = collectHaul(world, pawn);
+  var cands = excludeAvoid(collectBuild(world, pawn), pawn);
+  if (!cands.length) cands = excludeAvoid(collectDeliver(world, pawn), pawn);
+  if (!cands.length) cands = excludeAvoid(collectCraft(world, pawn), pawn);
+  if (!cands.length) cands = excludeAvoid(collectGather(world, pawn), pawn);
+  if (!cands.length) cands = excludeAvoid(collectMine(world, pawn), pawn);
+  if (!cands.length) cands = excludeAvoid(collectFarm(world, pawn), pawn);
+  if (!cands.length) cands = excludeAvoid(collectCook(world, pawn), pawn);
+  if (!cands.length) cands = excludeAvoid(collectHunt(world, pawn), pawn);
+  if (!cands.length) cands = excludeAvoid(collectFish(world, pawn), pawn);
+  if (!cands.length) cands = excludeAvoid(collectHaul(world, pawn), pawn);
   var job = nearest(pawn, cands, function (c) { return c._d; });
   if (job) reserveJob(world, job, pawn);
   return job;

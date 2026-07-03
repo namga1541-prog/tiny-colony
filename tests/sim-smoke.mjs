@@ -2,7 +2,7 @@
 import { bootSim, run, runDays, designateChop, give, snapshot } from './harness.mjs';
 import { addBuilding, storageCap, upgradeMult, upgradeAdd, maxPop, rankReqStatus, canAdvanceRank, advanceRank, defenseStats, tickTowers, enemyStats, spawnRaid, mulberry32, grantRelic, dailyIslandRespawn, checkIslandDiscovery } from '../js/world.js';
 import { GIANT, ENEMY, CANNIBAL, ISLANDS, INVASION } from '../js/config.js';
-import { findWorkJob } from '../js/jobs.js';
+import { findWorkJob, releaseAllOf } from '../js/jobs.js';
 
 var fails = 0;
 function ok(cond, msg) {
@@ -379,6 +379,45 @@ console.log('[sim-smoke] 17) 대침공 — 전멸 위기 시 게임오버 대신
   ok(w.invasion.phase === 'countdown', '전멸 위기 → 게임오버 대신 침공 철수·재도전 카운트다운');
   ok(w.invasion.triggerDay === beforeDay + INVASION.retryGapDays, '재도전까지 ' + INVASION.retryGapDays + '일 유예');
   ok(w.enemies.filter(function (e) { return e.wave === 1; }).length === 0, '철수한 침공군 제거됨');
+})();
+
+console.log('[sim-smoke] 18) 작업취소 회피(avoidJobType) — 취소한 정착민만 그 작업을 다시 안 잡음, 재선택 시 해제 (신규)');
+(function () {
+  var sim = bootSim(222);
+  var w = sim.world;
+  designateChop(sim, 5);
+  var p = sim.pawns[0];
+  var job1 = findWorkJob(w, p);
+  ok(job1 && job1.type === 'gather', '평소엔 벌목(gather) 작업을 잡음');
+  releaseAllOf(w, p.id);
+  p.job = null;
+  p.avoidJobType = 'gather'; // 🚫 작업취소로 이 정착민에게만 회피 표시
+  var job2 = findWorkJob(w, p);
+  ok(!job2 || job2.type !== 'gather', '회피 표시된 정착민은 벌목 작업을 다시 잡지 않음');
+  var job2b = findWorkJob(w, sim.pawns[1]);
+  ok(job2b && job2b.type === 'gather', '다른 정착민은 여전히 벌목 작업을 잡을 수 있음(회피는 개인 한정)');
+  p.avoidJobType = null; // 재선택 시 해제되는 것과 동일한 상태
+  var job3 = findWorkJob(w, p);
+  ok(job3 && job3.type === 'gather', '회피 해제 후엔 다시 벌목 작업을 잡음');
+})();
+
+console.log('[sim-smoke] 19) 자동공격 토글(⚔️) — 직접 조종 중에도 켜면 사거리 내 적을 자동 공격 (신규)');
+(function () {
+  var sim = bootSim(444);
+  var w = sim.world;
+  var p = sim.pawns[0];
+  p.manual = true;
+  p.equipped = 'sword';
+  var target = {
+    id: w.nextEid++, x: p.x + 1, y: p.y, px: p.x + 1, py: p.y,
+    hp: 50, maxHp: 50, cd: 0, dir: 1, anim: 0, kind: 'goblin', wave: 0,
+  };
+  w.enemies.push(target); // 섬 상주 적 등 기존 world.enemies 뒤에 추가되므로 인덱스가 아닌 참조로 추적
+  run(sim, 1);
+  ok(target.hp === 50, '자동공격 꺼짐 상태 — 조종 중인 정착민은 사거리 안에 있어도 공격 안 함');
+  p.autoAttack = true;
+  run(sim, 1);
+  ok(target.hp < 50, '자동공격 켜짐 — 사거리 내 적을 자동으로 공격(HP ' + target.hp + ')');
 })();
 
 console.log('');

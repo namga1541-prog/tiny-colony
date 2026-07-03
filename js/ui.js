@@ -41,6 +41,10 @@ export function createUI(handlers) {
   document.getElementById('btnEditPawn').addEventListener('click', function () {
     if (handlers.onEditPawn) handlers.onEditPawn();
   });
+  var btnAutoAttackTop = document.getElementById('btnAutoAttack');
+  if (btnAutoAttackTop) btnAutoAttackTop.addEventListener('click', function () {
+    if (handlers.onToggleAutoAttack) handlers.onToggleAutoAttack();
+  });
   document.getElementById('btnResearch').addEventListener('click', showResearch);
   document.getElementById('btnCraft').addEventListener('click', showCraft);
   document.getElementById('btnGoals').addEventListener('click', function () {
@@ -163,6 +167,7 @@ export function createUI(handlers) {
   var pawnSkills = document.getElementById('pawnSkills');
   var pawnRole = document.getElementById('pawnRole');
   var pawnEquip = document.getElementById('pawnEquip');
+  var btnAutoAttack = document.getElementById('btnAutoAttack');
 
   function showPawn(pawn) {
     panel.classList.remove('hidden');
@@ -225,6 +230,15 @@ export function createUI(handlers) {
       });
       if (!pawnEquip.children.length) {
         pawnEquip.innerHTML = '<span style="font-size:11px;color:#8d94a8">무기 없음 (⚒️ 제작에서 검·활 제작)</span>';
+      }
+    }
+    if (btnAutoAttack) {
+      if (pawn.state === 'dead') {
+        btnAutoAttack.style.display = 'none';
+      } else {
+        btnAutoAttack.style.display = '';
+        btnAutoAttack.textContent = pawn.autoAttack ? '⚔️ 자동공격: 켜짐' : '⚔️ 자동공격: 꺼짐';
+        btnAutoAttack.classList.toggle('eq-active', !!pawn.autoAttack);
       }
     }
   }
