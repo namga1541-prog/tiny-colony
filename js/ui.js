@@ -54,6 +54,8 @@ export function createUI(handlers) {
   if (btnDev) btnDev.addEventListener('click', showDevelopment);
   var btnRelics = document.getElementById('btnRelics');
   if (btnRelics) btnRelics.addEventListener('click', showRelics);
+  var btnDiscard = document.getElementById('btnDiscard');
+  if (btnDiscard) btnDiscard.addEventListener('click', showDiscard);
   var btnCancelAll = document.getElementById('btnCancelAll');
   if (btnCancelAll) btnCancelAll.addEventListener('click', function () {
     if (handlers.onCancelAll) handlers.onCancelAll();
@@ -504,6 +506,37 @@ export function createUI(handlers) {
     var overlay = openModal('<h2>🎁 유물</h2><div class="rl-body">' + body + '</div>' +
       '<div class="cm-actions"><button class="cm-ok rl-close">닫기</button></div>');
     overlay.querySelector('.rl-close').addEventListener('click', function () { overlay.remove(); });
+  }
+
+  // ── 자원 버리기 모달 ──
+  function showDiscard() {
+    var names = { wood: '목재', gold: '금', food: '식량', iron: '철', meal: '요리' };
+    var types = ['wood', 'gold', 'food', 'iron', 'meal'];
+    var overlay = openModal('<h2>🗑️ 자원 버리기</h2>' +
+      '<p class="dc-hint">저장고가 꽉 차면 벌목·채굴이 멈춥니다. 남는 자원을 버려 공간을 확보하세요.</p>' +
+      '<div class="dc-rows"></div>' +
+      '<div class="cm-actions"><button class="cm-ok dc-close">닫기</button></div>');
+    var rows = overlay.querySelector('.dc-rows');
+    function render() {
+      var s = totalRes(world);
+      rows.innerHTML = types.map(function (t) {
+        return '<div class="dc-row"><span class="dc-name">' + names[t] + '</span>' +
+          '<b class="dc-amt">' + (s[t] || 0) + '</b>' +
+          '<span class="dc-btns">' +
+          '<button data-t="' + t + '" data-n="10">-10</button>' +
+          '<button data-t="' + t + '" data-n="100">-100</button>' +
+          '<button data-t="' + t + '" data-n="all">전부</button></span></div>';
+      }).join('');
+      Array.prototype.forEach.call(rows.querySelectorAll('button'), function (b) {
+        b.addEventListener('click', function () {
+          var n = b.dataset.n;
+          if (handlers.onDiscard) handlers.onDiscard(b.dataset.t, n === 'all' ? Infinity : +n);
+          render();
+        });
+      });
+    }
+    render();
+    overlay.querySelector('.dc-close').addEventListener('click', function () { overlay.remove(); });
   }
 
   // ── 제작 모달 (무기 + 낚싯대) ──

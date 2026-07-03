@@ -1,7 +1,7 @@
 // v0.3 부팅·게임 루프·입력
 import {
   MAP_W, MAP_H, MIN_PER_SEC, DAY_MIN, SPEED_MULT, BUILDS, PAWN_DEFS,
-  RAID, BRIDGE, TRAITS, HUMAN_IDS, WAREHOUSE_TIERS, BUILD_MIN_RANK, RANKS, DEFENSE_TIERS, ROLES,
+  RAID, BRIDGE, TRAITS, HUMAN_IDS, WAREHOUSE_TIERS, BUILD_MIN_RANK, RANKS, DEFENSE_TIERS, ROLES, T_WATER,
 } from './config.js';
 import {
   createWorld, mulberry32, idx, ix, iy, isWalkable, footprintClear,
@@ -37,6 +37,7 @@ if (saved) {
   world.fishDesig = saved.fishDesig || {};
   world.rank = saved.rank || 0;
   world.relics = saved.relics || {};
+  world.dug = saved.dug || {};
   world.items = {};
   world.stockpile = saved.stockpile || {};
   world.designations = saved.designations;
@@ -261,6 +262,13 @@ var UI = createUI({
     if (pw) UI.toast('🧑‍🌾 새 정착민 "' + pw.name + '" 을(를) 고용했습니다 (식량 ' + cost + ' 소비)');
   },
   getAlive: function () { return pawns.filter(function (p) { return p.state !== 'dead'; }).length; },
+  onDiscard: function (type, amount) {
+    var removed = consumeGlobal(world, type, amount); // amount=Infinity → 전부
+    if (removed > 0) {
+      var nm = { wood: '목재', gold: '금', food: '식량', iron: '철', meal: '요리' }[type] || type;
+      UI.toast('🗑️ ' + nm + ' ' + removed + ' 을(를) 버려 저장고를 비웠습니다');
+    }
+  },
   onCancelAll: function () {
     var cancelTypes = { gather: 1, mine: 1, fish: 1, plant: 1, harvestCrop: 1, haul: 1, cook: 1, hunt: 1, craft: 1 };
     function stop(p) {
@@ -408,6 +416,20 @@ function applyTool(tool, a, b) {
       }
     });
     if (count) UI.toast((tool === 'chop' ? '🪓 벌목' : '🧺 채집') + ' ' + count + '건 지시');
+  }
+
+  else if (tool === 'dig') {
+    // 삽: 영역의 나무·그루터기·버섯을 즉시 치우고, 자원이 재생되지 않는 건설용 빈 땅으로.
+    forRect(a, b, function (i) {
+      if (world.terrain[i] === T_WATER || world.occupancy[i] !== undefined) return; // 물·건물 위는 못 팜
+      if (world.objects[i]) { delete world.objects[i]; }
+      if (world.designations[i]) { delete world.designations[i]; }
+      if (!world.dug[i]) { world.dug[i] = true; }
+      R.refreshTile(i);
+      count++;
+    });
+    if (count) UI.toast('🕳️ ' + count + '칸을 파냈습니다 — 나무 제거 · 자원 재생 없음 · 건설 가능');
+    R.refreshZones();
   }
 
   else if (tool === 'mine') {
