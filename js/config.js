@@ -6,9 +6,19 @@ export const MAP_W = 96;
 export const MAP_H = 96;
 
 export const TS = 'assets/ts/';
+export const FANTASY = 'assets/fantasy/';
 
 // 지형 코드
 export const T_WATER = 0, T_GRASS = 1, T_SAND = 2;
+
+// 배경 장식 소품(게임 로직 비연동, 순수 시각 요소) — The Fan-tasy Tileset(Free) by Ventilatore
+export const DECOR = [
+  'Banner_Stick_1_Purple', 'Barrel_Small_Empty', 'Basket_Empty', 'Bench_1', 'Bench_3',
+  'BulletinBoard_1', 'Chopped_Tree_1', 'Crate_Large_Empty', 'Crate_Medium_Closed', 'Crate_Water_1',
+  'Fireplace_1', 'HayStack_2', 'LampPost_3', 'Plant_2', 'Sack_3', 'Sign_1', 'Sign_2', 'Table_Medium_1',
+];
+// 24프레임 스프라이트시트(32x32칸) — 0번 프레임만 정지 이미지로 사용
+export const DECOR_ANIM = ['Flowers_Red', 'Flowers_White'];
 
 // 건설 정의 — 완성형 건물 (fw/fh = 점유 타일 풋프린트)
 export const BUILDS = {

@@ -1,11 +1,11 @@
 // v0.3 렌더러 (Tiny Swords): 지형·거품·건물·유닛 애니메이션·조명·색보정
 /* global PIXI */
 import {
-  TILE, MAP_W, MAP_H, TS, BUILDS, HUMANS, OUTPOST_BRANCHES,
+  TILE, MAP_W, MAP_H, TS, FANTASY, DECOR, DECOR_ANIM, BUILDS, HUMANS, OUTPOST_BRANCHES,
   ZOOM_DEFAULT, ZOOM_MIN, ZOOM_MAX,
 } from './config.js';
 import {
-  idx, ix, iy, inMap, T_WATER, T_GRASS, T_SAND, buildingDef,
+  idx, ix, iy, inMap, T_WATER, T_GRASS, T_SAND, buildingDef, mulberry32,
 } from './world.js';
 import { poseOf, toolIconOf } from './pawns.js';
 import { bpMissing } from './jobs.js';
@@ -200,6 +200,34 @@ export function createRenderer(world) {
   var fxLayer = new PIXI.Graphics(); // 방어건물 공격 이펙트(투사체 궤적·타격 섬광)
   var overlayLayer = new PIXI.Container(); // 전투 피드백: 데미지 숫자·건물 체력바 (항상 최상단)
   camera.addChild(waterLayer, foamLayer, landLayer, groundDecor, zoneGfx, itemLayer, objLayer, fxLayer, overlayLayer, selGfx, dragGfx);
+
+  // ── 배경 장식 소품(The Fan-tasy Tileset) — 게임 로직 비연동, 시드 기반 1회 산포 ──
+  var decorTex = {};
+  DECOR.forEach(function (n) {
+    decorTex[n] = PIXI.Texture.from(FANTASY + n + '.png');
+    decorTex[n].baseTexture.scaleMode = PIXI.SCALE_MODES.NEAREST;
+  });
+  DECOR_ANIM.forEach(function (n) {
+    var b = PIXI.BaseTexture.from(FANTASY + n + '.png');
+    b.scaleMode = PIXI.SCALE_MODES.NEAREST;
+    decorTex[n] = new PIXI.Texture(b, new PIXI.Rectangle(0, 0, 32, 32));
+  });
+  (function scatterDecor() {
+    var names = DECOR.concat(DECOR_ANIM);
+    var drng = mulberry32(world.seed ^ 0x4a11);
+    for (var ti = 0; ti < MAP_W * MAP_H; ti++) {
+      if (world.terrain[ti] !== T_GRASS) continue;
+      if (world.objects[ti] || world.occupancy[ti] !== undefined) continue;
+      if (drng() > 0.01) continue;
+      var n = names[(drng() * names.length) | 0];
+      var s = new PIXI.Sprite(decorTex[n]);
+      s.anchor.set(0.5, 0.85);
+      s.scale.set(2.4);
+      s.x = ix(ti) * TILE + 32; s.y = (iy(ti) + 1) * TILE - 8;
+      s.zIndex = (iy(ti) + 1) * TILE;
+      objLayer.addChild(s);
+    }
+  })();
 
   var seasonOverlay = new PIXI.Graphics(); // 계절 색보정 (밤보다 아래)
   app.stage.addChild(seasonOverlay);
