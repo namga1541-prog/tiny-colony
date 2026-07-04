@@ -83,10 +83,9 @@
 | `exitControl` | js/main.js:165 |
 | `findDefaultWork` | js/jobs.js:323 |
 | `findFoodJob` | js/jobs.js:48 |
-| `findItemSource` | js/jobs.js:362 |
 | `findPath` | js/path.js:46 |
 | `findRoleWork` | js/jobs.js:308 |
-| `findStockpileFor` | js/jobs.js:383 |
+| `findStockpileFor` | js/jobs.js:372 |
 | `findWorkJob` | js/jobs.js:343 |
 | `finishWork` | js/pawns.js:420 |
 | `fishSpotTier` | js/world.js:511 |
@@ -109,7 +108,7 @@
 | `hasBarn` | js/world.js:668 |
 | `hasSave` | js/save.js:80 |
 | `hasStarvedWork` | js/jobs.js:282 |
-| `hasStockpileSpace` | js/jobs.js:373 |
+| `hasStockpileSpace` | js/jobs.js:362 |
 | `hasStockWeapon` | js/pawns.js:726 |
 | `hasUpgrade` | js/world.js:12 |
 | `hasWorkerOfType` | js/jobs.js:262 |
@@ -289,4 +288,4 @@
 | `worldObjTex` | js/render.js:839 |
 | `yieldJob` | js/pawns.js:153 |
 
-_총 283개 함수 · 12개 파일_
+_총 282개 함수 · 12개 파일_

@@ -359,17 +359,6 @@ export function bpMissing(b) {
   return null;
 }
 
-function findItemSource(world, type) {
-  for (var i in world.items) {
-    var ii = +i;
-    if ((world.items[i][type] || 0) > 0 &&
-        world.reserved['item:' + ii] === undefined && reachable(world, ii)) {
-      return ii;
-    }
-  }
-  return -1;
-}
-
 export function hasStockpileSpace(world) {
   for (var i in world.stockpile) {
     if (!world.items[i]) return true;
