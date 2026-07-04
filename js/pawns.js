@@ -33,6 +33,7 @@ export function createPawn(id, def, x, y, rng) {
     armor: def.armor || null,       // 'leatherArmor' | 'ironArmor' | null
     injury: def.injury || null,     // { type: 'leg'|'arm', severity: 0~1 } | null — 치료소에서 쉬어야만 낫는다
     cold: def.cold || 0,            // 냉기(0 따뜻함~100 동결). 겨울에 온기 밖이면 상승, 최대치면 hp 감소
+    boating: def.boating || null,   // 탑승 중인 배 id(없으면 null). 탑승 중엔 물 위를 조종해 다닌다
     autoAttack: true,    // 무기 든 채 직접 조종 중에도 사거리 내 적 자동 공격(기본 ON, ⚔️로 끔)
     face: 1,             // 1 우 / -1 좌
     x: x, y: y,

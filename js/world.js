@@ -177,6 +177,8 @@ export function createWorld(seed) {
     dug: {},            // idx -> true. 삽으로 파낸 땅 (자원 재생 없음 · 건설 공간)
     islands: [],        // {id,name,icon,theme,cx,cy,r,discovered,cap} — 원정 섬 메타(발견·리스폰용)
     rareFishTile: {},   // idx -> true. 초특급 희귀어종(밍크고래 등)만 낚이는 희귀 낚시 스팟(맵에 몇 곳뿐)
+    boats: [],          // { id, x, y, px, py, pilot } — 물 위 이동수단. pilot=탑승한 정착민 id(없으면 null)
+    nextBoatId: 1,
   };
 
   var coast = makeNoise(rng, 8);
@@ -504,6 +506,73 @@ export function canPlaceBridge(world, x, y) {
   if (world.occupancy[i] !== undefined) return false;
   return isWalkable(world, x + 1, y) || isWalkable(world, x - 1, y) ||
          isWalkable(world, x, y + 1) || isWalkable(world, x, y - 1);
+}
+
+// ── 배(이동수단) ──
+// 배가 들어갈 수 있는 타일: 맵 안 물 타일(다리·좌대 등 비-solid 위도 통과). 육지·솔리드 건물은 불가.
+export function boatCanEnter(world, x, y) {
+  if (!inMap(x, y)) return false;
+  return world.terrain[idx(x, y)] === T_WATER;
+}
+// 해안 물 타일(canPlaceBridge)에 배를 건조해 정박 상태로 생성.
+export function spawnBoat(world, x, y) {
+  var boat = { id: world.nextBoatId++, x: x, y: y, px: x, py: y, pilot: null };
+  world.boats.push(boat);
+  return boat;
+}
+// (px,py) 근처(1.6칸 내)의 정박된(무인) 배 반환 — 클릭 승선용.
+export function boatAt(world, px, py) {
+  var best = null, bestD = 1.6;
+  for (var n = 0; n < world.boats.length; n++) {
+    var b = world.boats[n];
+    if (b.pilot != null) continue;
+    var d = Math.hypot(b.px - px, b.py - py);
+    if (d < bestD) { bestD = d; best = b; }
+  }
+  return best;
+}
+// 정착민이 인접한(1.6칸) 무인 배에 승선. 성공 시 true — 정착민이 배 타일로 올라타고 조종 상태가 된다.
+export function boardBoat(world, pawn, boat) {
+  if (!boat || boat.pilot != null || pawn.boating) return false;
+  if (Math.hypot(boat.px - pawn.px, boat.py - pawn.py) > 1.6) return false;
+  pawn.boating = boat.id;
+  boat.pilot = pawn.id;
+  pawn.px = boat.px; pawn.py = boat.py; pawn.x = boat.x; pawn.y = boat.y;
+  return true;
+}
+// 탑승 중 정착민이 하선 — 인접한 통행 가능 육지 타일로 내리고 배는 그 자리에 정박. 성공 시 true.
+export function disembarkBoat(world, pawn) {
+  if (!pawn.boating) return false;
+  var bx = Math.round(pawn.px), by = Math.round(pawn.py);
+  var nbrs = [[bx + 1, by], [bx - 1, by], [bx, by + 1], [bx, by - 1], [bx + 1, by + 1], [bx - 1, by - 1], [bx + 1, by - 1], [bx - 1, by + 1]];
+  var land = null;
+  for (var n = 0; n < nbrs.length; n++) {
+    if (isWalkable(world, nbrs[n][0], nbrs[n][1])) { land = nbrs[n]; break; }
+  }
+  if (!land) return false; // 인접에 내릴 육지가 없음
+  var boat = null;
+  for (var m = 0; m < world.boats.length; m++) if (world.boats[m].id === pawn.boating) boat = world.boats[m];
+  if (boat) { boat.pilot = null; boat.x = bx; boat.y = by; boat.px = bx; boat.py = by; } // 배는 하선 지점 물 위에 정박
+  pawn.boating = null;
+  pawn.px = land[0]; pawn.py = land[1]; pawn.x = land[0]; pawn.y = land[1];
+  return true;
+}
+// 매 틱 정합성: 탑승 중 배는 조종사 위치를 따라가고, 조종사가 죽거나 사라지면 그 자리에 정박(무인).
+export function syncBoats(world, pawns) {
+  var byId = {};
+  for (var p = 0; p < pawns.length; p++) byId[pawns[p].id] = pawns[p];
+  for (var n = 0; n < world.boats.length; n++) {
+    var b = world.boats[n];
+    if (b.pilot == null) continue;
+    var pilot = byId[b.pilot];
+    if (!pilot || pilot.state === 'dead' || pilot.boating !== b.id) {
+      // 조종사 상실 → 그 자리(마지막 배 위치)에 정박
+      if (pilot) pilot.boating = null;
+      b.pilot = null;
+      continue;
+    }
+    b.px = pilot.px; b.py = pilot.py; b.x = pilot.x; b.y = pilot.y; // 배가 조종사를 따라감
+  }
 }
 
 // 낚시 지정 가능한 물 타일인지 + 등급(0=해안, 1=좌대 인접, 2=선착장 인접) 판정. -1 이면 지정 불가.

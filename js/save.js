@@ -46,6 +46,8 @@ export function saveGame(world, pawns) {
     invasion: world.invasion,
     invasionWon: world.invasionWon,
     invasionsCompleted: world.invasionsCompleted,
+    boats: world.boats,
+    nextBoatId: world.nextBoatId,
     pawns: pawns.map(function (p) {
       return {
         id: p.id, name: p.name, look: p.look, trait: p.trait, equipped: p.equipped, armor: p.armor, skills: p.skills, role: p.role,
@@ -54,6 +56,7 @@ export function saveGame(world, pawns) {
         dead: p.state === 'dead',
         carry: p.carry,
         injury: p.injury,
+        boating: p.boating,
       };
     }),
   };

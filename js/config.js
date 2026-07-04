@@ -626,6 +626,10 @@ export const IRONMINE = { fw: 3, fh: 2, work: 18, dropsPerCycle: 2, charges: 20,
 // ── 뗏목/배 (물 위에 띄워 다른 대륙으로 건너감) ──
 export const BRIDGE = { name: '뗏목', cost: { wood: 2 }, work: 8 };
 
+// ── 배: 재화로 건조하는 이동수단. 해안 물 타일에 즉시 건조(다리처럼). 정착민이 승선하면 물 위를 조종해 다닐 수 있다.
+// 다리를 길게 깔지 않고 바다 건너 2번 대륙·원정 섬으로 건너가는 용도. 재사용 가능(정박했다 다시 탐).
+export const BOAT = { name: '배', cost: { wood: 25, iron: 3 }, speedMult: 1.5 }; // speedMult: 물 위 이동이 도보보다 빠름
+
 // ── 원정 섬: 본토·2번대륙과 멀리 떨어진 바다에 절차생성되는 테마 섬 ──
 // cxf/cyf/rf 는 맵 크기(MAP_W/MAP_H) 대비 비율. world.js 가 좌표로 환산해 지형에 새겨넣음.
 // theme: 'treasure'(보물상자) · 'cannibal'(식인종 상시 서식) · 'rare'(희귀 식물·동물)

@@ -1,6 +1,6 @@
 // L1 시나리오 스모크 — 시드 고정, 헤드리스. stepWorld 추출이 올바른지 + 결정론 확인.
 import { bootSim, run, runDays, designateChop, give, snapshot, DAY_MIN, MAP_W, MAP_H } from './harness.mjs';
-import { addBuilding, storageCap, upgradeMult, upgradeAdd, maxPop, rankReqStatus, canAdvanceRank, advanceRank, defenseStats, tickTowers, enemyStats, spawnRaid, mulberry32, grantRelic, dailyIslandRespawn, checkIslandDiscovery, updateEnemies, idx, shipComplete, fishSpotTier, footprintTouchesWater, canPlaceBridge, isWalkable, autoDesignateLodges, footprintAdjacentMine, ensureBossIsland, tickBarns, tickHeaters, seasonDef } from '../js/world.js';
+import { addBuilding, storageCap, upgradeMult, upgradeAdd, maxPop, rankReqStatus, canAdvanceRank, advanceRank, defenseStats, tickTowers, enemyStats, spawnRaid, mulberry32, grantRelic, dailyIslandRespawn, checkIslandDiscovery, updateEnemies, idx, shipComplete, fishSpotTier, footprintTouchesWater, canPlaceBridge, isWalkable, autoDesignateLodges, footprintAdjacentMine, ensureBossIsland, tickBarns, tickHeaters, seasonDef, boatCanEnter, spawnBoat, boardBoat, disembarkBoat, syncBoats } from '../js/world.js';
 import { GIANT, ENEMY, CANNIBAL, ISLANDS, INVASION, OUTPOST_BRANCHES, RAIDER, INVWARRIOR, ZOMBIE, SKELETON, GIANT_JUMP, ARMOR, FRUITTREE, FISH, catchFish, catchRareFish, GODDESS, TRADER, BUILDS, BUILD_MIN_RANK, FISH_PLATFORM, DEMON, MINIDEMON, GLORIOUS_FOOD, RARE_FISH_SPOT, INJURY, WALK_MIN_PER_TILE, RESEARCH, EGG_HATCH, RANCH, WINTER } from '../js/config.js';
 import { findWorkJob, releaseAllOf, bpMissing, reserve } from '../js/jobs.js';
 import { findPath } from '../js/path.js';
@@ -1674,6 +1674,53 @@ console.log('[sim-smoke] 52) 겨울 냉기 — 온기 밖 cold↑·hp↓ · 난�
   simW.ctx.onEvent = function (m) { if (m.indexOf('겨울 대비 경고') >= 0) warnings.push(m); };
   run(simW, 3 * DAY_MIN); // 16→19일차(겨울 진입)까지 진행
   ok(warnings.length === 1, '겨울 시작 ' + WINTER.warnLeadDays + '일 전 예고가 정확히 1회 발생 (' + warnings.length + '회)');
+})();
+
+console.log('[sim-smoke] 53) 배(이동수단) — 건조·승선·물 위 이동판정·하선·조종사 상실 정박 (신규)');
+(function () {
+  var w = bootSim(2601).world;
+  // (10,10) 물, (11,10) 육지(정착민이 설 자리)
+  w.terrain[idx(10, 10)] = 0; delete w.occupancy[idx(10, 10)];
+  w.terrain[idx(11, 10)] = 1; delete w.objects[idx(11, 10)]; delete w.occupancy[idx(11, 10)];
+  ok(boatCanEnter(w, 10, 10), '물 타일엔 배가 들어갈 수 있음(isWalkable 과 반대)');
+  ok(!boatCanEnter(w, 11, 10), '육지엔 배가 못 들어감');
+  ok(!isWalkable(w, 10, 10), '반대로 정착민은 물 타일 통행 불가(도보)');
+
+  // 건조
+  var boat = spawnBoat(w, 10, 10);
+  ok(w.boats.length === 1 && boat.pilot === null, '배 건조 시 무인 정박 상태로 생성');
+
+  // 승선: 배 옆(11,10) 정착민
+  var p = createPawn(0, {}, 11, 10);
+  ok(boardBoat(w, p, boat) === true, '배 옆 정착민 승선 성공');
+  ok(p.boating === boat.id && boat.pilot === p.id, '승선 상태 상호 연결(pawn.boating ↔ boat.pilot)');
+  ok(p.x === 10 && p.y === 10, '승선 시 정착민이 배 타일(물 위)로 올라탐');
+
+  // 멀리 있거나 이미 탄 배는 승선 불가
+  var boat2 = spawnBoat(w, 10, 10);
+  ok(boardBoat(w, createPawn(1, {}, 50, 50), boat2) === false, '멀리 있는 정착민은 승선 불가');
+  ok(boardBoat(w, createPawn(2, {}, 11, 10), boat) === false, '이미 조종 중인 배는 다른 정착민 승선 불가');
+
+  // syncBoats: 조종사가 물 위로 움직이면 배가 따라감
+  p.px = 8; p.py = 9; p.x = 8; p.y = 9;
+  syncBoats(w, [p]);
+  ok(Math.round(boat.px) === 8 && Math.round(boat.py) === 9, '항해 중 배가 조종사 위치를 따라감');
+
+  // 하선: 인접 육지로 내림
+  w.terrain[idx(8, 9)] = 0; delete w.occupancy[idx(8, 9)];
+  w.terrain[idx(9, 9)] = 1; delete w.objects[idx(9, 9)]; delete w.occupancy[idx(9, 9)];
+  ok(disembarkBoat(w, p) === true, '인접 육지로 하선 성공');
+  ok(p.boating === null && boat.pilot === null, '하선 시 상태 해제');
+  ok(p.x === 9 && p.y === 9, '정착민이 인접 육지로 내림');
+  ok(Math.round(boat.px) === 8 && Math.round(boat.py) === 9, '배는 하선 지점(물 위)에 정박');
+
+  // 조종사 사망 → 배 자동 정박(무인), 연결 해제
+  var boat3 = spawnBoat(w, 10, 10);
+  var pDie = createPawn(3, {}, 11, 10);
+  boardBoat(w, pDie, boat3);
+  pDie.state = 'dead';
+  syncBoats(w, [pDie]);
+  ok(boat3.pilot === null && pDie.boating === null, '조종사 사망 시 배가 정박(무인)하고 연결 해제');
 })();
 
 console.log('');

@@ -1019,6 +1019,29 @@ export function createRenderer(world) {
     }
   }
 
+  // ── 배(이동수단) ── 습격 상륙 연출과 같은 뗏목 스프라이트 재사용. 탑승 중이면 조종사 아래에 그려짐(world.syncBoats 가 위치 추종).
+  var boatSprites = [];
+  function syncBoatSprites() {
+    while (boatSprites.length < world.boats.length) {
+      var s = new PIXI.Sprite(tx('Bridge_All', 64, 0, 64, 64));
+      s.anchor.set(0.5, 0.5);
+      s.tint = 0x9a7a4a;
+      objLayer.addChild(s);
+      boatSprites.push(s);
+    }
+    for (var n = 0; n < world.boats.length; n++) {
+      var bt = world.boats[n], bs = boatSprites[n];
+      bs.x = (bt.px + 0.5) * TILE;
+      bs.y = (bt.py + 0.75) * TILE;
+      bs.width = TILE * 1.35; bs.height = TILE * 1.0;
+      bs.zIndex = (bt.py + 0.5) * TILE - 8; // 조종사(정착민)보다 살짝 아래
+    }
+    while (boatSprites.length > world.boats.length) {
+      var eb = boatSprites.pop();
+      objLayer.removeChild(eb); eb.destroy();
+    }
+  }
+
   // ── 적(고블린 + 거인 괴민) ──
   var enemySprites = {};
   var enemyDecor = {}; // 거인 전용: { lbl(이름표), bar(HP바) }
@@ -1579,6 +1602,7 @@ export function createRenderer(world) {
     }
     syncSheep();
     syncEnemies();
+    syncBoatSprites();
   }
 
   refreshAll();
@@ -1613,6 +1637,7 @@ export function createRenderer(world) {
     tick: tick,
     spawnAttackFx: spawnAttackFx,
     spawnBoatFx: spawnBoatFx,
+    refreshBoats: syncBoatSprites,
     spawnBoomFx: spawnBoomFx,
     spawnGoddessFx: spawnGoddessFx,
     spawnHitFx: spawnHitFx,

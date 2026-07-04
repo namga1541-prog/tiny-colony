@@ -1,13 +1,14 @@
 // v0.3 부팅·게임 루프·입력
 import {
   MAP_W, MAP_H, MIN_PER_SEC, DAY_MIN, SPEED_MULT, BUILDS, PAWN_DEFS,
-  RAID, BRIDGE, FISH_PLATFORM, TRAITS, HUMAN_IDS, WAREHOUSE_TIERS, BUILD_MIN_RANK, RANKS, DEFENSE_TIERS, OUTPOST_BRANCHES, ROLES, T_WATER, ANIMALS,
+  RAID, BRIDGE, BOAT, FISH_PLATFORM, TRAITS, HUMAN_IDS, WAREHOUSE_TIERS, BUILD_MIN_RANK, RANKS, DEFENSE_TIERS, OUTPOST_BRANCHES, ROLES, T_WATER, ANIMALS,
 } from './config.js';
 import {
   createWorld, mulberry32, idx, ix, iy, isWalkable, footprintClear,
   addBuilding, removeBuilding, buildingDef, addItem, totalRes, dailyRegrowth,
   updateSheep, tickResearch, tickCrops, updateEnemies, spawnRaid,
   canPlaceBridge, fishSpotTier, footprintTouchesWater, footprintAdjacentMine, ensureBossIsland, consumeGlobal, seasonDef, seasonIndex,
+  boatCanEnter, spawnBoat, boatAt, boardBoat, disembarkBoat, syncBoats,
   tickRanches, hasBarn, storageCap, totalStored, dailyMineRegen, tickTowers, canAfford,
   upgradeAdd, maxPop, canAdvanceRank, advanceRank, defenseStats,
 } from './world.js';
@@ -53,6 +54,8 @@ if (saved) {
   world.invasion = saved.invasion || null;
   world.invasionWon = saved.invasionWon || false;
   world.invasionsCompleted = saved.invasionsCompleted || 0;
+  world.boats = saved.boats || [];
+  world.nextBoatId = saved.nextBoatId || 1;
   world.dug = saved.dug || {};
   world.items = {};
   world.stockpile = saved.stockpile || {};
@@ -81,6 +84,7 @@ if (saved) {
     pw.carry = p.carry || null;
     pw.injury = p.injury || null;
     pw.cold = p.cold || 0;
+    pw.boating = p.boating || null;
     if (p.dead) pw.state = 'dead';
     return pw;
   });
@@ -618,6 +622,21 @@ function applyTool(tool, a, b) {
     else UI.toast('⚠️ 물 가장자리에만, 목재가 있어야 놓을 수 있습니다', true);
   }
 
+  else if (tool === 'boat') {
+    // 배: 해안 물 타일 1칸에 건조(다리와 같은 배치 조건). 드래그해도 재화가 되는 만큼만 첫 유효 타일에 1척.
+    var placedBoat = false;
+    forRect(a, b, function (i, x, y) {
+      if (placedBoat || !canPlaceBridge(world, x, y)) return;
+      if (!canAfford(world, BOAT.cost)) return;
+      for (var ct in BOAT.cost) consumeGlobal(world, ct, BOAT.cost[ct]);
+      var boat = spawnBoat(world, x, y);
+      R.refreshBoats();
+      placedBoat = true; count++;
+    });
+    if (count) UI.toast('🚢 배를 건조했습니다 — 정착민을 배 옆에 세우고 E(또는 배 클릭)로 승선하세요');
+    else UI.toast('⚠️ 해안 물 타일에만, 목재 ' + BOAT.cost.wood + '+철 ' + BOAT.cost.iron + ' 이 있어야 건조합니다', true);
+  }
+
   else if (tool === 'fishPlatform') {
     forRect(a, b, function (i, x, y) {
       if (!canPlaceBridge(world, x, y)) return; // 좌대도 다리와 동일한 배치 조건(물+인접 통행 가능)
@@ -916,6 +935,17 @@ canvas.addEventListener('wheel', function (e) {
 // 화면 좌표에서 탭 선택 (정착민 우선 → 건물 정보 → 해제)
 function selectAtScreen(x, y) {
   var t2 = R.screenToTile(x, y);
+  // 무인 배 클릭 + 조종 중 정착민이 인접 → 승선 (E키와 동일 동작의 마우스판)
+  var boat = boatAt(world, t2.x, t2.y);
+  if (boat) {
+    var ctrl = controlled.filter(function (q) { return q.state !== 'dead'; })[0];
+    if (ctrl && !ctrl.boating && boardBoat(world, ctrl, boat)) {
+      syncBoats(world, pawns); R.refreshBoats();
+      UI.toast('🚢 ' + ctrl.name + ' 승선 — WASD로 항해, E로 하선');
+      return;
+    }
+    if (!ctrl) { UI.toast('🚢 정착민을 먼저 선택해 배 옆에 세운 뒤 배를 클릭(또는 E)하세요'); return; }
+  }
   var hit = null;
   pawns.forEach(function (p) {
     if (p.state === 'dead') return;
@@ -1069,6 +1099,20 @@ function doInteract() {
   }
 }
 
+// E키/버튼: 조종 중인 정착민이 배에 타거나(옆에 무인 배) 내림(탑승 중 + 인접 육지).
+function toggleBoard() {
+  var p = controlled.filter(function (q) { return q.state !== 'dead'; })[0];
+  if (!p) { UI.toast('🚢 먼저 정착민을 선택하세요 (배 옆에서 E)'); return; }
+  if (p.boating) {
+    if (disembarkBoat(world, p)) { syncBoats(world, pawns); R.refreshBoats(); UI.toast('⚓ ' + p.name + ' 하선'); }
+    else UI.toast('⚠️ 내릴 육지가 인접에 없습니다 — 해안에 붙여 다시 시도', true);
+  } else {
+    var boat = boatAt(world, p.px, p.py);
+    if (boat && boardBoat(world, p, boat)) { syncBoats(world, pawns); R.refreshBoats(); UI.toast('🚢 ' + p.name + ' 승선 — WASD로 물 위를 항해, E로 하선'); }
+    else UI.toast('⚠️ 탈 배가 옆에 없습니다 (배를 건조하고 그 옆에서 E)', true);
+  }
+}
+
 window.addEventListener('keydown', function (e) {
   if (isTyping(e)) return;
   keys[e.code] = true;
@@ -1076,6 +1120,7 @@ window.addEventListener('keydown', function (e) {
     e.preventDefault();
     doInteract();
   }
+  if (e.code === 'KeyE') { e.preventDefault(); toggleBoard(); }
   if (e.code === 'KeyP') setSpeed(speed === 0 ? lastSpeed : 0);
   if (e.code === 'KeyF') { // F: 선택한 건물 업그레이드(창고 tier·방어건물 강화·대포) 통일
     var upBtn = document.querySelector('#buildPanel:not(.hidden) .bp-upgrade button:not([disabled])');
@@ -1108,11 +1153,14 @@ function manualMove(pawn, gameMin) {
   }
   var mag = Math.hypot(vx, vy);
   if (mag > 1) { vx /= mag; vy /= mag; mag = 1; } // 대각선(키보드) 또는 조이스틱 과대입력 정규화
-  var spd = gameMin * 1.25 * mag; // AI보다 25% 빠르게, 조이스틱은 기울인 만큼 아날로그 속도
+  // 탑승 중이면 물 위(boatCanEnter)로 이동 + 배 속도 배율, 아니면 평소 육지(isWalkable) 이동
+  var boating = !!pawn.boating;
+  var canGo = boating ? boatCanEnter : isWalkable;
+  var spd = gameMin * 1.25 * mag * (boating ? BOAT.speedMult : 1);
   var nx = pawn.px + vx * spd;
   var ny = pawn.py + vy * spd;
-  if (vx && isWalkable(world, Math.round(nx), Math.round(pawn.py))) pawn.px = nx;
-  if (vy && isWalkable(world, Math.round(pawn.px), Math.round(ny))) pawn.py = ny;
+  if (vx && canGo(world, Math.round(nx), Math.round(pawn.py))) pawn.px = nx;
+  if (vy && canGo(world, Math.round(pawn.px), Math.round(ny))) pawn.py = ny;
   pawn.x = Math.round(pawn.px);
   pawn.y = Math.round(pawn.py);
   if (vx) pawn.face = vx > 0 ? 1 : -1;
@@ -1266,6 +1314,7 @@ R.app.ticker.add(function () {
     }
   }
 
+  syncBoats(world, pawns); // 탑승 중 배가 조종사를 따라감 + 조종사 상실 시 정박(R.tick 의 배 스프라이트 sync 전에)
   R.tick(realSec);
   for (var m = 0; m < pawns.length; m++) R.updatePawnSprite(pawns[m]);
   R.tickSelection();
