@@ -1,7 +1,7 @@
 // 정착민 AI (v0.3): 욕구 → 상태기계 → 작업 수행
 import {
   NEEDS, NATURE, BUILDS, WALK_MIN_PER_TILE, TRAITS, CROP, FRUITTREE, WEAPONS, ARMOR, ITEMS,
-  COMBAT, COOK_TIERS, HUNT, CLINIC, ANIMALS, FISHING, FISH, catchFish, skillMult,
+  COMBAT, COOK_TIERS, HUNT, TAME, CLINIC, ANIMALS, FISHING, FISH, catchFish, skillMult,
   ROLES, ROLE_SPEED_BONUS,
 } from './config.js';
 import {
@@ -95,7 +95,7 @@ export function taskLabel(pawn) {
     build: '건설하러 가는 중', deliver: '자재 운반 중',
     gather: '작업하러 가는 중', mine: '금광으로 가는 중', haul: '자원 정리 중',
     plant: '밭으로 가는 중', harvestCrop: '수확하러 가는 중', craft: '대장간으로 가는 중',
-    fish: '낚시터로 가는 중',
+    fish: '낚시터로 가는 중', tame: '동물 길들이는 중',
   };
   return '🚶 ' + (names[j.type] || '작업 중');
 }
@@ -122,6 +122,7 @@ export function toolIconOf(world, pawn) {
     case 'craft': return '⚒️';
     case 'cook': return '🍳';
     case 'hunt': return '🏹';
+    case 'tame': return '🐴';
     case 'fish': return '🎣';
     case 'plant': return '🌱';
     case 'harvestCrop': return '🌾';
@@ -131,7 +132,7 @@ export function toolIconOf(world, pawn) {
 }
 
 // 건설(우선순위 높음)에 밀려 중단 가능한 저순위 작업들
-var INTERRUPTIBLE = { gather: 1, mine: 1, haul: 1, cook: 1, hunt: 1 };
+var INTERRUPTIBLE = { gather: 1, mine: 1, haul: 1, cook: 1, hunt: 1, tame: 1 };
 
 // "지금 실제로 할 수 있는" 건설/자재운반 작업이 있으면 true.
 // (설계도가 존재만 해서는 안 됨 — 지을 준비가 됐거나, 나를 수 있는 자재가 있어야 양보)
@@ -191,7 +192,7 @@ function jobTarget(world, j) {
       return { x: ix(j.idx), y: iy(j.idx), adj: true };
     case 'craft': case 'cook': case 'rest':
       return { x: j.x, y: j.y, adj: false };
-    case 'hunt':
+    case 'hunt': case 'tame':
       return { x: j.x, y: j.y, adj: true };
     case 'fish':
       return { x: ix(j.idx), y: iy(j.idx), adj: true }; // 물가 인접에서 낚시
@@ -300,6 +301,14 @@ function onArrive(world, pawn, ctx) {
       pawn.state = 'working';
       pawn.workLeft = HUNT.work;
       pawn.face = sh.x > pawn.x ? 1 : -1;
+      break;
+    }
+    case 'tame': {
+      var shT = sheepById(world, j.sheepId);
+      if (!shT || !shT.tame || shT.tamed) return abandonJob(world, pawn);
+      pawn.state = 'working';
+      pawn.workLeft = TAME.work;
+      pawn.face = shT.x > pawn.x ? 1 : -1;
       break;
     }
     case 'plant': {
@@ -516,6 +525,27 @@ function finishWork(world, pawn, ctx) {
       if (si2 >= 0) world.sheep.splice(si2, 1);
       ctx.onSheepChange();
       ctx.onEvent(pawn.name + '이(가) 사냥에 성공했습니다' + (adef.rareGold ? ' (희귀 동물! 금 +' + adef.rareGold + ')' : ''));
+    }
+    releaseAllOf(world, pawn.id);
+    pawn.job = null;
+    pawn.state = 'idle';
+    return;
+  }
+
+  if (j.type === 'tame') {
+    var shp2 = sheepById(world, j.sheepId);
+    if (shp2 && shp2.tame && !shp2.tamed) {
+      var adefT = ANIMALS[shp2.type] || ANIMALS.sheep;
+      var rngF = ctx.rng || Math.random;
+      if (rngF() < (adefT.tameChance || 0)) {
+        shp2.tamed = true;
+        shp2.tame = false;
+        ctx.onEvent('🐴 ' + pawn.name + '이(가) ' + adefT.label + '을(를) 길들이는 데 성공했습니다!');
+      } else {
+        shp2.tame = false; // 실패 — 동물은 그대로 남고, 다시 지정하면 재시도 가능
+        ctx.onEvent(pawn.name + '이(가) ' + adefT.label + ' 길들이기에 실패했습니다');
+      }
+      ctx.onSheepChange();
     }
     releaseAllOf(world, pawn.id);
     pawn.job = null;

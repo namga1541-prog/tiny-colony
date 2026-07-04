@@ -8,7 +8,7 @@
 import { DAY_MIN, RAID, GIANT_RAID, INVASION, GODDESS, TRADER, MAP_W, MAP_H } from './config.js';
 import {
   idx, addItem, mulberry32,
-  updateSheep, tickTowers, updateEnemies, tickResearch, tickCrops, tickRanches, autoDesignateLodges,
+  updateSheep, tickTowers, updateEnemies, tickResearch, tickCrops, tickRanches, tickBarns, autoDesignateLodges,
   dailyRegrowth, dailyMineRegen, spawnRaid, seasonDef, seasonIndex, maxPop, grantRelic,
   dailyIslandRespawn, checkIslandDiscovery,
   grantLegendaryRelic, warlordsAliveInWave, shipComplete,
@@ -63,6 +63,8 @@ export function stepWorld(world, pawns, dtMin, rng, ctx, enemyCbs) {
     for (var ci = 0; ci < ready.length; ci++) ctx.onCropChange(ready[ci]);
     var rev = tickRanches(world, dt, rng);
     for (var re = 0; re < rev.length; re++) { if (rev[re].idx !== undefined) ctx.onItemChange(rev[re].idx); }
+    var bev = tickBarns(world, dt);
+    for (var be = 0; be < bev.length; be++) { if (bev[be].idx !== undefined) ctx.onItemChange(bev[be].idx); }
   }
 
   // 일꾼 오두막 자동 지정(광부=인접 광산 채굴, 농부=주변 농사 구역). 바뀌면 구역 오버레이 갱신.

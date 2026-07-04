@@ -2,7 +2,7 @@
 import {
   MAP_W, MAP_H, NATURE, STACK_MAX, BUILDS, BUILDING_HP_DEFAULT, GOLDMINE, IRONMINE, BRIDGE,
   RESEARCH_RATE_PER_PAWN, ENEMY, RAID, GIANT, GIANT_FAST_MULT, GIANT_JUMP, SEASON_DAYS, SEASONS, STORAGE, RANCH, REGROW,
-  ANIMAL_TYPES, WAREHOUSE_TIERS, UPGRADES, RANKS, HOUSE_POP_BONUS, HOUSE_POP_CAP_COUNT, DEFENSE_TIERS, OUTPOST_BRANCHES, CANNON, RELICS, ISLANDS, CANNIBAL, WARLORD, RAIDER, INVWARRIOR, ZOMBIE, SKELETON, DEMON,
+  ANIMAL_TYPES, ANIMALS, WILD_ANIMAL_TYPES, BARN, WAREHOUSE_TIERS, UPGRADES, RANKS, HOUSE_POP_BONUS, HOUSE_POP_CAP_COUNT, DEFENSE_TIERS, OUTPOST_BRANCHES, CANNON, RELICS, ISLANDS, CANNIBAL, WARLORD, RAIDER, INVWARRIOR, ZOMBIE, SKELETON, DEMON,
   ARMOR, FISH_PLATFORM, LODGE_FARM_RADIUS,
   T_WATER, T_GRASS, T_SAND,
 } from './config.js';
@@ -83,6 +83,18 @@ function pickAnimalType(rng) {
   if (r < 0.68) return 'pig';
   if (r < 0.85) return 'chicken';
   return 'cow';
+}
+
+// 본섬에 배회하는 야생동물 종류 선택 — ANIMALS[x].weight 가중치(낚시 catchFish 와 동일한 누적 확률 방식)
+function pickWildAnimalType(rng) {
+  var total = 0, i, w = [];
+  for (i = 0; i < WILD_ANIMAL_TYPES.length; i++) {
+    var ww = ANIMALS[WILD_ANIMAL_TYPES[i]].weight;
+    w.push(ww); total += ww;
+  }
+  var r = rng() * total;
+  for (i = 0; i < WILD_ANIMAL_TYPES.length; i++) { r -= w[i]; if (r <= 0) return WILD_ANIMAL_TYPES[i]; }
+  return WILD_ANIMAL_TYPES[0];
 }
 
 export { T_WATER, T_GRASS, T_SAND };
@@ -251,6 +263,16 @@ export function createWorld(seed) {
     if (!isWalkable(world, sx, sy)) continue;
     world.sheep.push({ id: world.nextSid++, type: pickAnimalType(rng), x: sx, y: sy, px: sx, py: sy, dir: 1, cd: rng() * 30, phase: (rng() * 8) | 0 });
     sheepN--;
+  }
+
+  // 야생동물(말·사슴·늑대·곰·사자·호랑이) — 사냥하거나 축사에서 길들일 수 있음
+  var wildN = 5 + ((rng() * 4) | 0);
+  tries = 0;
+  while (wildN > 0 && tries++ < 200) {
+    var wx = (rng() * MAP_W) | 0, wy = (rng() * MAP_H) | 0;
+    if (!isWalkable(world, wx, wy)) continue;
+    world.sheep.push({ id: world.nextSid++, type: pickWildAnimalType(rng), x: wx, y: wy, px: wx, py: wy, dir: 1, cd: rng() * 30, phase: (rng() * 8) | 0 });
+    wildN--;
   }
 
   // 시작 물자 + 모닥불
@@ -594,6 +616,36 @@ export function tickRanches(world, dtMin, rng) {
           world.sheep.push({ id: world.nextSid++, type: pickAnimalType(rng), x: sx, y: sy, px: sx, py: sy, dir: 1, cd: rng() * 30, phase: (rng() * 8) | 0 });
           events.push({ type: 'sheep' });
         }
+      }
+    }
+  }
+  return events;
+}
+
+// 축사가 최소 1개 완공돼 있는가 — 길들이기 도구·작업의 게이트 조건
+export function hasBarn(world) {
+  for (var id in world.buildings) {
+    if (world.buildings[id].kind === 'barn' && world.buildings[id].stage === 'built') return true;
+  }
+  return false;
+}
+
+// ── 축사: 번식은 안 하고, 길들인 야생동물 수에 비례해 주기적으로 식량 산출 ──
+export function tickBarns(world, dtMin) {
+  var events = [];
+  var tamedCount = 0;
+  for (var s = 0; s < world.sheep.length; s++) if (world.sheep[s].tamed) tamedCount++;
+  if (tamedCount === 0) return events;
+  for (var id in world.buildings) {
+    var b = world.buildings[id];
+    if (b.kind !== 'barn' || b.stage !== 'built') continue;
+    b.barnT = (b.barnT || 0) + dtMin;
+    if (b.barnT >= BARN.interval) {
+      b.barnT = 0;
+      if (!storageFull(world)) {
+        var fr = buildingFront(world, b) || { x: b.x, y: b.y + 2 };
+        addItem(world, idx(fr.x, fr.y), 'food', BARN.foodPerAnimal * tamedCount);
+        events.push({ type: 'food', idx: idx(fr.x, fr.y) });
       }
     }
   }

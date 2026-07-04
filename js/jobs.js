@@ -207,6 +207,17 @@ function collectHunt(world, pawn) {
   }
   return cands;
 }
+// 길들이기(축사가 있어야 지시 가능 — main.js 의 tame 도구에서 게이트)
+function collectTame(world, pawn) {
+  var cands = [];
+  for (var si = 0; si < world.sheep.length; si++) {
+    var sh = world.sheep[si];
+    if (!sh.tame || sh.tamed) continue;
+    if (world.reserved['tame:' + sh.id] !== undefined) continue;
+    cands.push({ type: 'tame', sheepId: sh.id, x: sh.x, y: sh.y, _d: Math.abs(pawn.x - sh.x) + Math.abs(pawn.y - sh.y) });
+  }
+  return cands;
+}
 function collectFish(world, pawn) {
   var cands = [];
   for (var i in world.fishDesig) {
@@ -238,7 +249,7 @@ var COLLECTOR = {
   build: collectBuild, deliver: collectDeliver, craft: collectCraft,
   gather: collectGather, mine: collectMine,
   plant: collectFarm, harvestCrop: collectFarm,
-  cook: collectCook, hunt: collectHunt, fish: collectFish, haul: collectHaul,
+  cook: collectCook, hunt: collectHunt, tame: collectTame, fish: collectFish, haul: collectHaul,
 };
 
 // 확정 작업에 예약락 부여 (역할 탐색·일반 탐색 공용)
@@ -255,6 +266,7 @@ function reserveJob(world, job, pawn) {
   else if (job.type === 'craft') reserve(world, 'craft', pawn.id);
   else if (job.type === 'cook') reserve(world, 'cook', pawn.id);
   else if (job.type === 'hunt') reserve(world, 'hunt:' + job.sheepId, pawn.id);
+  else if (job.type === 'tame') reserve(world, 'tame:' + job.sheepId, pawn.id);
   else if (job.type === 'fish') reserve(world, 'fish:' + job.idx, pawn.id);
 }
 
@@ -288,6 +300,7 @@ function findDefaultWork(world, pawn) {
   if (!cands.length) cands = excludeAvoid(collectFarm(world, pawn), pawn);
   if (!cands.length) cands = excludeAvoid(collectCook(world, pawn), pawn);
   if (!cands.length) cands = excludeAvoid(collectHunt(world, pawn), pawn);
+  if (!cands.length) cands = excludeAvoid(collectTame(world, pawn), pawn);
   if (!cands.length) cands = excludeAvoid(collectFish(world, pawn), pawn);
   if (!cands.length) cands = excludeAvoid(collectHaul(world, pawn), pawn);
   var job = nearest(pawn, cands, function (c) { return c._d; });

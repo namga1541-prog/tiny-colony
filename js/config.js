@@ -133,6 +133,13 @@ export const BUILDS = {
     town: { sx: 0, sy: 64, sw: 64, sh: 64 }, tint: 0xdfeaff, // 회색집 + 청백색조(치료소=청결·의료)
     desc: '부상당한 정착민이 찾아와 빠르게 회복합니다.',
   },
+  barn: {
+    name: '축사', cost: { wood: 20, gold: 5 }, work: 80, hp: 100,
+    fw: 2, fh: 2, solid: true,
+    img: 'House', imgC: 'House_C', pw: 128, ph: 192,
+    town: { sx: 64, sy: 64, sw: 64, sh: 64 }, tint: 0xb08d5a, // 목재빛 갈색조(축사=사육)
+    desc: '이 건물이 있어야 야생동물을 길들일 수 있습니다. 길들인 동물 수에 비례해 주기적으로 식량을 산출합니다.',
+  },
   // ── 일꾼 오두막: 자원 옆에 붙여 지어 자동 채광·농사(친구 피드백). 비쌈. ──
   minerLodge: {
     name: '광부 오두막', cost: { wood: 25, gold: 15 }, work: 90, hp: 90,
@@ -248,7 +255,7 @@ export const ROLES = {
   miner:      { name: '광부',     icon: '⛏️', jobs: ['mine'] },
   farmer:     { name: '농부',     icon: '🌾', jobs: ['plant', 'harvestCrop', 'cook'] },
   fisher:     { name: '어부',     icon: '🎣', jobs: ['fish'] },
-  hunter:     { name: '사냥꾼',   icon: '🏹', jobs: ['hunt', 'fish'] },
+  hunter:     { name: '사냥꾼',   icon: '🏹', jobs: ['hunt', 'fish', 'tame'] },
   smith:      { name: '대장장이', icon: '🔨', jobs: ['craft', 'mine'] },
 };
 export const ROLE_SPEED_BONUS = 1.15; // 역할 전문 작업 속도 +15%
@@ -416,8 +423,21 @@ export const ANIMALS = {
   cow:      { label: '소',     food: 9,  leather: 4, meat: 4, sheet: 'Cow',        big: false },
   chicken:  { label: '닭',     food: 2,  leather: 1, meat: 1, sheet: 'Chicken',    big: false },
   raredeer: { label: '희귀 영양', food: 16, leather: 5, meat: 5, sheet: 'Cow', big: false, rareGold: 12 }, // 비경의 섬 전용. 처치 시 금도 획득
+  // ── 야생동물: 본섬에 배회 — 사냥해도 되고, 축사가 있으면 길들여 사육 가능(가축 전용 스프라이트가 없어 기존 소·돼지 실루엣을 색조로 구분해 재사용) ──
+  horse: { label: '말',    food: 5,  leather: 3, meat: 2, shape: 'cow', tint: 0x9c7a4a, wild: true, tameChance: 0.55, weight: 30 },
+  deer:  { label: '사슴',  food: 6,  leather: 3, meat: 3, shape: 'cow', tint: 0xc9975a, wild: true, tameChance: 0.45, weight: 26 },
+  wolf:  { label: '늑대',  food: 4,  leather: 4, meat: 3, shape: 'pig', tint: 0x8a8f96, wild: true, tameChance: 0.30, weight: 20 },
+  bear:  { label: '곰',    food: 8,  leather: 5, meat: 5, shape: 'cow', tint: 0x5a4632, wild: true, tameChance: 0.20, weight: 12 },
+  lion:  { label: '사자',  food: 9,  leather: 6, meat: 6, shape: 'cow', tint: 0xd9a63e, wild: true, tameChance: 0.14, weight: 8 },
+  tiger: { label: '호랑이', food: 10, leather: 6, meat: 6, shape: 'cow', tint: 0xe08a2e, wild: true, tameChance: 0.10, weight: 4 },
 };
 export const ANIMAL_TYPES = ['sheep', 'pig', 'cow', 'chicken']; // 야생 배회(pickAnimalType) 대상 — raredeer 는 섬 전용, 제외
+export const WILD_ANIMAL_TYPES = ['horse', 'deer', 'wolf', 'bear', 'lion', 'tiger']; // 본섬 배회 야생동물(pickWildAnimalType) — weight 로 희귀도 가중
+
+// ── 길들이기: 축사(barn)가 있어야 야생동물에게 시도 가능. 실패해도 동물은 그대로 남아 재시도 가능 ──
+export const TAME = { work: 25 };
+// ── 축사: 길들인 야생동물 사육 — 목장과 달리 번식은 안 하고, 길들인 개체 수에 비례해 주기적으로 식량 산출 ──
+export const BARN = { interval: 200, foodPerAnimal: 3 };
 
 // ── 고용: 식량을 지불하고 새 정착민 영입 (인원 늘수록 비용↑) ──
 export const HIRE = { base: 25, perPawn: 15, maxPop: 12 };

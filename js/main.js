@@ -1,14 +1,14 @@
 // v0.3 부팅·게임 루프·입력
 import {
   MAP_W, MAP_H, MIN_PER_SEC, DAY_MIN, SPEED_MULT, BUILDS, PAWN_DEFS,
-  RAID, BRIDGE, FISH_PLATFORM, TRAITS, HUMAN_IDS, WAREHOUSE_TIERS, BUILD_MIN_RANK, RANKS, DEFENSE_TIERS, OUTPOST_BRANCHES, ROLES, T_WATER,
+  RAID, BRIDGE, FISH_PLATFORM, TRAITS, HUMAN_IDS, WAREHOUSE_TIERS, BUILD_MIN_RANK, RANKS, DEFENSE_TIERS, OUTPOST_BRANCHES, ROLES, T_WATER, ANIMALS,
 } from './config.js';
 import {
   createWorld, mulberry32, idx, ix, iy, isWalkable, footprintClear,
   addBuilding, removeBuilding, buildingDef, addItem, totalRes, dailyRegrowth,
   updateSheep, tickResearch, tickCrops, updateEnemies, spawnRaid,
   canPlaceBridge, fishSpotTier, footprintTouchesWater, footprintAdjacentMine, ensureBossIsland, consumeGlobal, seasonDef, seasonIndex,
-  tickRanches, storageCap, totalStored, dailyMineRegen, tickTowers, canAfford,
+  tickRanches, hasBarn, storageCap, totalStored, dailyMineRegen, tickTowers, canAfford,
   upgradeAdd, maxPop, canAdvanceRank, advanceRank, defenseStats,
 } from './world.js';
 import { createPawn, updatePawn, manualInteract, equipWeapon, equipArmor } from './pawns.js';
@@ -569,6 +569,24 @@ function applyTool(tool, a, b) {
     });
     if (count) UI.toast('🥩 ' + count + '마리 사냥 지시');
     else UI.toast('⚠️ 범위에 동물이 없습니다', true);
+  }
+
+  else if (tool === 'tame') {
+    if (!hasBarn(world)) {
+      UI.toast('🔒 길들이려면 먼저 축사를 지어야 합니다', true);
+    } else {
+      forRect(a, b, function (i, x, y) {
+        for (var s2 = 0; s2 < world.sheep.length; s2++) {
+          var sh2 = world.sheep[s2];
+          var adefW = ANIMALS[sh2.type];
+          if (sh2.x === x && sh2.y === y && adefW && adefW.wild && !sh2.tamed && !sh2.tame && !sh2.hunt) {
+            sh2.tame = true; count++;
+          }
+        }
+      });
+      if (count) UI.toast('🐴 ' + count + '마리 길들이기 지시');
+      else UI.toast('⚠️ 범위에 길들일 수 있는 야생동물이 없습니다', true);
+    }
   }
 
   else if (tool === 'fish') {

@@ -1,7 +1,7 @@
 // v0.3 렌더러 (Tiny Swords): 지형·거품·건물·유닛 애니메이션·조명·색보정
 /* global PIXI */
 import {
-  TILE, MAP_W, MAP_H, TS, FANTASY, DECOR, DECOR_ANIM, DECOR_RUIN, GRASS_DECAL_CELLS, BUILDS, HUMANS, OUTPOST_BRANCHES,
+  TILE, MAP_W, MAP_H, TS, FANTASY, DECOR, DECOR_ANIM, DECOR_RUIN, GRASS_DECAL_CELLS, BUILDS, HUMANS, OUTPOST_BRANCHES, ANIMALS,
   ZOOM_DEFAULT, ZOOM_MIN, ZOOM_MAX,
 } from './config.js';
 import {
@@ -313,6 +313,7 @@ export function createRenderer(world) {
     warehouse: { icon: '📦', color: 0xb5732a },
     clinic:    { icon: '🏥', color: 0xd94a52 },
     ranch:     { icon: '🐑', color: 0x4e8a3a },
+    barn:      { icon: '🐴', color: 0xb08d5a },
     tower:     { icon: '🏹', color: 0x556070 },
     outpost:   { icon: '🛡️', color: 0x8a7444 },
     castle:    { icon: '👑', color: 0x7a5a20 },
@@ -939,13 +940,18 @@ export function createRenderer(world) {
         sp.texture = sheepFrames[(((animTime / 0.18) | 0) + sh.phase) % 8];
         sp.scale.set(sh.dir < 0 ? -1 : 1, 1);
       } else {
-        var af = animalFrames[type === 'raredeer' ? 'cow' : type] || animalFrames.pig; // 희귀 영양은 소 실루엣 재사용(금빛 색조로 구분)
+        var adef3 = ANIMALS[type];
+        // 야생동물(말·사슴·늑대·곰·사자·호랑이)은 전용 스프라이트가 없어 기존 소·돼지 실루엣을 재사용(색조로 구분)
+        var shapeKey = (adef3 && adef3.shape) || (type === 'raredeer' ? 'cow' : type);
+        var af = animalFrames[shapeKey] || animalFrames.pig;
         sp.texture = af[(((animTime / 0.25) | 0) + sh.phase) % 2];
         // 16px 원본 → 약 3배로 표시 (좌우 반전 유지)
         var sc = 3;
         sp.scale.set(sh.dir < 0 ? -sc : sc, sc);
       }
-      sp.tint = sh.hunt ? 0xffb0b0 : (sh.rare ? 0xffdb70 : 0xffffff); // 사냥 지정=붉게, 희귀 동물(원정 섬)=금빛
+      var wildTint = (ANIMALS[type] && ANIMALS[type].tint) || 0xffffff;
+      // 사냥 지정=붉게, 길들이기 지정 중=하늘색, 길들여짐=연두색, 희귀 동물(원정 섬)=금빛, 그 외 야생동물은 종별 색조
+      sp.tint = sh.hunt ? 0xffb0b0 : (sh.tame && !sh.tamed ? 0x8ad6ff : (sh.tamed ? 0xb6ffb0 : (sh.rare ? 0xffdb70 : wildTint)));
     }
     // 초과 스프라이트 제거 (사냥으로 양이 줄었을 때)
     while (sheepSprites.length > world.sheep.length) {
