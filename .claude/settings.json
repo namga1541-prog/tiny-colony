@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node tools/hook-style.mjs",
+            "timeout": 30,
+            "statusMessage": "check:style (js/*.js 스타일·결정론 검사)"
+          }
+        ]
+      }
+    ]
+  }
+}
