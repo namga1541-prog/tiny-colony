@@ -61,6 +61,7 @@
 ## window.game (디버그·테스트 훅, main.js 말미)
 `{ world, pawns, R, applyTool(tool,a,b), setSpeed(s), enterControl(pawn), exitControl(), keys }`
 - 브라우저 테스트는 이걸로 상태 조작·검증. **주의: 프리뷰 탭이 백그라운드면 PixiJS 티커가 멈춰** eval 기반 시간검증이 왜곡됨 → 시간 의존 검증은 Playwright(페이지 활성 유지) 사용.
+- **주의(과거 반복 크래시)**: eval 로 `stepWorld` 를 직접 호출할 때 미니 ctx 에 `rng` 를 빠뜨리면 `TypeError: ctx.rng is not a function`. 직접 호출 대신 게임 티커를 쓰거나, 부득이하면 ctx 에 `rng: Math.random` 포함(브라우저 검증용이라 결정론 불필요).
 
 ## 헤드리스 가능 모듈 (Node 에서 PIXI·DOM 없이 실행)
 `config · world · path · jobs · goals · pawns · sim` — 순수 로직. 테스트 하네스(`tests/harness.mjs`)가 직접 import.
