@@ -400,17 +400,22 @@ export const INVASION = {
   retryGapDays: 3,          // 전멸 위기로 침공군이 물러간 뒤 재도전까지 유예일
 };
 
-// ── 요리 (모닥불에서) ──
-export const COOK = { work: 15, foodPerMeal: 2, mealEatAmount: 95 };
+// ── 요리 (모닥불에서) — 등급별 레시피. 낚시 등급 테이블처럼 높은 등급일수록 재료가 다양·포만감 회복량 큼.
+// 정착민은 collectCook 에서 재료가 되는 가장 높은 등급을 자동으로 골라 요리함(등급별 재고 각각 6개 상한).
+export const COOK_TIERS = [
+  { id: 'meal',      name: '소박한 식사', cost: { food: 2 },                       work: 15, eatAmount: 95 },
+  { id: 'mealGood',  name: '푸짐한 식사', cost: { food: 2, meat: 2 },              work: 20, eatAmount: 140 },
+  { id: 'mealFeast', name: '진수성찬',   cost: { food: 2, meat: 2, delicacy: 1 }, work: 26, eatAmount: 190 },
+];
 
-// ── 사냥 (동물) ── 종류별 식량 산출
+// ── 사냥 (동물) ── 종류별 식량·가죽·고기 산출. 고기는 고급 요리(푸짐한 식사 이상)의 재료.
 export const HUNT = { work: 14 };
 export const ANIMALS = {
-  sheep:    { label: '양',     food: 4,  leather: 2, sheet: 'Sheep_Idle', big: true },
-  pig:      { label: '돼지',   food: 6,  leather: 3, sheet: 'Pig',        big: false },
-  cow:      { label: '소',     food: 9,  leather: 4, sheet: 'Cow',        big: false },
-  chicken:  { label: '닭',     food: 2,  leather: 1, sheet: 'Chicken',    big: false },
-  raredeer: { label: '희귀 영양', food: 16, leather: 5, sheet: 'Cow', big: false, rareGold: 12 }, // 비경의 섬 전용. 처치 시 금도 획득
+  sheep:    { label: '양',     food: 4,  leather: 2, meat: 1, sheet: 'Sheep_Idle', big: true },
+  pig:      { label: '돼지',   food: 6,  leather: 3, meat: 3, sheet: 'Pig',        big: false },
+  cow:      { label: '소',     food: 9,  leather: 4, meat: 4, sheet: 'Cow',        big: false },
+  chicken:  { label: '닭',     food: 2,  leather: 1, meat: 1, sheet: 'Chicken',    big: false },
+  raredeer: { label: '희귀 영양', food: 16, leather: 5, meat: 5, sheet: 'Cow', big: false, rareGold: 12 }, // 비경의 섬 전용. 처치 시 금도 획득
 };
 export const ANIMAL_TYPES = ['sheep', 'pig', 'cow', 'chicken']; // 야생 배회(pickAnimalType) 대상 — raredeer 는 섬 전용, 제외
 
@@ -465,7 +470,7 @@ export const GODDESS = { day: 7, spawnHour: 20, name: '아보랑카도', relicId
 // rates: 자원 1개당 지급하는 금(내림). 잉여 자원 처리 + 탈출선 등 금 소요 프로젝트로 이어지는 순환 고리.
 export const TRADER = {
   firstDay: 6, intervalDays: 4, spawnHour: 10, stayDays: 2,
-  rates: { wood: 0.15, iron: 0.5, food: 0.2, meal: 0.6, leather: 0.25 },
+  rates: { wood: 0.15, iron: 0.5, food: 0.2, meal: 0.6, leather: 0.25, meat: 0.3, delicacy: 1.2, mealGood: 0.9, mealFeast: 1.5 },
 };
 
 // ── 낚시 ──
@@ -479,17 +484,18 @@ export const RODS = [
 // rare: 0 흔함 → 3 전설. weight 는 기본 확률, 낚싯대 등급이 높을수록 rare 가중.
 // 금은 초희귀 '황금 잉어'(weight 1.0 ≈ 약 1%)에서만 나옴 — 나머지 어종은 고기(식량) 전용.
 // food 는 밸런싱을 위해 기존값의 절반으로 하향(낚시가 식량을 과다 공급하던 문제). 금 산출은 유지.
+// delicacy(진미): rare 2 이상 희귀 어종에서만 나오는 최고급 요리 재료(진수성찬 전용).
 export const FISH = [
   { name: '멸치',       food: 1,  gold: 0,  weight: 42, rare: 0 },
   { name: '붕어',       food: 2,  gold: 0,  weight: 30, rare: 0 },
   { name: '농어',       food: 4,  gold: 0,  weight: 16, rare: 1 },
   { name: '연어',       food: 6,  gold: 0,  weight: 9,  rare: 1 },
-  { name: '금붕어',     food: 5,  gold: 0,  weight: 3,  rare: 2 },
-  { name: '전설의 잉어', food: 9,  gold: 0,  weight: 0.7, rare: 3 },
-  { name: '황금 잉어',   food: 4,  gold: 30, weight: 1.0, rare: 3 }, // 유일한 금 산출 어종(초희귀, ≈1%)
-  { name: '심해 아귀왕', food: 10, gold: 0,  weight: 0.6, rare: 3 },
-  { name: '오색 산천어', food: 7,  gold: 0,  weight: 0.8, rare: 3 },
-  { name: '인어의 눈물고기', food: 6, gold: 0, weight: 0.5, rare: 3 },
+  { name: '금붕어',     food: 5,  gold: 0,  weight: 3,  rare: 2, delicacy: 1 },
+  { name: '전설의 잉어', food: 9,  gold: 0,  weight: 0.7, rare: 3, delicacy: 1 },
+  { name: '황금 잉어',   food: 4,  gold: 30, weight: 1.0, rare: 3, delicacy: 1 }, // 유일한 금 산출 어종(초희귀, ≈1%)
+  { name: '심해 아귀왕', food: 10, gold: 0,  weight: 0.6, rare: 3, delicacy: 1 },
+  { name: '오색 산천어', food: 7,  gold: 0,  weight: 0.8, rare: 3, delicacy: 1 },
+  { name: '인어의 눈물고기', food: 6, gold: 0, weight: 0.5, rare: 3, delicacy: 1 },
 ];
 // 낚시터 등급별 희귀 보정 — 낚싯대(rodTier)와 같은 방식으로 합산(둘 다 있으면 시너지).
 // 0=해안(기본), 1=좌대(FISH_PLATFORM) 인접, 2=선착장(DOCK) 인접. world.js 의 fishSpotTier() 가 판정.

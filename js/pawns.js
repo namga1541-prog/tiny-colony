@@ -1,7 +1,7 @@
 // 정착민 AI (v0.3): 욕구 → 상태기계 → 작업 수행
 import {
   NEEDS, NATURE, BUILDS, WALK_MIN_PER_TILE, TRAITS, CROP, FRUITTREE, WEAPONS, ARMOR, ITEMS,
-  COMBAT, COOK, HUNT, CLINIC, ANIMALS, FISHING, FISH, catchFish, skillMult,
+  COMBAT, COOK_TIERS, HUNT, CLINIC, ANIMALS, FISHING, FISH, catchFish, skillMult,
   ROLES, ROLE_SPEED_BONUS,
 } from './config.js';
 import {
@@ -277,9 +277,10 @@ function onArrive(world, pawn, ctx) {
       break;
     }
     case 'cook': {
-      if (totalRes(world).food < COOK.foodPerMeal) return abandonJob(world, pawn);
+      var cookTier = cookTierDef(j.tierId);
+      if (!cookTier || !canAfford(world, cookTier.cost)) return abandonJob(world, pawn);
       pawn.state = 'working';
-      pawn.workLeft = COOK.work;
+      pawn.workLeft = cookTier.work;
       break;
     }
     case 'rest': {
@@ -466,10 +467,12 @@ function finishWork(world, pawn, ctx) {
   }
 
   if (j.type === 'cook') {
-    if (consumeGlobal(world, 'food', COOK.foodPerMeal) >= COOK.foodPerMeal) {
-      addItem(world, idx(pawn.x, pawn.y), 'meal', 1);
+    var ctier = cookTierDef(j.tierId);
+    if (ctier && canAfford(world, ctier.cost)) {
+      for (var cct in ctier.cost) consumeGlobal(world, cct, ctier.cost[cct]);
+      addItem(world, idx(pawn.x, pawn.y), ctier.id, 1);
       ctx.onItemChange(idx(pawn.x, pawn.y));
-      ctx.onEvent(pawn.name + '이(가) 요리를 완성했습니다');
+      ctx.onEvent(pawn.name + '이(가) ' + ctier.name + '을(를) 완성했습니다');
     }
     releaseAllOf(world, pawn.id);
     pawn.job = null;
@@ -485,8 +488,10 @@ function finishWork(world, pawn, ctx) {
         var fish = catchFish(world.rodTier || 0, ctx.rng || Math.random, spotBonus);
         addItem(world, 0, 'food', fish.food);
         if (fish.gold) addItem(world, 0, 'gold', fish.gold);
+        if (fish.delicacy) addItem(world, 0, 'delicacy', fish.delicacy);
         var fgold = fish.gold ? ' (금 +' + fish.gold + ')' : '';
-        if (fish.rare >= 2) ctx.onEvent('🎣 ' + pawn.name + ' 이(가) 희귀 어종 "' + fish.name + '" 을(를) 낚았습니다!' + fgold);
+        var fdeli = fish.delicacy ? ' (진미 +' + fish.delicacy + ')' : '';
+        if (fish.rare >= 2) ctx.onEvent('🎣 ' + pawn.name + ' 이(가) 희귀 어종 "' + fish.name + '" 을(를) 낚았습니다!' + fgold + fdeli);
         else ctx.onEvent('🎣 ' + pawn.name + ' 이(가) ' + fish.name + ' 을(를) 낚았습니다' + fgold);
       }
     }
@@ -503,6 +508,7 @@ function finishWork(world, pawn, ctx) {
       if (!storageFull(world)) {
         addItem(world, 0, 'food', adef.food);
         if (adef.leather) addItem(world, 0, 'leather', adef.leather);
+        if (adef.meat) addItem(world, 0, 'meat', adef.meat);
         if (adef.rareGold) addItem(world, 0, 'gold', adef.rareGold); // 희귀 동물(원정 섬) 처치 보너스
       }
       else ctx.onStorageFull();
@@ -623,6 +629,19 @@ function clinicExists(world) {
 }
 
 // ── 전투 유틸 ──
+function cookTierDef(id) {
+  for (var i = 0; i < COOK_TIERS.length; i++) if (COOK_TIERS[i].id === id) return COOK_TIERS[i];
+  return null;
+}
+// 먹을거리 선택: 등급 높은 요리부터(포만감 회복이 크므로 먼저 소비), 없으면 생식량.
+function pickEatSource(world) {
+  for (var i = COOK_TIERS.length - 1; i >= 0; i--) {
+    var t = COOK_TIERS[i];
+    if ((world.stock[t.id] || 0) > 0) return { type: t.id, amt: t.eatAmount };
+  }
+  if ((world.stock.food || 0) > 0) return { type: 'food', amt: NEEDS.eatAmount };
+  return null;
+}
 export function pawnPower(pawn) {
   var base = (pawn.equipped && WEAPONS[pawn.equipped]) ? WEAPONS[pawn.equipped].power : COMBAT.unarmedPower;
   return Math.round(base * skillMult(pawn.skills && pawn.skills.combat)); // 전투 숙련 반영
@@ -817,11 +836,10 @@ export function updatePawn(world, pawn, dtMin, ctx) {
     case 'eating': {
       pawn.workLeft -= dtMin;
       if (pawn.workLeft <= 0) {
-        var ert = (world.stock.meal || 0) > 0 ? 'meal' : 'food';
-        var got = removeItem(world, 0, ert, 1);
-        if (got > 0) {
-          var amt = ert === 'meal' ? COOK.mealEatAmount : NEEDS.eatAmount;
-          pawn.hunger = Math.min(100, pawn.hunger + amt);
+        var eatSrc = pickEatSource(world);
+        if (eatSrc) {
+          var got = removeItem(world, 0, eatSrc.type, 1);
+          if (got > 0) pawn.hunger = Math.min(100, pawn.hunger + eatSrc.amt);
         }
         releaseAllOf(world, pawn.id);
         pawn.job = null;
@@ -849,7 +867,7 @@ export function updatePawn(world, pawn, dtMin, ctx) {
       if (pawn.manual) {
         // 위급 허기 안전장치: 직접 조종(선택) 상태로 방치돼도 굶어 죽지 않도록 자동 식사.
         // (모바일 터치로 실수 선택 후 잊어버리는 경우 대비 — 이동/전투 중엔 발동 안 함)
-        if (pawn.hunger <= NEEDS.hungryAt && ((world.stock.meal || 0) > 0 || (world.stock.food || 0) > 0)) {
+        if (pawn.hunger <= NEEDS.hungryAt && pickEatSource(world)) {
           releaseAllOf(world, pawn.id);
           pawn.job = null;
           pawn.state = 'eating';
@@ -891,10 +909,11 @@ export function manualInteract(world, pawn, ctx) {
       var adef = ANIMALS[shp.type || 'sheep'] || ANIMALS.sheep;
       addItem(world, 0, 'food', adef.food);
       if (adef.leather) addItem(world, 0, 'leather', adef.leather);
+      if (adef.meat) addItem(world, 0, 'meat', adef.meat);
       if (adef.rareGold) addItem(world, 0, 'gold', adef.rareGold); // 희귀 동물(원정 섬) 처치 보너스
       world.sheep.splice(s, 1);
       if (ctx.onSheepChange) ctx.onSheepChange();
-      return '🥩 ' + adef.label + ' 사냥 성공 (+식량 ' + adef.food + (adef.leather ? ' · 가죽 +' + adef.leather : '') + (adef.rareGold ? ' · 금 +' + adef.rareGold : '') + ')';
+      return '🥩 ' + adef.label + ' 사냥 성공 (+식량 ' + adef.food + (adef.leather ? ' · 가죽 +' + adef.leather : '') + (adef.meat ? ' · 고기 +' + adef.meat : '') + (adef.rareGold ? ' · 금 +' + adef.rareGold : '') + ')';
     }
   }
   var best = null; // {pri, d, start}
@@ -967,7 +986,7 @@ export function manualInteract(world, pawn, ctx) {
 function think(world, pawn, dtMin, ctx) {
   if (pawn.hunger <= NEEDS.hungryAt) {
     // 재고에 식량/요리가 있으면 그 자리에서 바로 먹음 (바닥에 안 쌓음)
-    if ((world.stock.meal || 0) > 0 || (world.stock.food || 0) > 0) {
+    if (pickEatSource(world)) {
       releaseAllOf(world, pawn.id);
       pawn.job = null;
       pawn.state = 'eating';

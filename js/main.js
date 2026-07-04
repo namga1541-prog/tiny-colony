@@ -36,7 +36,7 @@ if (saved) {
   world.buildings = saved.buildings;
   world.occupancy = saved.occupancy;
   world.nextBid = saved.nextBid;
-  world.stock = saved.stock || { wood: 0, gold: 0, food: 0, iron: 0, meal: 0, leather: 0 };
+  world.stock = saved.stock || { wood: 0, gold: 0, food: 0, iron: 0, meal: 0, leather: 0, meat: 0, delicacy: 0, mealGood: 0, mealFeast: 0 };
   world.rodTier = saved.rodTier || 0;
   world.fishDesig = saved.fishDesig || {};
   world.rank = saved.rank || 0;
@@ -209,7 +209,8 @@ var UI = createUI({
     consumeGlobal(world, type, n);
     var gold = Math.floor(n * (TRADER.rates[type] || 0));
     world.stock.gold = (world.stock.gold || 0) + gold;
-    var names = { wood: '목재', iron: '철', food: '식량', meal: '요리', leather: '가죽' };
+    var names = { wood: '목재', iron: '철', food: '식량', meal: '소박한 식사', leather: '가죽',
+      meat: '고기', delicacy: '진미', mealGood: '푸짐한 식사', mealFeast: '진수성찬' };
     UI.toast('🛒 ' + (names[type] || type) + ' ' + n + '개 판매 → 금 ' + gold + ' 획득');
   },
   onEquip: function (pawn, type) {
@@ -349,7 +350,8 @@ var UI = createUI({
   onDiscard: function (type, amount) {
     var removed = consumeGlobal(world, type, amount); // amount=Infinity → 전부
     if (removed > 0) {
-      var nm = { wood: '목재', gold: '금', food: '식량', iron: '철', meal: '요리', leather: '가죽' }[type] || type;
+      var nm = { wood: '목재', gold: '금', food: '식량', iron: '철', meal: '소박한 식사', leather: '가죽',
+        meat: '고기', delicacy: '진미', mealGood: '푸짐한 식사', mealFeast: '진수성찬' }[type] || type;
       UI.toast('🗑️ ' + nm + ' ' + removed + ' 을(를) 버려 저장고를 비웠습니다');
     }
   },

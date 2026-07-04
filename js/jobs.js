@@ -1,5 +1,5 @@
 // 작업 탐색·예약 시스템 (v0.3 — 건물 id 기반)
-import { BUILDS, ITEMS, COOK, ROLES } from './config.js';
+import { BUILDS, ITEMS, COOK_TIERS, ROLES } from './config.js';
 import {
   ix, iy, idx, isWalkable, stackRoom, buildingDef, buildingFront, canAfford, totalRes,
 } from './world.js';
@@ -173,20 +173,27 @@ function collectFarm(world, pawn) {
   }
   return cands;
 }
-// 요리 (모닥불에서 식량 → 요리). 요리 재고가 적을 때만
+// 요리 (모닥불에서 재료 → 요리). 등급별 요리 재고 합이 적을 때만, 재료가 되는 가장 높은 등급을 자동 선택.
 function collectCook(world, pawn) {
   var cands = [];
   var res = totalRes(world);
-  if (res.meal < 6 && res.food >= COOK.foodPerMeal && world.reserved['cook'] === undefined) {
-    var fire = null;
-    for (var id in world.buildings) {
-      var b = world.buildings[id];
-      if (b.kind === 'campfire' && b.stage === 'built') {
-        var ff = buildingFront(world, b);
-        if (ff) { fire = ff; break; }
-      }
+  var totalMeals = (res.meal || 0) + (res.mealGood || 0) + (res.mealFeast || 0);
+  if (totalMeals < 6 && world.reserved['cook'] === undefined) {
+    var tier = null;
+    for (var ti = COOK_TIERS.length - 1; ti >= 0; ti--) {
+      if (canAfford(world, COOK_TIERS[ti].cost)) { tier = COOK_TIERS[ti]; break; }
     }
-    if (fire) cands.push({ type: 'cook', x: fire.x, y: fire.y, _d: distB(pawn, fire) });
+    if (tier) {
+      var fire = null;
+      for (var id in world.buildings) {
+        var b = world.buildings[id];
+        if (b.kind === 'campfire' && b.stage === 'built') {
+          var ff = buildingFront(world, b);
+          if (ff) { fire = ff; break; }
+        }
+      }
+      if (fire) cands.push({ type: 'cook', tierId: tier.id, x: fire.x, y: fire.y, _d: distB(pawn, fire) });
+    }
   }
   return cands;
 }

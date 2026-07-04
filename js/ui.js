@@ -120,6 +120,8 @@ export function createUI(handlers) {
   var resFood = document.getElementById('resFood');
   var resMeal = document.getElementById('resMeal');
   var resLeather = document.getElementById('resLeather');
+  var resMeat = document.getElementById('resMeat');
+  var resDelicacy = document.getElementById('resDelicacy');
   var resPop = document.getElementById('resPop');
 
   function updateClock(day, timeMin) {
@@ -136,8 +138,10 @@ export function createUI(handlers) {
     resGold.textContent = sum.gold || 0;
     if (resIron) resIron.textContent = sum.iron || 0;
     resFood.textContent = sum.food || 0;
-    if (resMeal) resMeal.textContent = sum.meal || 0;
+    if (resMeal) resMeal.textContent = (sum.meal || 0) + (sum.mealGood || 0) + (sum.mealFeast || 0);
     if (resLeather) resLeather.textContent = sum.leather || 0;
+    if (resMeat) resMeat.textContent = sum.meat || 0;
+    if (resDelicacy) resDelicacy.textContent = sum.delicacy || 0;
     resPop.textContent = alivePawns;
   }
   function updateStorage(used, cap) {
@@ -632,8 +636,9 @@ export function createUI(handlers) {
 
   // ── 자원 버리기 모달 ──
   function showDiscard() {
-    var names = { wood: '목재', gold: '금', food: '식량', iron: '철', meal: '요리', leather: '가죽' };
-    var types = ['wood', 'gold', 'food', 'iron', 'meal', 'leather'];
+    var names = { wood: '목재', gold: '금', food: '식량', iron: '철', meal: '소박한 식사', leather: '가죽',
+      meat: '고기', delicacy: '진미', mealGood: '푸짐한 식사', mealFeast: '진수성찬' };
+    var types = ['wood', 'gold', 'food', 'iron', 'meal', 'leather', 'meat', 'delicacy', 'mealGood', 'mealFeast'];
     var overlay = openModal('<h2>🗑️ 자원 버리기</h2>' +
       '<p class="dc-hint">저장고가 꽉 차면 벌목·채굴이 멈춥니다. 남는 자원을 버려 공간을 확보하세요.</p>' +
       '<div class="dc-rows"></div>' +
@@ -663,8 +668,9 @@ export function createUI(handlers) {
 
   // ── 떠돌이 상인 모달 ──
   function showTrader() {
-    var names = { wood: '목재', iron: '철', food: '식량', meal: '요리', leather: '가죽' };
-    var types = ['wood', 'iron', 'food', 'meal', 'leather'];
+    var names = { wood: '목재', iron: '철', food: '식량', meal: '소박한 식사', leather: '가죽',
+      meat: '고기', delicacy: '진미', mealGood: '푸짐한 식사', mealFeast: '진수성찬' };
+    var types = ['wood', 'iron', 'food', 'meal', 'leather', 'meat', 'delicacy', 'mealGood', 'mealFeast'];
     var overlay = openModal('<h2>🛒 떠돌이 상인</h2><div class="tr-body"></div>' +
       '<div class="cm-actions"><button class="cm-ok tr-close">닫기</button></div>');
     var body = overlay.querySelector('.tr-body');
