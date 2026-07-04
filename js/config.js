@@ -106,6 +106,12 @@ export const BUILDS = {
     img: null, pw: 128, ph: 128, // Fire 애니메이션으로 렌더
     desc: '밤을 밝힙니다.',
   },
+  fence: {
+    // 공격·조명 없이 체력만 있고 통행을 막는 저렴한 1칸 울타리. attack 필드가 없어 방어건물 로직(tickTowers)에서 자동 제외됨.
+    name: '울타리', cost: { wood: 3 }, work: 15, hp: 40,
+    fw: 1, fh: 1, solid: true,
+    desc: '공격 기능은 없지만 통행을 막습니다. 정착지 경계를 두르는 저렴한 울타리.',
+  },
   dock: {
     name: '선착장', cost: { wood: 20, gold: 8 }, work: 90, hp: 90,
     fw: 2, fh: 2, solid: false, requireCoast: true, // 물과 접한 곳에만 건설 가능(main.js 게이트)

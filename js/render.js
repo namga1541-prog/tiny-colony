@@ -60,6 +60,7 @@ export function createRenderer(world) {
   var MRTS_KIND = { // 완공 건물 → Medieval RTS 텍스처
     house: mrts('house'), warehouse: mrts('warehouse'), smithy: mrts('smithy'),
     clinic: mrts('clinic'), ranch: mrts('ranch'), tower: mrts('tower'),
+    fence: mrts('palisade'), // 목책 스프라이트를 그대로 울타리로 재사용
   };
   var MRTS_PALISADE = mrts('palisade'); // 가시벽(근접 특화 초소)
   // 사람 캐릭터 시트 (Ninja Adventure, 16px 4방향) — 사람별 Idle/Walk

@@ -693,6 +693,22 @@ function applyTool(tool, a, b) {
     if (count) UI.toast('🔨 ' + count + '건 철거 (자재 일부 회수)');
   }
 
+  else if (tool === 'fence') {
+    // 울타리: 한 칸짜리 건물이라 드래그한 범위 전체에 한 칸씩 착공(다른 1칸 도구와 동일 패턴)
+    var fdef = BUILDS.fence;
+    forRect(a, b, function (i, x, y) {
+      if (!footprintClear(world, x, y, 1, 1, false)) return;
+      if (!canAfford(world, fdef.cost)) return;
+      for (var ct in fdef.cost) consumeGlobal(world, ct, fdef.cost[ct]);
+      var fb = addBuilding(world, 'fence', x, y);
+      for (var ct2 in fdef.cost) fb.delivered[ct2] = fdef.cost[ct2];
+      R.refreshBuilding(fb);
+      count++;
+    });
+    if (count) UI.toast('🧱 울타리 ' + count + '칸 착공 — 일꾼이 건설합니다');
+    else UI.toast('⚠️ 목재가 부족하거나 지을 수 없는 위치입니다', true);
+  }
+
   else if (BUILDS[tool]) {
     var def = BUILDS[tool];
     var px = Math.min(a.x, b.x), py = Math.min(a.y, b.y);
