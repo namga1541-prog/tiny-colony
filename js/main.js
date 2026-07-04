@@ -13,7 +13,7 @@ import {
   upgradeAdd, maxPop, canAdvanceRank, advanceRank, defenseStats,
 } from './world.js';
 import { createPawn, updatePawn, manualInteract, equipWeapon, equipArmor } from './pawns.js';
-import { RESEARCH, ITEMS, HIRE, hireCost, UPGRADES, UPGRADE_CATS, TRADER } from './config.js';
+import { RESEARCH, ITEMS, HIRE, hireCost, UPGRADES, UPGRADE_CATS, TRADER, FEAST } from './config.js';
 import { releaseAllOf } from './jobs.js';
 import { GOALS, checkGoals } from './goals.js';
 import { stepWorld } from './sim.js';
@@ -71,6 +71,8 @@ if (saved) {
   world.orchardZone = saved.orchardZone || {};
   world.crops = saved.crops || {};
   world.craftQueue = saved.craftQueue || [];
+  world.feastCooldown = saved.feastCooldown || 0;
+  world.feastCount = saved.feastCount || 0;
   world.enemies = saved.enemies || [];
   world.nextEid = saved.nextEid || 1;
   world.nextSid = saved.nextSid || (world.sheep.length + 1);
@@ -202,6 +204,22 @@ var UI = createUI({
   onQueueCraft: function (type) {
     world.craftQueue.push({ type: type });
     UI.toast('⚒️ ' + ITEMS[type].name + ' 제작 주문 접수');
+  },
+  onShopBuy: function (type) {
+    var def = ITEMS[type];
+    if (!def || !def.shopCost) return;
+    var hasOutfitter = false;
+    for (var bid in world.buildings) {
+      var bb = world.buildings[bid];
+      if (bb.stage === 'built' && BUILDS[bb.kind] && BUILDS[bb.kind].shopHere) { hasOutfitter = true; break; }
+    }
+    if (!hasOutfitter) { UI.toast('⚠️ 장비 상점을 먼저 지으세요', true); return; }
+    if (def.iron && !world.research.unlocked.steel) { UI.toast('🔒 "제철 기술" 연구가 필요합니다', true); return; }
+    if ((world.stock.gold || 0) < def.shopCost) { UI.toast('⚠️ 금이 부족합니다 (필요 ' + def.shopCost + ')', true); return; }
+    consumeGlobal(world, 'gold', def.shopCost);
+    addItem(world, 0, type, 1);
+    UI.toast('🏪 ' + def.name + ' 구매 (금 ' + def.shopCost + ' 소비)');
+    UI.addEvent('🏪 ' + def.name + ' 구매');
   },
   onCraftRod: function (rod) {
     if (!canAfford(world, rod.cost)) { UI.toast('⚠️ 자재가 부족합니다', true); return; }
@@ -354,6 +372,23 @@ var UI = createUI({
     consumeGlobal(world, 'food', cost);
     var pw = recruitWanderer('고용');
     if (pw) UI.toast('🧑‍🌾 새 정착민 "' + pw.name + '" 을(를) 고용했습니다 (식량 ' + cost + ' 소비)');
+  },
+  onHostFeast: function () {
+    var hasTavern = false;
+    for (var bid in world.buildings) {
+      var bb = world.buildings[bid];
+      if (bb.stage === 'built' && bb.kind === 'tavern') { hasTavern = true; break; }
+    }
+    if (!hasTavern) { UI.toast('⚠️ 여관을 먼저 지으세요', true); return; }
+    if (world.feastCooldown > 0) { UI.toast('⏳ 아직 축제 재사용 대기 중입니다 (' + Math.ceil(world.feastCooldown / DAY_MIN) + '일 남음)', true); return; }
+    if (!canAfford(world, FEAST.cost)) { UI.toast('⚠️ 금 또는 식량이 부족합니다', true); return; }
+    for (var ft in FEAST.cost) consumeGlobal(world, ft, FEAST.cost[ft]);
+    pawns.forEach(function (p) { if (p.state !== 'dead') p.mood = Math.min(100, p.mood + FEAST.moodBoost); });
+    world.feastCooldown = FEAST.cooldownDays * DAY_MIN;
+    world.feastCount = (world.feastCount || 0) + 1;
+    UI.toast('🎉 축제를 열어 마을 전체 사기가 크게 올랐습니다!');
+    UI.addEvent('🎉 축제 개최 — 전체 사기 상승');
+    Audio2.play('success');
   },
   getAlive: function () { return pawns.filter(function (p) { return p.state !== 'dead'; }).length; },
   onDiscard: function (type, amount) {

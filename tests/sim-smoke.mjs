@@ -1,7 +1,7 @@
 // L1 시나리오 스모크 — 시드 고정, 헤드리스. stepWorld 추출이 올바른지 + 결정론 확인.
 import { bootSim, run, runDays, designateChop, give, snapshot, DAY_MIN, MAP_W, MAP_H } from './harness.mjs';
-import { addBuilding, storageCap, upgradeMult, upgradeAdd, maxPop, rankReqStatus, canAdvanceRank, advanceRank, defenseStats, tickTowers, enemyStats, spawnRaid, mulberry32, grantRelic, dailyIslandRespawn, checkIslandDiscovery, updateEnemies, idx, shipComplete, fishSpotTier, footprintTouchesWater, canPlaceBridge, isWalkable, autoDesignateLodges, footprintAdjacentMine, ensureBossIsland, tickBarns, tickHeaters, seasonDef, boatCanEnter, spawnBoat, boardBoat, disembarkBoat, syncBoats } from '../js/world.js';
-import { GIANT, ENEMY, CANNIBAL, ISLANDS, INVASION, OUTPOST_BRANCHES, RAIDER, INVWARRIOR, ZOMBIE, SKELETON, GIANT_JUMP, ARMOR, FRUITTREE, FISH, catchFish, catchRareFish, GODDESS, TRADER, BUILDS, BUILD_MIN_RANK, FISH_PLATFORM, DEMON, MINIDEMON, GLORIOUS_FOOD, RARE_FISH_SPOT, INJURY, WALK_MIN_PER_TILE, RESEARCH, EGG_HATCH, RANCH, WINTER } from '../js/config.js';
+import { addBuilding, storageCap, upgradeMult, upgradeAdd, maxPop, rankReqStatus, canAdvanceRank, advanceRank, defenseStats, tickTowers, enemyStats, spawnRaid, mulberry32, grantRelic, dailyIslandRespawn, checkIslandDiscovery, updateEnemies, idx, shipComplete, fishSpotTier, footprintTouchesWater, canPlaceBridge, isWalkable, autoDesignateLodges, footprintAdjacentMine, ensureBossIsland, tickBarns, tickHeaters, seasonDef, boatCanEnter, spawnBoat, boardBoat, disembarkBoat, syncBoats, tickResearch } from '../js/world.js';
+import { GIANT, ENEMY, CANNIBAL, ISLANDS, INVASION, OUTPOST_BRANCHES, RAIDER, INVWARRIOR, ZOMBIE, SKELETON, GIANT_JUMP, ARMOR, FRUITTREE, FISH, catchFish, catchRareFish, GODDESS, TRADER, BUILDS, BUILD_MIN_RANK, FISH_PLATFORM, DEMON, MINIDEMON, GLORIOUS_FOOD, RARE_FISH_SPOT, INJURY, WALK_MIN_PER_TILE, RESEARCH, EGG_HATCH, RANCH, WINTER, ITEMS } from '../js/config.js';
 import { findWorkJob, releaseAllOf, bpMissing, reserve } from '../js/jobs.js';
 import { findPath } from '../js/path.js';
 import { createPawn, updatePawn } from '../js/pawns.js';
@@ -1721,6 +1721,45 @@ console.log('[sim-smoke] 53) 배(이동수단) — 건조·승선·물 위 이�
   pDie.state = 'dead';
   syncBoats(w, [pDie]);
   ok(boat3.pilot === null && pDie.boating === null, '조종사 사망 시 배가 정박(무인)하고 연결 해제');
+})();
+
+console.log('[sim-smoke] 54) 도서관 — 연구 속도 배율(중첩) (신규)');
+(function () {
+  var base = bootSim(2077).world;
+  base.research.points = 0;
+  tickResearch(base, 3, 100);
+  var basePts = base.research.points;
+  ok(basePts > 0, '도서관 없이도 연구 포인트가 쌓임');
+
+  var w = bootSim(2077).world;
+  w.research.points = 0;
+  addBuilding(w, 'library', 5, 5, { stage: 'built' });
+  tickResearch(w, 3, 100);
+  ok(Math.abs(w.research.points - basePts * 1.25) < 1e-9, '도서관 1채 완공 시 +25%');
+
+  addBuilding(w, 'library', 6, 5, { stage: 'built' });
+  w.research.points = 0;
+  tickResearch(w, 3, 100);
+  ok(Math.abs(w.research.points - basePts * 1.5) < 1e-9, '도서관 2채면 +50%(중첩)');
+
+  var wBp = bootSim(2077).world;
+  wBp.research.points = 0;
+  addBuilding(wBp, 'library', 5, 5); // 기본 stage='bp'(미완공)
+  tickResearch(wBp, 3, 100);
+  ok(Math.abs(wBp.research.points - basePts) < 1e-9, '미완공(설계도) 도서관은 배율 미적용');
+})();
+
+console.log('[sim-smoke] 55) 장비 상점·여관 — 신규 건물 정의·구매가·해금 단계 (신규)');
+(function () {
+  ok(!!BUILDS.outfitter && BUILDS.outfitter.shopHere === true, '장비 상점(outfitter)이 shopHere 플래그로 정의됨');
+  ok(!!BUILDS.library && !!BUILDS.tavern, '도서관·여관 건물 정의 존재');
+  ok(BUILD_MIN_RANK.outfitter === 1 && BUILD_MIN_RANK.library === 2 && BUILD_MIN_RANK.tavern === 2, '해금 단계가 의도대로 설정됨');
+  ['sword', 'bow', 'ironSword', 'ironBow'].forEach(function (t) {
+    ok(typeof ITEMS[t].shopCost === 'number' && ITEMS[t].shopCost > 0, t + ' 상점 가격(shopCost) 존재');
+  });
+  ['leatherArmor', 'ironArmor'].forEach(function (t) {
+    ok(typeof ITEMS[t].shopCost === 'number' && ITEMS[t].shopCost > 0, t + ' 상점 가격(shopCost) 존재');
+  });
 })();
 
 console.log('');

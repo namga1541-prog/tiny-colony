@@ -3,7 +3,7 @@ import {
   MAP_W, MAP_H, NATURE, STACK_MAX, BUILDS, BUILDING_HP_DEFAULT, GOLDMINE, IRONMINE, BRIDGE,
   RESEARCH_RATE_PER_PAWN, ENEMY, RAID, GIANT, GIANT_FAST_MULT, GIANT_JUMP, SEASON_DAYS, SEASONS, WINTER, STORAGE, RANCH, REGROW,
   ANIMAL_TYPES, ANIMALS, WILD_ANIMAL_TYPES, BARN, EGG_HATCH, WAREHOUSE_TIERS, UPGRADES, RANKS, HOUSE_POP_BONUS, HOUSE_POP_CAP_COUNT, DEFENSE_TIERS, OUTPOST_BRANCHES, CANNON, RELICS, ISLANDS, CANNIBAL, WARLORD, RAIDER, INVWARRIOR, ZOMBIE, SKELETON, DEMON, MINIDEMON,
-  ARMOR, FISH_PLATFORM, LODGE_FARM_RADIUS, RARE_FISH_SPOT, FORTIFY_KINDS, INJURY,
+  ARMOR, FISH_PLATFORM, LODGE_FARM_RADIUS, RARE_FISH_SPOT, FORTIFY_KINDS, INJURY, LIBRARY,
   T_WATER, T_GRASS, T_SAND,
 } from './config.js';
 import { findPath } from './path.js';
@@ -155,6 +155,8 @@ export function createWorld(seed) {
     orchardZone: {},    // idx -> true (과일나무 심는 구역 — farmZone 과 별개, 수확해도 나무는 유지되고 재성장)
     crops: {},          // idx -> {stage:'empty'|'growing'|'ready', timer, kind:'wheat'|'fruit'(생략 시 wheat)}
     craftQueue: [],      // [{type:'sword'|'bow'}]
+    feastCooldown: 0,    // 여관 축제 재사용 대기(게임분) — main.js onHostFeast, sim.js 에서 매틱 감소
+    feastCount: 0,       // 누적 축제 개최 횟수 — goals.js 'tavern' 판정
     enemies: [],        // {id,x,y,px,py,hp,cd,dir,phase,anim}
     nextEid: 1,
     nextRaidDay: 0,     // main.js 에서 설정
@@ -1057,9 +1059,10 @@ export function canAfford(world, cost) {
   return true;
 }
 
-// 연구 포인트 자동 누적 (정착민 수 비례)
+// 연구 포인트 자동 누적 (정착민 수 비례 + 도서관 배율)
 export function tickResearch(world, aliveCount, dtMin) {
-  world.research.points += RESEARCH_RATE_PER_PAWN * aliveCount * dtMin;
+  var libMult = 1 + countBuilt(world, 'library') * LIBRARY.bonusPerBuilding;
+  world.research.points += RESEARCH_RATE_PER_PAWN * aliveCount * dtMin * libMult;
 }
 
 export function researchProgress(world, key, def) {

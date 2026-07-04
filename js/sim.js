@@ -65,6 +65,7 @@ export function stepWorld(world, pawns, dtMin, rng, ctx, enemyCbs) {
       updatePawn(world, pawns[n], dt, ctx);
       if (pawns[n].state !== 'dead') aliveNow++;
     }
+    if (world.feastCooldown > 0) world.feastCooldown = Math.max(0, world.feastCooldown - dt);
     updateSheep(world, dt, rng);
     tickTowers(world, dt, enemyCbs);
     updateEnemies(world, pawns, dt, enemyCbs, rng);

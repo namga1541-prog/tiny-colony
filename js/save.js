@@ -38,6 +38,8 @@ export function saveGame(world, pawns) {
     ateGloriousFood: world.ateGloriousFood,
     caughtSpotOnlyFish: world.caughtSpotOnlyFish,
     craftQueue: world.craftQueue,
+    feastCooldown: world.feastCooldown,
+    feastCount: world.feastCount,
     enemies: world.enemies,
     nextEid: world.nextEid,
     goals: world.goals,

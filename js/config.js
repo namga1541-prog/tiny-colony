@@ -175,6 +175,29 @@ export const BUILDS = {
     town: { sx: 64, sy: 64, sw: 64, sh: 64 }, tint: 0x8fca5a, // 초록(농경)
     desc: '완공 시 주변 잔디를 자동으로 농사 구역으로 만들어 계속 재배합니다. (농업 연구 필요)',
   },
+  // ── 골드 소비처(잉여 자원 순환): 상점·도서관·여관. Stronghold 무기고·Civilization 도서관·Banished 주점 참고.
+  outfitter: {
+    name: '장비 상점', cost: { wood: 15, gold: 12 }, work: 70, hp: 100,
+    fw: 2, fh: 2, solid: true, light: true,
+    img: 'House', imgC: 'House_C', pw: 128, ph: 192,
+    town: { sx: 0, sy: 64, sw: 64, sh: 64 }, tint: 0xd4af37, // 금빛 색조(상점=사치품 거래)
+    shopHere: true, // 이 건물에서 금으로 무기·방어구를 대장간 없이 즉시 구매(WEAPONS/ARMOR shopCost)
+    desc: '금을 지불하면 무기·방어구를 대장간 없이 즉시 구매할 수 있습니다(제작보다 비쌉니다).',
+  },
+  library: {
+    name: '도서관', cost: { wood: 18, gold: 15 }, work: 75, hp: 90,
+    fw: 2, fh: 2, solid: true, light: true,
+    img: 'House', imgC: 'House_C', pw: 128, ph: 192,
+    town: { sx: 64, sy: 64, sw: 64, sh: 64 }, tint: 0x8fb8e0, // 차분한 파란 색조(도서관=지식)
+    desc: '연구 포인트 누적 속도를 높입니다. 여러 채 지으면 효과가 중첩됩니다.',
+  },
+  tavern: {
+    name: '여관', cost: { wood: 20, gold: 15 }, work: 80, hp: 100,
+    fw: 2, fh: 2, solid: true, light: true,
+    img: 'House', imgC: 'House_C', pw: 128, ph: 192,
+    town: { sx: 64, sy: 64, sw: 64, sh: 64 }, tint: 0xc97b3d, // 흥겨운 호박색(여관)
+    desc: '완공하면 금과 식량을 써서 축제를 열어 마을 전체 사기를 크게 올릴 수 있습니다(쿨다운 있음).',
+  },
   // ── 장식(순수 꾸미기용, 게임 로직 없음 — 통행 차단도 안 함). The Fan-tasy Tileset 소품 재활용.
   decoBarrel: { name: '장식 - 통',     cost: { wood: 2 },              work: 8,  hp: 20, fw: 1, fh: 1, solid: false, desc: '오직 꾸미기용 장식물입니다.' },
   decoBasket: { name: '장식 - 바구니', cost: { wood: 2 },              work: 8,  hp: 20, fw: 1, fh: 1, solid: false, desc: '오직 꾸미기용 장식물입니다.' },
@@ -379,16 +402,17 @@ export const FRUITTREE = { plantWork: 16, growTime: 520, harvestWork: 10, yield:
 
 // ── 대장간 (건물 불필요 — 지은 집에서 제작) ──
 // power=공격력, range=사거리(타일). iron 계열은 강철 연구 후 해금
+// shopCost: 장비 상점(outfitter)에서 대장간 없이 금만으로 즉시 구매할 때 가격 — 제작 대비 확실한 프리미엄.
 export const WEAPONS = {
-  sword:     { name: '검',     cost: { wood: 4, gold: 3 },  work: 40, equip: 'warrior', power: 10, range: 1 },
-  bow:       { name: '활',     cost: { wood: 3, gold: 4 },  work: 40, equip: 'archer',  power: 8,  range: 5 },
-  ironSword: { name: '강철검', cost: { wood: 3, iron: 4 },  work: 60, equip: 'warrior', power: 20, range: 1, iron: true },
-  ironBow:   { name: '강철활', cost: { wood: 3, iron: 4 },  work: 60, equip: 'archer',  power: 16, range: 6, iron: true },
+  sword:     { name: '검',     cost: { wood: 4, gold: 3 },  work: 40, equip: 'warrior', power: 10, range: 1, shopCost: 18 },
+  bow:       { name: '활',     cost: { wood: 3, gold: 4 },  work: 40, equip: 'archer',  power: 8,  range: 5, shopCost: 20 },
+  ironSword: { name: '강철검', cost: { wood: 3, iron: 4 },  work: 60, equip: 'warrior', power: 20, range: 1, iron: true, shopCost: 45 },
+  ironBow:   { name: '강철활', cost: { wood: 3, iron: 4 },  work: 60, equip: 'archer',  power: 16, range: 6, iron: true, shopCost: 42 },
 };
 // 방어구 — 착용 시 피격 데미지를 defense 만큼 경감(최소 1 데미지는 항상 관통). iron 계열은 강철 연구 후 해금.
 export const ARMOR = {
-  leatherArmor: { name: '가죽 갑옷', cost: { leather: 6 }, work: 45, equip: 'armor', defense: 4 },
-  ironArmor:    { name: '강철 갑옷', cost: { wood: 3, iron: 5 }, work: 65, equip: 'armor', defense: 9, iron: true },
+  leatherArmor: { name: '가죽 갑옷', cost: { leather: 6 }, work: 45, equip: 'armor', defense: 4, shopCost: 26 },
+  ironArmor:    { name: '강철 갑옷', cost: { wood: 3, iron: 5 }, work: 65, equip: 'armor', defense: 9, iron: true, shopCost: 55 },
 };
 // 대장간 제작 대기열이 무기·방어구를 동일하게 다룰 수 있도록 합친 조회 테이블(SSOT).
 export const ITEMS = Object.assign({}, WEAPONS, ARMOR);
@@ -526,8 +550,14 @@ export const HOUSE_POP_CAP_COUNT = 12;
 export const BUILD_MIN_RANK = {
   smithy: 1, ranch: 1, outpost: 2, tower: 2, clinic: 2, castle: 3,
   minerLodge: 1, farmLodge: 1, // 일꾼 오두막(집단 단계부터)
+  outfitter: 1, // 대장간과 같은 단계 — 초반부터 골드 sink 선택지 제공
+  library: 2, tavern: 2, // 마을 단계 유틸리티(초소·망루·치료소와 동급)
   shipHull: 4, shipEngine: 4, shipReactor: 4, // 나라 단계 전용(main.js 에서 대침공 완전 격퇴도 추가로 요구)
 };
+// 도서관: 완공된 채수당 연구 속도 가산 배율(1개=+25%, 2개=+50%...) — tickResearch(world.js)에서 사용.
+export const LIBRARY = { bonusPerBuilding: 0.25 };
+// 여관 축제: 금+식량을 소비해 전체 정착민 사기를 즉시 올리는 반복 가능한 액션(쿨다운). main.js onHostFeast.
+export const FEAST = { cost: { gold: 30, food: 60 }, moodBoost: 25, cooldownDays: 3 };
 
 // ── 유물(Relic) — 아이작풍 로그라이트: 습격 격퇴·괴민 처치 시 무작위 획득, 콜로니에 영구 패시브 ──
 // effect.key 는 UPGRADES 와 동일 배율 풀을 공유 → 업그레이드·다른 유물과 자동 시너지(누적).

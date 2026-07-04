@@ -58,6 +58,12 @@ export function createUI(handlers) {
   });
   document.getElementById('btnResearch').addEventListener('click', showResearch);
   document.getElementById('btnCraft').addEventListener('click', showCraft);
+  var btnShop = document.getElementById('btnShop');
+  if (btnShop) btnShop.addEventListener('click', showShop);
+  var btnFeast = document.getElementById('btnFeast');
+  if (btnFeast) btnFeast.addEventListener('click', function () {
+    if (handlers.onHostFeast) handlers.onHostFeast();
+  });
   document.getElementById('btnGoals').addEventListener('click', function () {
     if (handlers.onShowGoals) handlers.onShowGoals();
   });
@@ -835,6 +841,69 @@ export function createUI(handlers) {
     return true;
   }
 
+  // ── 장비 상점 모달 (대장간 없이 금으로 즉시 구매) ──
+  function showShop() {
+    var overlay = openModal('<h2>🏪 장비 상점</h2><div class="cr-rows"></div>' +
+      '<div class="cm-actions"><button class="cm-ok cr-close">닫기</button></div>');
+    var rows = overlay.querySelector('.cr-rows');
+
+    function hasOutfitter() {
+      for (var bid in world.buildings) {
+        var bb = world.buildings[bid];
+        if (bb.stage === 'built' && BUILDS[bb.kind] && BUILDS[bb.kind].shopHere) return true;
+      }
+      return false;
+    }
+    function buyRow(type, def, statLabel) {
+      var can = hasOutfitter() && (world.stock.gold || 0) >= def.shopCost;
+      var item = document.createElement('div');
+      item.className = 'cr-item';
+      item.innerHTML = '<h3>' + def.name + ' <span style="font-size:11px;color:#9aa3b5">' + statLabel + '</span></h3>' +
+        '<p>금 ' + def.shopCost + ' (보유 ' + (world.stock.gold || 0) + ')</p>' +
+        '<button class="cr-buy" ' + (can ? '' : 'disabled') + '>구매</button>';
+      rows.appendChild(item);
+      item.querySelector('.cr-buy').addEventListener('click', function () {
+        if (handlers.onShopBuy) handlers.onShopBuy(type);
+        render();
+      });
+    }
+    function render() {
+      rows.innerHTML = '';
+      if (!hasOutfitter()) {
+        var warn = document.createElement('p');
+        warn.style.cssText = 'font-size:12px;color:#ff9a5c;margin:0 0 6px;';
+        warn.textContent = '⚠️ 장비 상점을 먼저 지으세요 — 없으면 구매할 수 없습니다.';
+        rows.appendChild(warn);
+      }
+      var hint = document.createElement('p');
+      hint.className = 'dc-hint';
+      hint.textContent = '금으로 무기·방어구를 대장간 없이 즉시 구매합니다(제작보다 비쌉니다).';
+      rows.appendChild(hint);
+
+      var wHead = document.createElement('p');
+      wHead.style.cssText = 'font-size:13px;color:#ffd76e;margin:8px 0 4px;';
+      wHead.textContent = '⚔️ 무기';
+      rows.appendChild(wHead);
+      Object.keys(WEAPONS).forEach(function (type) {
+        var wdef = WEAPONS[type];
+        if (wdef.iron && !world.research.unlocked.steel) return;
+        buyRow(type, wdef, '공격력 ' + wdef.power + (wdef.range > 1 ? ' · 원거리' : ''));
+      });
+
+      var aHead = document.createElement('p');
+      aHead.style.cssText = 'font-size:13px;color:#ffd76e;margin:12px 0 4px;';
+      aHead.textContent = '🛡️ 방어구';
+      rows.appendChild(aHead);
+      Object.keys(ARMOR).forEach(function (type) {
+        var adef = ARMOR[type];
+        if (adef.iron && !world.research.unlocked.steel) return;
+        buyRow(type, adef, '방어력 ' + adef.defense);
+      });
+    }
+    render();
+    overlay.querySelector('.cr-close').addEventListener('click', function () { overlay.remove(); });
+  }
+
   // ── 목표 모달 ──
   function showGoals(goals, w) {
     var doneCount = goals.filter(function (g) { return !!w.goals[g.id]; }).length;
@@ -900,6 +969,7 @@ export function createUI(handlers) {
     showCustomize: showCustomize,
     showResearch: showResearch,
     showCraft: showCraft,
+    showShop: showShop,
     showGoals: showGoals,
     showUpgrades: showUpgrades,
     showDevelopment: showDevelopment,

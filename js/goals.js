@@ -49,6 +49,9 @@ export var GOALS = [
   { id: 'relics', name: '유물 수집가', desc: '유물을 5개 이상 모은다', test: function (w) { return relicCount(w) >= 5; } },
   { id: 'steel', name: '강철의 시대', desc: '강철 무기를 1개 이상 만든다',
     test: function (w) { var r = totalRes(w); return (r.ironSword || 0) + (r.ironBow || 0) >= 1; } },
+  { id: 'outfitter', name: '금 쓸 곳이 생겼다', desc: '장비 상점을 1개 완공한다', test: function (w) { return countBuilt(w, 'outfitter') >= 1; } },
+  { id: 'library', name: '학구열', desc: '도서관을 1개 완공한다', test: function (w) { return countBuilt(w, 'library') >= 1; } },
+  { id: 'tavern', name: '흥겨운 잔치', desc: '여관에서 축제를 1회 개최한다', test: function (w) { return (w.feastCount || 0) >= 1; } },
 ];
 
 // 새로 달성된 목표 배열 반환 (알림용)
