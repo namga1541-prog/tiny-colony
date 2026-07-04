@@ -14,7 +14,7 @@
 - **진행은 `stepWorld`(sim.js) 가 단독 수행** — dt≤1 게임분 단위로 잘게 틱.
 
 ## 재고 모델 (글로벌 스톡)
-- 모든 자원은 **`world.stock`** 콜로니 전체 재고(바닥에 안 쌓임). `{ wood, gold, food, iron, meal }`.
+- 모든 자원은 **`world.stock`** 콜로니 전체 재고(바닥에 안 쌓임). 초기 키 `{ wood, gold, food, iron, meal, leather, meat, delicacy, mealGood, mealFeast }` + 플레이 중 `addItem` 으로 생기는 `wool·carrot·mealVeg`, 무기 `sword·bow·ironSword·ironBow`, 방어구 `leatherArmor·ironArmor` 등. 집계는 `totalRes`(world.js) 가 나열.
 - `addItem(world, i, type, n)` / `removeItem(...)`(음수 클램프됨, 안전) / `consumeGlobal(world, type, n)` / `canAfford` / `totalRes`.
 - 건설: 착공은 설계도만 배치(자재 즉시 차감 없음, `b.delivered={}`) — `deliver` 잡이 `world.stock` 을 출처로 삼아 왕복하며 `b.delivered` 를 채우고, `bpMissing()===null` 이 되면 `build` 잡으로 전환해 실제 공사가 시작됨(2026-07, `world.items` 물리 적재는 여전히 미사용). 식사: 재고의 meal→food 순으로 그 자리 섭취.
 - 저장 용량: `storageCap(world)`(창고 tier 합산) vs `totalStored` → 초과 시 `storageFull`.
@@ -27,14 +27,14 @@
 `onStarving(pawn)`, `onSheepChange()`
 **ctx (오케스트레이션 효과 콜백)**: `onTileChange(i)`, `onToast(msg,warn)`, `onSfx(name)`, `onRecruit()`, `onSeasonTint(tint,alpha)`,
 `onGoddessDescend(x,y)`(여신 강림 연출), `onBoatLanding(x,y)`(습격 상륙 배 연출), `onZonesChanged()`(구역 오버레이 갱신)
-**enemyCbs (전투)**: `onHit(pawn,dmg)`, `onPawnDeath(pawn)`, `onEnemyDown(enemy)`, `onTowerFire(tower,enemy)`, `onCannonFire(castle,enemy)`(성 대포 tier 광역), `onGiantJump(e,x,y)`, `onDemonLaser(e,tx,ty)`, `onDemonSummon(e,n)`(악마후배 미니 악마 소환)
+**enemyCbs (전투)**: `onHit(pawn,dmg)`, `onPawnDeath(pawn)`, `onEnemyDown(enemy)`, `onTowerFire(tower,enemy)`, `onCannonFire(castle,enemy)`(성 대포 tier 광역), `onGiantJump(e,x,y)`, `onGiantSmash(e,pawn)`(괴민 주먹질 충격), `onDemonLaser(e,tx,ty)`, `onDemonSummon(e,n)`(악마후배 미니 악마 소환), `onBuildingHit(b,dmg)`, `onBuildingDestroyed(b)`, `onObstacleBreak(x,y)`(적이 막은 나무 파괴), `onCropDestroyed(idx)`
 
 - main.js 는 ctx 에 실제 R.*/UI.*/Audio2.*/recruitWanderer 를 연결. 헤드리스 하네스는 기록용 stub 연결.
 - **stepWorld 안에서 렌더/DOM/오디오 직접 호출 금지** — 이 규칙이 헤드리스 테스트를 가능케 함.
 
 ## 예약락 시스템 (jobs.js) — 스턱버그 원천
 `reserve(world, key, pawnId)` / `release(world, key)` / `releaseAllOf(world, pawnId)`. `world.reserved[key]=pawnId`.
-- 키 네임스페이스: `bp:<bid>` · `item:<idx>` · `job:<idx>` · `mine:<bid>` · `crop:<idx>` · `craft` · `cook` · `hunt:<sheepId>` · `fish:<idx>` · `eat:<idx>` · `haul:<idx>` · `stock:<idx>`.
+- 키 네임스페이스: `bp:<bid>`(건설/배달) · `job:<idx>`(채집) · `mine:<bid>` · `crop:<idx>`(파종/수확) · `craft` · `cook` · `hunt:<sheepId>` · `tame:<sheepId>` · `fish:<idx>` · `eat:<idx>` · `haul:<idx>` · `stock:<idx>`. (구 `item:<idx>` 는 운반→건설 확장 이후 미사용 — 유일 참조하던 `findItemSource` 도 현재 데드코드.)
 - **불변식**: 살아있지 않은 정착민이 락을 보유하면 누수(죽으면 releaseAllOf 필수). `abandonJob` 은 releaseAllOf + `stuckCd=15`.
 - 길찾기 실패 시 abandonJob 안 하면 자원 영구 잠김 → 스턱.
 
@@ -56,7 +56,7 @@
 - `world.js` `createWorld` 가 본섬·2번대륙과 멀리 떨어진 4개 원형 섬을 지형에 새김 → 테마별 콘텐츠 배치(보물상자+스켈레톤 수호자/식인종 상주/희귀식물+희귀동물/최종보스 데몬). `world.islands[]` 에 메타 저장(`id,name,icon,theme,cx,cy,r,discovered,cap`).
 - `checkIslandDiscovery(world,pawns)`(매 stepWorld 호출) — 정착민이 섬 반경 진입 시 1회 발견 토스트. `dailyIslandRespawn(world,rng)`(매일 아침) — 테마별 종족(식인종/스켈레톤)을 cap 까지 서서히 보충(`ISLAND_GUARD_KIND`/`ISLAND_GUARD_STAT` 맵).
 - 채집(`forage` 도구)이 chest/rareplant 도 지정 가능(버섯과 동일 취급). chest 개봉 시 60% 확률로 유물도 획득(`grantRelic`).
-- 적 `kind`: `'goblin'`(기본)·`'giant'`(괴민)·`'cannibal'`/`'skeleton'`(원정 섬 상주)·`'raider'`/`'invwarrior'`/`'zombie'`(대침공 혼합군)·`'demon'`(최종 보스) — `enemyStats(e)` 가 종류별 스탯 분기.
+- 적 `kind`: `'goblin'`(기본)·`'giant'`(괴민)·`'cannibal'`/`'skeleton'`(원정 섬 상주)·`'raider'`/`'warrior'`(=INVWARRIOR)/`'zombie'`/`'warlord'`(정복자 미니보스)(대침공 혼합군)·`'demon'`(최종 보스)·`'minidemon'`(악마후배가 소환하는 하수인) — `enemyStats(e)` 가 종류별 스탯 분기. **주의: kind 문자열은 `'warrior'`(설정 상수명은 `INVWARRIOR`)** — 둘이 다름.
 - **주의**: createWorld 안에 섬 콘텐츠·rng 소비 코드를 추가/삭제하면 이후 지형 생성 순서가 밀려 절대좌표 기반 테스트가 깨질 수 있음(RECIPES.md 레시피 2 함정 참고).
 
 ## window.game (디버그·테스트 훅, main.js 말미)
