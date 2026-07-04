@@ -1,6 +1,29 @@
 // L1 소크 불변식 테스트 (재발버그 가드) — 여러 시드로 장기 진행하며 매 스텝 불변식 위반 감시.
 // 탐색에서 발견된 잠재 버그류: 적 hp 무제한, 좌표 범위/NaN 미가드, 예약락 누수(죽은 정착민 락 미해제).
 import { bootSim, run, give, designateChop, MAP_W, MAP_H } from './harness.mjs';
+import { addBuilding, footprintClear, idx } from '../js/world.js';
+
+// 소크 도중 주기적으로 설계도(bp) 건물을 배치해 배달(deliver)→건설(build) 파이프라인을 장기 실행시킨다.
+// (기존 소크는 벌목·채굴·전투만 돌려 건설 락(bp:) 흐름을 전혀 밟지 않았음 — 락 누수는 불변식 ⑥ 이 감시.)
+// 통행을 막지 않는 1칸 장식(decoLog, 목재 1)을 써 30일간 벽으로 정착민을 가두지 않는다.
+function pendingBlueprints(world) {
+  var n = 0;
+  for (var id in world.buildings) if (world.buildings[id].stage === 'bp') n++;
+  return n;
+}
+function tryPlaceBlueprint(world) {
+  if (pendingBlueprints(world) >= 2) return; // 대기 중 설계도가 쌓이면(=파이프라인 정체) 더 놓지 않음
+  var cx = MAP_W / 2 | 0, cy = MAP_H / 2 | 0;
+  for (var r = 3; r <= 14; r++) {
+    for (var dy = -r; dy <= r; dy++) {
+      for (var dx = -r; dx <= r; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue; // 링 둘레만
+        var x = cx + dx, y = cy + dy;
+        if (footprintClear(world, x, y, 1, 1, false)) { addBuilding(world, 'decoLog', x, y); return; }
+      }
+    }
+  }
+}
 
 var SEEDS = [1, 42, 777, 12345, 2024, 999999];
 var DAYS = 30;
@@ -46,17 +69,23 @@ function checkInvariants(sim) {
 }
 
 var fails = 0;
+var totalBuilt = 0; // 전 시드 누적: 배달→건설 파이프라인이 실제로 건물을 완공한 횟수(0이면 파이프라인 사망)
 for (var s = 0; s < SEEDS.length; s++) {
   var seed = SEEDS[s];
   var sim = bootSim(seed);
-  give(sim, { food: 600, meal: 100 }); // 30일 생존용 — 살아있는 정착민으로 후반(습격·전투)까지 커버
+  var seedBuilt = 0;
+  sim.ctx.onBuildingBuilt = function (b) { if (b.kind === 'decoLog') { seedBuilt++; totalBuilt++; } }; // 완공 관측
+  give(sim, { food: 600, meal: 100, wood: 40 }); // 30일 생존용 + 건설 배달용 초기 목재(이후 벌목으로 보충)
   designateChop(sim, 30);
   var totalMin = DAYS * 1440;
   var violation = null;
   var left = totalMin;
+  var lastBpDay = 0;
+  tryPlaceBlueprint(sim.world); // 시작 직후 1채 배치
   while (left > 0 && !violation) {
     var dt = Math.min(CHUNK, left); left -= dt;
     run(sim, dt, CHUNK);
+    if (sim.world.day !== lastBpDay) { lastBpDay = sim.world.day; tryPlaceBlueprint(sim.world); } // 하루 한 번 설계도 배치
     violation = checkInvariants(sim);
   }
   if (violation) {
@@ -65,10 +94,12 @@ for (var s = 0; s < SEEDS.length; s++) {
   } else {
     var alive = sim.pawns.filter(function (p) { return p.state !== 'dead'; }).length;
     console.log('  ✓ 시드 ' + seed + ' — ' + DAYS + '일 소크 통과 (생존 ' + alive + '/' + sim.pawns.length +
-      ', 습격 ' + sim.counters.pawnKill + '피격/처치' + sim.counters.enemyDown + ', 영입 ' + sim.counters.recruit + ')');
+      ', 습격 ' + sim.counters.pawnKill + '피격/처치' + sim.counters.enemyDown + ', 영입 ' + sim.counters.recruit + ', 완공 ' + seedBuilt + ')');
   }
 }
 
 console.log('');
 if (fails) { console.log('❌ invariants 위반 ' + fails + '개 시드'); process.exit(1); }
-console.log('✅ invariants 전체 시드 통과 (' + SEEDS.length + '개 × ' + DAYS + '일)');
+// 배달→건설 파이프라인이 장기 소크에서 실제로 최소 몇 채는 완공해야 함(0이면 파이프라인이 조용히 죽은 것)
+if (totalBuilt === 0) { console.log('❌ 배달→건설 파이프라인이 30일 소크 동안 단 한 채도 완공하지 못함(파이프라인 정체/사망 의심)'); process.exit(1); }
+console.log('✅ invariants 전체 시드 통과 (' + SEEDS.length + '개 × ' + DAYS + '일, 건설 완공 누적 ' + totalBuilt + '채)');
