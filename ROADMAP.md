@@ -8,7 +8,7 @@
 
 ## 티어 0 — 바로 처리(가벼움, 세션 워밍업용)
 
-- [ ] **최근 콘텐츠 도전과제(GOALS) 반영** — `js/goals.js`(19번째 줄 `GOALS` 배열). 성문·찬란한 음식·초특급 희귀 낚시 스팟이 추가됐는데 도전과제엔 없음. 예: "출입 통제"(성문 1개 완공) · "기적의 만찬"(찬란한 음식 1회 섭취) · "심해의 전설"(spotOnly 어종 1회 포획). `test` 함수는 `world`/`pawns` 상태만 보므로 플래그가 없으면 `world.stock`/`world.buildings` 직접 검사로 판정(예: `countBuilt(w,'fenceGate')>=1`). 완료 시 sim-smoke 시나리오 1개 추가(레시피 5-A).
+- [x] **최근 콘텐츠 도전과제(GOALS) 반영**(dc6ce2b) — `js/goals.js`(19번째 줄 `GOALS` 배열). 성문·찬란한 음식·초특급 희귀 낚시 스팟이 추가됐는데 도전과제엔 없음. 예: "출입 통제"(성문 1개 완공) · "기적의 만찬"(찬란한 음식 1회 섭취) · "심해의 전설"(spotOnly 어종 1회 포획). `test` 함수는 `world`/`pawns` 상태만 보므로 플래그가 없으면 `world.stock`/`world.buildings` 직접 검사로 판정(예: `countBuilt(w,'fenceGate')>=1`). 완료 시 sim-smoke 시나리오 1개 추가(레시피 5-A).
 - [ ] **hook-style.mjs 활성화** — `tools/hook-style.mjs` 는 만들어져 있지만 `.claude/settings.json` 자동 등록이 권한 문제로 막혀 있음(수동 등록 대기 상태, 메모리 `project-capability-kit` 참고). 대장님께 등록 JSON 안내 후 승인받아 PostToolUse 훅으로 연결하면, `js/*.js` 수정 시마다 `check:style` 이 자동 실행되어 이후 세션(특히 하위 모델)의 스타일·결정론 위반을 즉시 차단할 수 있음.
 - [ ] **ARCHITECTURE.md 정기 드리프트 점검** — 이번에 `MAP_W/H`(96→128 반영 누락)·원정 섬 개수(3→4)·`isWalkable(forEnemy)` 시그니처 등 stale 사실 일부를 고쳤음. 기능 추가할 때마다 관련 섹션이 실제 코드와 맞는지 한 줄이라도 확인하는 습관화.
 
