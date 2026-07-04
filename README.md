@@ -80,4 +80,6 @@ npx serve -p 5800 .
 - 최종 보스 「악마후배」: [Red Demons (Animated) - Classic Hero Edit — Umz](https://opengameart.org/content/red-demons-animated-classic-hero-edit) (CC0). `assets/monsters/demon.png`.
 - 섬의 수호신 「아보랑카도」: [Angels — AntumDeluge (원작 Svetlana Kushnariova)](https://opengameart.org/content/angels) (CC-BY 3.0). `assets/goddess/`.
 - 배경 장식(소품·초가집 폐허 4종·우물·성문·잔디 텍스처 변형): [The Fan-tasy Tileset (Free) — Ventilatore](https://ventilatore.itch.io/the-fantasy-tileset) — 무료 버전, **비상업용 한정**·수정 가능·재배포 금지. `assets/fantasy/`.
+- 야생동물(곰·사슴·사자·늑대는 여우 재사용): [LPC bears, deer, lions and more — tapatilorenzo (원작 Sevarihk)](https://opengameart.org/content/lpc-bears-deer-lions-and-more) (CC-BY 4.0). 호랑이는 전용 그림이 없어 사자 그림에 색조를 입혀 대체. `assets/wild/`.
+- 야생동물(말): [LPC Horses — bluecarrot16](https://opengameart.org/content/lpc-horses) (CC-BY 3.0 / CC-BY-SA 3.0 / GPL 2.0 / GPL 3.0 / OGA-BY 3.0). `assets/wild/horse.png`.
 - 렌더링: [PixiJS](https://pixijs.com) 7 (MIT)

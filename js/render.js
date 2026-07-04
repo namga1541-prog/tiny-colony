@@ -42,6 +42,12 @@ export function createRenderer(world) {
   // 최종 보스 「악마후배」(CC0 Red Demons — Umz, OpenGameArt): 32x34 셀 2프레임(정면 idle)
   base.Demon = PIXI.BaseTexture.from('assets/monsters/demon.png');
   base.Demon.scaleMode = PIXI.SCALE_MODES.NEAREST;
+  // 야생동물 전용 스프라이트 — [LPC] bears/deer/lions/fox(tapatilorenzo·Sevarihk, CC-BY 4.0) + LPC Horses(bluecarrot16, CC-BY/GPL)
+  ['WildBear', 'WildDeer', 'WildLion', 'WildWolf', 'WildHorse'].forEach(function (n) {
+    var file = { WildBear: 'bear', WildDeer: 'deer', WildLion: 'lion', WildWolf: 'wolf', WildHorse: 'horse' }[n];
+    base[n] = PIXI.BaseTexture.from('assets/wild/' + file + '.png');
+    base[n].scaleMode = PIXI.SCALE_MODES.NEAREST;
+  });
   // 공성 병기(LPC Siege Weapons, CC-BY): 특화 초소의 원거리 병기 전용 스프라이트
   var siegeTex = {
     catapult: PIXI.Texture.from('assets/siege/catapult.png'),
@@ -102,6 +108,15 @@ export function createRenderer(world) {
     cow: [tx('Cow', 0, 0, 16, 16), tx('Cow', 16, 0, 16, 16)],
     chicken: [tx('Chicken', 0, 0, 16, 16), tx('Chicken', 16, 0, 16, 16)],
   };
+  // 야생동물 전용 스프라이트(좌측 보행 2프레임씩 크롭) — 호랑이는 전용 그림이 없어 사자 그림 재사용(색조로 구분)
+  var wildAnimalFrames = {
+    bear:  [tx('WildBear', 0, 64, 64, 64), tx('WildBear', 128, 64, 64, 64)],
+    deer:  [tx('WildDeer', 0, 96, 64, 96), tx('WildDeer', 128, 96, 64, 96)],
+    lion:  [tx('WildLion', 0, 64, 64, 64), tx('WildLion', 128, 64, 64, 64)],
+    wolf:  [tx('WildWolf', 0, 64, 64, 64), tx('WildWolf', 128, 64, 64, 64)],
+    horse: [tx('WildHorse', 0, 5 * 128, 128, 128), tx('WildHorse', 2 * 128, 5 * 128, 128, 128)],
+  };
+  wildAnimalFrames.tiger = wildAnimalFrames.lion; // 전용 스프라이트 없음 — 사자 실루엣 + 주황 색조로 대체
   var mushroomTex = PIXI.Texture.from(TS + 'deco03.png');
 
   // 작물 스프라이트 (v0.2 때 받아둔 Kenney RPG 시트 재사용 — 새 에셋 불필요)
@@ -939,9 +954,14 @@ export function createRenderer(world) {
       if (type === 'sheep') {
         sp.texture = sheepFrames[(((animTime / 0.18) | 0) + sh.phase) % 8];
         sp.scale.set(sh.dir < 0 ? -1 : 1, 1);
+      } else if (wildAnimalFrames[type]) {
+        // 야생동물 전용 스프라이트(말·사슴·늑대·곰·사자, 호랑이는 사자 재사용)
+        var wf = wildAnimalFrames[type];
+        sp.texture = wf[(((animTime / 0.25) | 0) + sh.phase) % 2];
+        var wsc = 1.4;
+        sp.scale.set(sh.dir < 0 ? -wsc : wsc, wsc);
       } else {
         var adef3 = ANIMALS[type];
-        // 야생동물(말·사슴·늑대·곰·사자·호랑이)은 전용 스프라이트가 없어 기존 소·돼지 실루엣을 재사용(색조로 구분)
         var shapeKey = (adef3 && adef3.shape) || (type === 'raredeer' ? 'cow' : type);
         var af = animalFrames[shapeKey] || animalFrames.pig;
         sp.texture = af[(((animTime / 0.25) | 0) + sh.phase) % 2];

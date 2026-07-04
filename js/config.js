@@ -423,13 +423,14 @@ export const ANIMALS = {
   cow:      { label: '소',     food: 9,  leather: 4, meat: 4, sheet: 'Cow',        big: false },
   chicken:  { label: '닭',     food: 2,  leather: 1, meat: 1, sheet: 'Chicken',    big: false },
   raredeer: { label: '희귀 영양', food: 16, leather: 5, meat: 5, sheet: 'Cow', big: false, rareGold: 12 }, // 비경의 섬 전용. 처치 시 금도 획득
-  // ── 야생동물: 본섬에 배회 — 사냥해도 되고, 축사가 있으면 길들여 사육 가능(가축 전용 스프라이트가 없어 기존 소·돼지 실루엣을 색조로 구분해 재사용) ──
-  horse: { label: '말',    food: 5,  leather: 3, meat: 2, shape: 'cow', tint: 0x9c7a4a, wild: true, tameChance: 0.55, weight: 30 },
-  deer:  { label: '사슴',  food: 6,  leather: 3, meat: 3, shape: 'cow', tint: 0xc9975a, wild: true, tameChance: 0.45, weight: 26 },
-  wolf:  { label: '늑대',  food: 4,  leather: 4, meat: 3, shape: 'pig', tint: 0x8a8f96, wild: true, tameChance: 0.30, weight: 20 },
-  bear:  { label: '곰',    food: 8,  leather: 5, meat: 5, shape: 'cow', tint: 0x5a4632, wild: true, tameChance: 0.20, weight: 12 },
-  lion:  { label: '사자',  food: 9,  leather: 6, meat: 6, shape: 'cow', tint: 0xd9a63e, wild: true, tameChance: 0.14, weight: 8 },
-  tiger: { label: '호랑이', food: 10, leather: 6, meat: 6, shape: 'cow', tint: 0xe08a2e, wild: true, tameChance: 0.10, weight: 4 },
+  // ── 야생동물: 본섬에 배회 — 사냥해도 되고, 축사가 있으면 길들여 사육 가능 ──
+  // 말·사슴·늑대·곰·사자는 전용 스프라이트(LPC) 보유. 호랑이만 전용 그림이 없어 사자 그림 + 색조로 대체.
+  horse: { label: '말',    food: 5,  leather: 3, meat: 2, wild: true, tameChance: 0.55, weight: 30 },
+  deer:  { label: '사슴',  food: 6,  leather: 3, meat: 3, wild: true, tameChance: 0.45, weight: 26 },
+  wolf:  { label: '늑대',  food: 4,  leather: 4, meat: 3, wild: true, tameChance: 0.30, weight: 20 },
+  bear:  { label: '곰',    food: 8,  leather: 5, meat: 5, wild: true, tameChance: 0.20, weight: 12 },
+  lion:  { label: '사자',  food: 9,  leather: 6, meat: 6, wild: true, tameChance: 0.14, weight: 8 },
+  tiger: { label: '호랑이', food: 10, leather: 6, meat: 6, tint: 0xe0762e, wild: true, tameChance: 0.10, weight: 4 },
 };
 export const ANIMAL_TYPES = ['sheep', 'pig', 'cow', 'chicken']; // 야생 배회(pickAnimalType) 대상 — raredeer 는 섬 전용, 제외
 export const WILD_ANIMAL_TYPES = ['horse', 'deer', 'wolf', 'bear', 'lion', 'tiger']; // 본섬 배회 야생동물(pickWildAnimalType) — weight 로 희귀도 가중
