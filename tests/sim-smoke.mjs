@@ -2,7 +2,7 @@
 import { bootSim, run, runDays, designateChop, give, snapshot, DAY_MIN, MAP_W, MAP_H } from './harness.mjs';
 import { addBuilding, storageCap, upgradeMult, upgradeAdd, maxPop, rankReqStatus, canAdvanceRank, advanceRank, defenseStats, tickTowers, enemyStats, spawnRaid, mulberry32, grantRelic, dailyIslandRespawn, checkIslandDiscovery, updateEnemies, idx, shipComplete, fishSpotTier, footprintTouchesWater, canPlaceBridge, isWalkable, autoDesignateLodges, footprintAdjacentMine, ensureBossIsland } from '../js/world.js';
 import { GIANT, ENEMY, CANNIBAL, ISLANDS, INVASION, OUTPOST_BRANCHES, RAIDER, INVWARRIOR, ZOMBIE, SKELETON, GIANT_JUMP, ARMOR, FRUITTREE, FISH, catchFish, catchRareFish, GODDESS, TRADER, BUILDS, BUILD_MIN_RANK, FISH_PLATFORM, DEMON, GLORIOUS_FOOD, RARE_FISH_SPOT, INJURY, WALK_MIN_PER_TILE, RESEARCH } from '../js/config.js';
-import { findWorkJob, releaseAllOf, bpMissing } from '../js/jobs.js';
+import { findWorkJob, releaseAllOf, bpMissing, reserve } from '../js/jobs.js';
 import { findPath } from '../js/path.js';
 import { createPawn, updatePawn } from '../js/pawns.js';
 import { checkGoals } from '../js/goals.js';
@@ -1070,6 +1070,7 @@ console.log('[sim-smoke] 40) 찬란한 음식 — 요리 중 극저확률로 등
 
   // (a) 확률 굴림이 실패(임계값 이상)하면 평소대로 등급 요리가 나옴
   p.job = { type: 'cook', tierId: 'meal' };
+  reserve(w, 'cook', p.id); // 직접 대입형 — 실제 배정처럼 예약락도 함께(안 하면 방치작업 판정으로 즉시 양보됨)
   p.state = 'working'; p.workLeft = 0.01;
   updatePawn(w, p, 1, Object.assign({}, ctxBase, { rng: function () { return 0.99; } }));
   ok((w.stock.meal || 0) === 1, '확률 굴림 실패 시 평소대로 등급 요리(소박한 식사)가 나옴');
@@ -1078,6 +1079,7 @@ console.log('[sim-smoke] 40) 찬란한 음식 — 요리 중 극저확률로 등
   // (b) 확률 굴림이 성공(임계값 미만)하면 등급과 무관하게 찬란한 음식이 나옴
   w.stock.food = 10;
   p.job = { type: 'cook', tierId: 'meal' };
+  reserve(w, 'cook', p.id);
   p.state = 'working'; p.workLeft = 0.01;
   updatePawn(w, p, 1, Object.assign({}, ctxBase, { rng: function () { return 0; } }));
   ok(w.stock[GLORIOUS_FOOD.id] === 1, '확률 굴림 성공 시 찬란한 음식이 나옴');
@@ -1190,11 +1192,14 @@ console.log('[sim-smoke] 43) 신규 연구 3종(관개·수의학·요새화) + 
 
   // (b) 수의학 — 사냥 산출량이 늘어나고, 양은 양털도 함께 산출 (새로 push 한 양은 배열 맨 끝에 들어감에 주의)
   var w2 = bootSim(1902).world;
+  w2.stock.meal = 6; // 방치작업(starvedWork) 판정에서 "요리" 후보가 끼어들어 사냥이 가로채이지 않도록 미리 충족
   w2.sheep.push({ id: w2.nextSid++, type: 'sheep', x: 0, y: 0 });
   var sheepA = w2.sheep[w2.sheep.length - 1];
   var foodBeforeA = w2.stock.food || 0;
   var p2 = createPawn(0, {}, 0, 0);
-  p2.job = { type: 'hunt', sheepId: sheepA.id }; p2.state = 'working'; p2.workLeft = 0.01;
+  p2.job = { type: 'hunt', sheepId: sheepA.id };
+  reserve(w2, 'hunt:' + sheepA.id, p2.id); // 직접 대입형 — 예약락도 함께(안 하면 방치작업 판정으로 즉시 양보됨)
+  p2.state = 'working'; p2.workLeft = 0.01;
   updatePawn(w2, p2, 1, ctxBase);
   var foodGainBase = (w2.stock.food || 0) - foodBeforeA;
   ok((w2.stock.wool || 0) > 0, '양 사냥 시 양털도 함께 산출됨 (' + (w2.stock.wool || 0) + ')');
@@ -1204,7 +1209,9 @@ console.log('[sim-smoke] 43) 신규 연구 3종(관개·수의학·요새화) + 
   w2.research.unlocked.veterinary = true;
   var foodBeforeB = w2.stock.food || 0;
   var p2b = createPawn(1, {}, 0, 0);
-  p2b.job = { type: 'hunt', sheepId: sheepB.id }; p2b.state = 'working'; p2b.workLeft = 0.01;
+  p2b.job = { type: 'hunt', sheepId: sheepB.id };
+  reserve(w2, 'hunt:' + sheepB.id, p2b.id);
+  p2b.state = 'working'; p2b.workLeft = 0.01;
   updatePawn(w2, p2b, 1, ctxBase);
   var foodGainVet = (w2.stock.food || 0) - foodBeforeB;
   ok(foodGainVet > foodGainBase, '수의학 연구 해금 시 사냥 식량 산출이 늘어남 (' + foodGainBase + ' → ' + foodGainVet + ')');
@@ -1245,10 +1252,13 @@ console.log('[sim-smoke] 44) 당근(채집 전용 신규 재료) + 채소죽(COO
 
   // (b) 채집(forage) 지정 → 당근 획득 (main.js 화이트리스트를 거치지 않고 job 파이프라인 자체를 직접 검증)
   var w = bootSim(2002).world;
+  w.stock.meal = 6; // 방치작업(starvedWork) 판정에서 "요리" 후보가 끼어들어 채집이 가로채이지 않도록 미리 충족
   w.objects[0] = { kind: 'carrotPatch' };
   w.designations[0] = 'forage';
   var p = createPawn(0, {}, 0, 0);
-  p.job = { type: 'gather', idx: 0 }; p.state = 'working'; p.workLeft = 0.01;
+  p.job = { type: 'gather', idx: 0 };
+  reserve(w, 'job:0', p.id); // 직접 대입형 — 예약락도 함께(안 하면 방치작업 판정으로 즉시 양보됨)
+  p.state = 'working'; p.workLeft = 0.01;
   updatePawn(w, p, 1, ctxBase);
   ok((w.stock.carrot || 0) >= 2, '당근밭 채집 시 당근 재고 증가 (' + (w.stock.carrot || 0) + ')');
   ok(!w.objects[0], '채집 후 당근밭은 사라짐(그루터기 없이 소모)');
@@ -1257,7 +1267,9 @@ console.log('[sim-smoke] 44) 당근(채집 전용 신규 재료) + 채소죽(COO
   var w2 = bootSim(2003).world;
   w2.stock.food = 10; w2.stock.carrot = 10;
   var p2 = createPawn(0, {}, 50, 50);
-  p2.job = { type: 'cook', tierId: 'mealVeg' }; p2.state = 'working'; p2.workLeft = 0.01;
+  p2.job = { type: 'cook', tierId: 'mealVeg' };
+  reserve(w2, 'cook', p2.id);
+  p2.state = 'working'; p2.workLeft = 0.01;
   updatePawn(w2, p2, 1, ctxBase);
   ok(w2.stock.mealVeg === 1, '채소죽 요리 완료 시 mealVeg 재고 1 생성');
   ok(w2.stock.food === 9 && w2.stock.carrot === 8, '요리 재료(식량1+당근2) 소비됨');
@@ -1308,17 +1320,24 @@ console.log('[sim-smoke] 45) 정착민 부상 — 전투 피격 시 확률 발�
     '다리 부상 시 이동 거리가 legSpeedMult 배로 줄어듦 (' + pNormal.px.toFixed(2) + ' → ' + pInjured.px.toFixed(2) + ')');
 
   // (d) 팔 부상 — 작업 속도 저하 (working, gather). 트레잇을 고정해 workMult 차이로 인한 오차를 배제.
+  // 서로 다른 나무(idx 0/1)를 써서 예약락이 겹치지 않게 함.
   var w3 = bootSim(2103).world;
-  w3.objects[0] = { kind: 'tree' };
-  w3.designations[0] = 'chop';
+  w3.stock.meal = 6; // 방치작업 판정에서 "요리" 후보가 끼어들지 않도록
+  w3.objects[0] = { kind: 'tree' }; w3.designations[0] = 'chop';
+  w3.objects[1] = { kind: 'tree' }; w3.designations[1] = 'chop';
   var wNormal = createPawn(0, { trait: neutralTrait }, 0, 0);
-  wNormal.job = { type: 'gather', idx: 0 }; wNormal.state = 'working'; wNormal.workLeft = 100;
+  wNormal.job = { type: 'gather', idx: 0 };
+  reserve(w3, 'job:0', wNormal.id);
+  wNormal.state = 'working'; wNormal.workLeft = 100;
   updatePawn(w3, wNormal, 1, ctxBase);
-  var wInjured = createPawn(1, { trait: neutralTrait }, 0, 0);
+  var wInjured = createPawn(1, { trait: neutralTrait }, 1, 0);
   wInjured.injury = { type: 'arm', severity: 1 };
-  wInjured.job = { type: 'gather', idx: 0 }; wInjured.state = 'working'; wInjured.workLeft = 100;
+  wInjured.job = { type: 'gather', idx: 1 };
+  reserve(w3, 'job:1', wInjured.id);
+  wInjured.state = 'working'; wInjured.workLeft = 100;
   updatePawn(w3, wInjured, 1, ctxBase);
   var normalProgress = 100 - wNormal.workLeft, injuredProgress = 100 - wInjured.workLeft;
+  ok(normalProgress > 0, '평소엔 작업이 정상 진행됨(비교 기준 확보)');
   ok(Math.abs(injuredProgress - normalProgress * INJURY.armWorkMult) < 1e-6,
     '팔 부상 시 작업 진행이 armWorkMult 배로 줄어듦 (' + normalProgress.toFixed(3) + ' → ' + injuredProgress.toFixed(3) + ')');
 
@@ -1438,6 +1457,60 @@ console.log('[sim-smoke] 47) 운반→건설 확장 — 배치 즉시 차감 대
   var b2 = addBuilding(w2, 'house', 40, 40);
   b2.delivered.wood = 10;
   ok(bpMissing(b2) === null, '기존 방식대로 delivered 를 미리 채워둔 건물은 배달 없이 곧바로 건설 가능(회귀 없음)');
+})();
+
+console.log('[sim-smoke] 48) 방치 작업 방지 — 벌목이 넘쳐도 낚시 등 새 지정이 최소 1명은 배정됨 (신규)');
+(function () {
+  var w = bootSim(2401).world;
+  w.stock.meal = 6; // 방치작업 판정에서 "요리" 후보가 끼어들지 않도록
+  // 정착민 주변을 널찍이 정리(장애물 제거)해 벌목·이동 경로가 확실히 통하게 함
+  for (var yy = 0; yy <= 25; yy++) for (var xx = 0; xx <= 110; xx++) {
+    var ci = yy * 128 + xx;
+    w.terrain[ci] = 1; delete w.objects[ci]; delete w.occupancy[ci];
+  }
+  // 벌목 지정을 정착민 수보다 훨씬 많이(우선순위가 벌목보다 낮은 낚시가 영원히 안 잡히던 원래 버그 재현 조건)
+  for (var i = 0; i < 10; i++) {
+    w.objects[idx(100 + i, 0)] = { kind: 'tree' };
+    w.designations[idx(100 + i, 0)] = 'chop';
+  }
+  // 낚시 지정 1곳 — 해안 물 타일을 직접 마련
+  var wx = 20, wy = 20;
+  w.terrain[idx(wx, wy)] = 0; // 물
+  w.fishDesig[idx(wx, wy)] = true;
+
+  var p1 = createPawn(0, {}, 0, 0);
+  var job1 = findWorkJob(w, p1);
+  ok(job1 && job1.type === 'gather', '첫 정착민은 평소 우선순위대로 벌목을 잡음(' + (job1 && job1.type) + ')');
+
+  var p2 = createPawn(1, {}, wx - 1, wy);
+  var job2 = findWorkJob(w, p2);
+  ok(job2 && job2.type === 'fish', '벌목이 여전히 넘쳐도, 둘째 정착민은 방치된 낚시를 우선 배정받음(' + (job2 && job2.type) + ')');
+  ok(w.reserved['fish:' + idx(wx, wy)] === p2.id, '낚시 지정에도 정상적으로 예약락이 걸림');
+
+  var p3 = createPawn(2, {}, 0, 1);
+  var job3 = findWorkJob(w, p3);
+  ok(job3 && job3.type === 'gather', '낚시가 이미 배정된 뒤엔 셋째 정착민은 평소 우선순위(벌목)로 복귀(' + (job3 && job3.type) + ')');
+})();
+
+console.log('[sim-smoke] 49) 적이 건물 바로 앞에서 더 못 다가가 영원히 못 부수던 버그 수정 (신규)');
+(function () {
+  var w = bootSim(3001).world;
+  for (var yy = 30; yy <= 90; yy++) for (var xx = 30; xx <= 90; xx++) {
+    var i = yy * 128 + xx;
+    w.terrain[i] = 1; delete w.objects[i]; delete w.occupancy[i];
+  }
+  w.buildings = {};
+  w.enemies = [];
+  var tower = addBuilding(w, 'tower', 60, 60, { stage: 'built' });
+  var g = { id: w.nextEid++, x: 60, y: 45, px: 60, py: 45, hp: 908, maxHp: 908, cd: 0, dir: 1, anim: 0, kind: 'giant', wave: 0 };
+  w.enemies.push(g);
+  var rng = function () { return 0.5; };
+  var destroyed = false;
+  for (var t = 0; t < 400 && !destroyed; t++) {
+    updateEnemies(w, [], 1, {}, rng);
+    if (tower.hp <= 0) destroyed = true;
+  }
+  ok(destroyed, '건물 바로 앞까지 접근한 적이 멈추지 않고 결국 건물을 파괴함(직선 접근 시 좌표 반올림으로 영원히 막히던 버그)');
 })();
 
 console.log('');

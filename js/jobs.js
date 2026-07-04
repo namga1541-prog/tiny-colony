@@ -253,6 +253,36 @@ var COLLECTOR = {
   cook: collectCook, hunt: collectHunt, tame: collectTame, fish: collectFish, haul: collectHaul,
 };
 
+// job.type → 예약키 네임스페이스. 단일 키(craft/cook)는 콜론 없이, 대상별 키는 콜론 접두사로 구분.
+var RESERVE_PREFIX = {
+  build: 'bp:', deliver: 'bp:', gather: 'job:', mine: 'mine:',
+  plant: 'crop:', harvestCrop: 'crop:', craft: 'craft', cook: 'cook',
+  hunt: 'hunt:', tame: 'tame:', fish: 'fish:', haul: 'haul:',
+};
+function hasWorkerOfType(world, type) {
+  var prefix = RESERVE_PREFIX[type];
+  if (!prefix) return false;
+  if (prefix.indexOf(':') < 0) return world.reserved[prefix] !== undefined;
+  for (var k in world.reserved) if (k.indexOf(prefix) === 0) return true;
+  return false;
+}
+// 아무도 하고 있지 않은(예약자 0명) 채로 대기 후보가 있는 작업 종류를 찾음.
+// 우선순위가 낮은 작업 종류(예: 낚시)가 더 급한 종류(예: 벌목)에 밀려 영원히 방치되는 것을 막기 위함 —
+// 새 지정을 만들면 그 지정이 "아직 아무도 안 하는 중"인 동안만 이 캐스케이드보다 먼저 시도된다.
+// 한 명이라도 배정되면(reserve) 더 이상 "방치"가 아니므로 이후엔 평소 우선순위대로 경쟁한다.
+function starvedWork(world, pawn) {
+  for (var type in COLLECTOR) {
+    if (hasWorkerOfType(world, type)) continue;
+    var cands = excludeAvoid(COLLECTOR[type](world, pawn), pawn);
+    var job = nearest(pawn, cands, function (c) { return c._d; });
+    if (job) return job;
+  }
+  return null;
+}
+export function hasStarvedWork(world, pawn) {
+  return !!starvedWork(world, pawn);
+}
+
 // 확정 작업에 예약락 부여 (역할 탐색·일반 탐색 공용)
 function reserveJob(world, job, pawn) {
   if (job.type === 'build') reserve(world, 'bp:' + job.bid, pawn.id);
@@ -289,7 +319,10 @@ function findRoleWork(world, pawn, jobTypes) {
 }
 
 // 일반 우선순위 캐스케이드: 건설 > 운반 > 제작 > 채집 > 채굴 > 농사 > 요리 > 사냥 > 낚시 > 비축.
+// 단, 어느 종류든 "아직 아무도 안 하는 중"인 방치 작업이 있으면 그것부터 시도(새 지정이 영원히 안 잡히는 것 방지).
 function findDefaultWork(world, pawn) {
+  var starved = starvedWork(world, pawn);
+  if (starved) { reserveJob(world, starved, pawn); return starved; }
   var cands = excludeAvoid(collectBuild(world, pawn), pawn);
   if (!cands.length) cands = excludeAvoid(collectDeliver(world, pawn), pawn);
   if (!cands.length) cands = excludeAvoid(collectCraft(world, pawn), pawn);

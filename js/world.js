@@ -1272,7 +1272,9 @@ export function updateEnemies(world, pawns, dtMin, cb, rng) {
     // 목표: 정착민 우선, 없거나 멀면 가까운 건물·작물
     var tgt = nearestAttackable(world, pawns, e.px, e.py);
     if (tgt) {
-      var adjacentR = tgt.kind === 'pawn' ? 1.05 : 1.05;
+      // 건물은 풋프린트 가장자리까지의 거리라 직선 접근 시 정수 타일 경계에 걸려
+      // adjacentR 를 좁게 잡으면 "건물 바로 앞인데 못 붙는" 채로 영원히 멈추는 경우가 생김(관측된 버그) — 여유를 더 둠.
+      var adjacentR = tgt.kind === 'pawn' ? 1.05 : 1.5;
       if (tgt.dist <= adjacentR) {
         // 인접 → 공격
         e.cd -= dtMin;

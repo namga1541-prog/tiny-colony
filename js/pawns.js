@@ -12,7 +12,7 @@ import {
 } from './world.js';
 import { findPath } from './path.js';
 import {
-  findFoodJob, findWorkJob, bpMissing,
+  findFoodJob, findWorkJob, bpMissing, hasStarvedWork,
   reserve, release, releaseAllOf, findStockpileFor,
 } from './jobs.js';
 
@@ -137,16 +137,14 @@ export function toolIconOf(world, pawn) {
 var INTERRUPTIBLE = { gather: 1, mine: 1, haul: 1, cook: 1, hunt: 1, tame: 1 };
 
 // "지금 실제로 할 수 있는" 건설/자재운반 작업이 있으면 true.
-// (설계도가 존재만 해서는 안 됨 — 지을 준비가 됐거나, 나를 수 있는 자재가 있어야 양보)
+// (설계도가 존재만 해서는 안 됨 — 지을 준비가 됐거나, 재고에서 나를 수 있는 자재가 있어야 양보)
 function buildWorkAvailable(world) {
   for (var id in world.buildings) {
     var b = world.buildings[id];
     if (b.stage !== 'bp' || world.reserved['bp:' + id] !== undefined) continue;
     var miss = bpMissing(b);
     if (miss === null) return true; // 자재 완비 → 건설 가능
-    for (var i in world.items) { // 부족 자재를 나를 수 있는가
-      if ((world.items[i][miss.type] || 0) > 0 && world.reserved['item:' + i] === undefined) return true;
-    }
+    if ((world.stock[miss.type] || 0) > 0) return true; // 재고에서 나를 수 있음(가상 창고 배달)
   }
   return false;
 }
@@ -854,7 +852,9 @@ export function updatePawn(world, pawn, dtMin, ctx) {
 
   // 건설 지시가 있으면 저순위 작업(벌목·채굴·운반 등)을 중단하고 건설을 먼저 하도록 양보
   // (haul 은 건설용 자재 운반과 경쟁하므로 제외 대상이 아님 — 단, 실제 건설 작업이 가능할 때만)
-  if (!pawn.manual && pawn.job && INTERRUPTIBLE[pawn.job.type] && buildWorkAvailable(world)) {
+  // + 방치된 작업 종류(아무도 안 하는 새 지정, 예: 낚시)가 있으면 그것도 양보 사유가 됨 —
+  //   그래야 벌목 지정이 잔뜩 남아 있어도 새로 지정한 낚시가 영원히 밀리지 않는다.
+  if (!pawn.manual && pawn.job && INTERRUPTIBLE[pawn.job.type] && (buildWorkAvailable(world) || hasStarvedWork(world, pawn))) {
     return yieldJob(world, pawn);
   }
 
