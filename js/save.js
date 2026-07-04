@@ -53,6 +53,7 @@ export function saveGame(world, pawns) {
         hunger: p.hunger, hp: p.hp, maxHp: p.maxHp, mood: p.mood,
         dead: p.state === 'dead',
         carry: p.carry,
+        injury: p.injury,
       };
     }),
   };

@@ -41,7 +41,7 @@
 ## RNG / 결정론
 - `mulberry32(seed)` 시드 난수. `world.seed` 가 월드 시드. `ambientRng = mulberry32(seed ^ 0x5eed)`(습격·양·목장·영입).
 - 초기 정착민: `mulberry32(seed ^ 0x9a3c)`(트레잇·허기) — ambient 스트림과 분리.
-- 일일 재생: `mulberry32(seed + day)`. 낚시: `ctx.rng` 경유.
+- 일일 재생: `mulberry32(seed + day)`. 낚시: `ctx.rng` 경유. 전투 부상 판정(`updateEnemies` 5번째 인자): `stepWorld` 의 `rng` 그대로 전달.
 - **새게임 시드**: `?seed=123` URL 파라미터 있으면 사용(재현·테스트), 없으면 `Math.random()`.
 - 규칙: 시뮬 로직에 Math.random 직접 금지 — 반드시 주입 rng.
 

@@ -829,12 +829,13 @@ export function createUI(handlers) {
 
   // ── 목표 모달 ──
   function showGoals(goals, w) {
+    var doneCount = goals.filter(function (g) { return !!w.goals[g.id]; }).length;
     var rowsHtml = goals.map(function (g) {
       var done = !!w.goals[g.id];
       return '<div class="rs-item"><h3>' + (done ? '✅ ' : '⬜ ') + g.name + '</h3>' +
         '<p>' + g.desc + '</p></div>';
     }).join('');
-    var overlay = openModal('<h2>🏆 목표</h2>' + rowsHtml +
+    var overlay = openModal('<h2>🏆 목표 (' + doneCount + '/' + goals.length + ')</h2>' + rowsHtml +
       '<div class="cm-actions"><button class="cm-ok gl-close">닫기</button></div>');
     overlay.querySelector('.gl-close').addEventListener('click', function () { overlay.remove(); });
   }

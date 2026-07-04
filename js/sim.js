@@ -67,7 +67,7 @@ export function stepWorld(world, pawns, dtMin, rng, ctx, enemyCbs) {
     }
     updateSheep(world, dt, rng);
     tickTowers(world, dt, enemyCbs);
-    updateEnemies(world, pawns, dt, enemyCbs);
+    updateEnemies(world, pawns, dt, enemyCbs, rng);
     tickResearch(world, aliveNow, dt);
     var ready = tickCrops(world, dt);
     for (var ci = 0; ci < ready.length; ci++) ctx.onCropChange(ready[ci]);

@@ -79,6 +79,7 @@ if (saved) {
     pw.maxHp = p.maxHp || 100; // 구버전 세이브엔 필드 없음 — 기본값 100
     pw.mood = p.mood === undefined ? 70 : p.mood;
     pw.carry = p.carry || null;
+    pw.injury = p.injury || null;
     if (p.dead) pw.state = 'dead';
     return pw;
   });

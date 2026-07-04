@@ -3,7 +3,7 @@ import {
   MAP_W, MAP_H, NATURE, STACK_MAX, BUILDS, BUILDING_HP_DEFAULT, GOLDMINE, IRONMINE, BRIDGE,
   RESEARCH_RATE_PER_PAWN, ENEMY, RAID, GIANT, GIANT_FAST_MULT, GIANT_JUMP, SEASON_DAYS, SEASONS, STORAGE, RANCH, REGROW,
   ANIMAL_TYPES, ANIMALS, WILD_ANIMAL_TYPES, BARN, WAREHOUSE_TIERS, UPGRADES, RANKS, HOUSE_POP_BONUS, HOUSE_POP_CAP_COUNT, DEFENSE_TIERS, OUTPOST_BRANCHES, CANNON, RELICS, ISLANDS, CANNIBAL, WARLORD, RAIDER, INVWARRIOR, ZOMBIE, SKELETON, DEMON,
-  ARMOR, FISH_PLATFORM, LODGE_FARM_RADIUS, RARE_FISH_SPOT, FORTIFY_KINDS,
+  ARMOR, FISH_PLATFORM, LODGE_FARM_RADIUS, RARE_FISH_SPOT, FORTIFY_KINDS, INJURY,
   T_WATER, T_GRASS, T_SAND,
 } from './config.js';
 import { findPath } from './path.js';
@@ -1157,9 +1157,18 @@ function greedyStepEnemy(world, e, tx, ty, step) {
 
 // 적 이동·공격 (정착민 공격은 pawns.js 에서). 이동은 A* 경로 추종(막히면 우회)이며,
 // 경로가 아예 없으면 앞을 막은 나무·건물·다리를 부수고 돌파한다. cb: {onHit(pawn,dmg),
+// 전투 피격 시 피해량 비례 확률로 부상 부여(다리/팔 중 하나). 이미 부상 중이면 심각도만 재갱신(최악으로).
+function maybeInjure(pawn, dmg, rng) {
+  var chance = Math.min(0.5, (dmg / (pawn.maxHp || 100)) * INJURY.chanceMult);
+  if (rng() >= chance) return;
+  if (pawn.injury) { pawn.injury.severity = 1; return; }
+  pawn.injury = { type: rng() < 0.5 ? 'leg' : 'arm', severity: 1 };
+}
+
 //   onPawnDeath(pawn), onEnemyGone, onBuildingDestroyed(b), onCropDestroyed(idx),
 //   onGiantJump(e,x,y), onObstacleBreak(x,y), onDemonLaser(e,tx,ty)}
-export function updateEnemies(world, pawns, dtMin, cb) {
+export function updateEnemies(world, pawns, dtMin, cb, rng) {
+  var rngF = rng || Math.random;
   var alive = [];
   for (var n = 0; n < world.enemies.length; n++) {
     var e = world.enemies[n];
@@ -1187,6 +1196,7 @@ export function updateEnemies(world, pawns, dtMin, cb) {
             if (Math.abs(zpw.px - e.px) + Math.abs(zpw.py - e.py) <= lrad) {
               var zdmg = Math.max(1, ldmg - armorDefense(zpw));
               zpw.hp = Math.max(0, zpw.hp - zdmg);
+              maybeInjure(zpw, zdmg, rngF);
               if (cb.onHit) cb.onHit(zpw, zdmg);
               if (zpw.hp <= 0 && zpw.state !== 'dead') { zpw.state = 'dead'; zpw.job = null; if (cb.onPawnDeath) cb.onPawnDeath(zpw); }
             }
@@ -1238,6 +1248,7 @@ export function updateEnemies(world, pawns, dtMin, cb) {
           if (Math.abs(lpw.px - lx) + Math.abs(lpw.py - ly) <= GIANT_JUMP.radius) {
             var jdmg = Math.max(1, GIANT_JUMP.damage - armorDefense(lpw));
             lpw.hp = Math.max(0, lpw.hp - jdmg);
+            maybeInjure(lpw, jdmg, rngF);
             if (cb.onHit) cb.onHit(lpw, jdmg);
             if (lpw.hp <= 0 && lpw.state !== 'dead') { lpw.state = 'dead'; lpw.job = null; if (cb.onPawnDeath) cb.onPawnDeath(lpw); }
           }
@@ -1274,6 +1285,7 @@ export function updateEnemies(world, pawns, dtMin, cb) {
             var pw = tgt.ref;
             var pdmg = Math.max(1, st.power - armorDefense(pw));
             pw.hp = Math.max(0, pw.hp - pdmg);
+            maybeInjure(pw, pdmg, rngF);
             if (cb.onHit) cb.onHit(pw, pdmg);
             if (e.kind === 'giant' && cb.onGiantSmash) cb.onGiantSmash(e, pw); // 주먹질 충격
             if (pw.hp <= 0 && pw.state !== 'dead') {

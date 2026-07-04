@@ -252,6 +252,14 @@ export const RANCH = { interval: 200, food: 4, breedChance: 0.2, maxSheep: 12 };
 // ── 치료소 (6): 부상 정착민이 와서 빠르게 회복 ──
 export const CLINIC = { hurtAt: 55, healedAt: 92, restRegen: 100 / 200 };
 
+// ── 부상: 전투 피격 시 피해량 비례 확률로 발생. 다리=이동속도↓, 팔=작업속도↓. 치료소에서 쉬어야만 낫는다(자연 치유 없음) ──
+export const INJURY = {
+  chanceMult: 1.2,   // 부상 확률 = min(0.5, 피해량/최대체력 * chanceMult)
+  legSpeedMult: 0.6, // 다리 부상 시 이동속도 배율
+  armWorkMult: 0.7,  // 팔 부상 시 작업속도 배율
+  healRate: 1 / 120, // 치료소에서 쉬는 동안 분당 심각도(0~1) 감소량 — 120분(완전 심각)이면 완치
+};
+
 // ── 정착민 스킬 (4): 활동으로 숙련도 상승 → 작업 속도↑ ──
 export const SKILL_LABEL = {
   woodcutting: '벌목', mining: '채광', construction: '건축', farming: '농사', combat: '전투', fishing: '낚시',

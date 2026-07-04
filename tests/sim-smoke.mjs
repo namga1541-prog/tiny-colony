@@ -1,7 +1,7 @@
 // L1 시나리오 스모크 — 시드 고정, 헤드리스. stepWorld 추출이 올바른지 + 결정론 확인.
 import { bootSim, run, runDays, designateChop, give, snapshot, DAY_MIN, MAP_W, MAP_H } from './harness.mjs';
 import { addBuilding, storageCap, upgradeMult, upgradeAdd, maxPop, rankReqStatus, canAdvanceRank, advanceRank, defenseStats, tickTowers, enemyStats, spawnRaid, mulberry32, grantRelic, dailyIslandRespawn, checkIslandDiscovery, updateEnemies, idx, shipComplete, fishSpotTier, footprintTouchesWater, canPlaceBridge, isWalkable, autoDesignateLodges, footprintAdjacentMine, ensureBossIsland } from '../js/world.js';
-import { GIANT, ENEMY, CANNIBAL, ISLANDS, INVASION, OUTPOST_BRANCHES, RAIDER, INVWARRIOR, ZOMBIE, SKELETON, GIANT_JUMP, ARMOR, FRUITTREE, FISH, catchFish, catchRareFish, GODDESS, TRADER, BUILDS, BUILD_MIN_RANK, FISH_PLATFORM, DEMON, GLORIOUS_FOOD, RARE_FISH_SPOT } from '../js/config.js';
+import { GIANT, ENEMY, CANNIBAL, ISLANDS, INVASION, OUTPOST_BRANCHES, RAIDER, INVWARRIOR, ZOMBIE, SKELETON, GIANT_JUMP, ARMOR, FRUITTREE, FISH, catchFish, catchRareFish, GODDESS, TRADER, BUILDS, BUILD_MIN_RANK, FISH_PLATFORM, DEMON, GLORIOUS_FOOD, RARE_FISH_SPOT, INJURY, WALK_MIN_PER_TILE, RESEARCH } from '../js/config.js';
 import { findWorkJob, releaseAllOf } from '../js/jobs.js';
 import { findPath } from '../js/path.js';
 import { createPawn, updatePawn } from '../js/pawns.js';
@@ -1270,6 +1270,124 @@ console.log('[sim-smoke] 44) 당근(채집 전용 신규 재료) + 채소죽(COO
   updatePawn(w3, p3, 1, ctxBase);
   ok(w3.stock.mealVeg === 0, '채소죽이 있으면 생식량보다 먼저 소비됨');
   ok(w3.stock.food === 5, '생식량은 그대로(채소죽이 최우선 소비)');
+})();
+
+console.log('[sim-smoke] 45) 정착민 부상 — 전투 피격 시 확률 발생 + 다리(이동↓)·팔(작업↓) + 치료소 완치 (신규)');
+(function () {
+  var ctxBase = { onItemChange: function () {}, onEvent: function () {}, onCropChange: function () {}, onDeath: function () {}, onStorageFull: function () {} };
+
+  // (a) 전투 피격 시 부상 발생(확률 성공) — rng=0 이면 항상 발생 + 항상 '다리' 선택(0.5 미만)
+  var w1 = bootSim(2101).world;
+  var pawn1 = { id: 0, state: 'idle', px: 40, py: 40, x: 40, y: 40, hp: 100, armor: null };
+  var e1 = { id: w1.nextEid++, x: 40, y: 41, px: 40, py: 41, hp: 999, maxHp: 999, cd: 0, dir: -1, anim: 0, kind: 'goblin', wave: 0 };
+  w1.enemies.push(e1);
+  updateEnemies(w1, [pawn1], 20, {}, function () { return 0; });
+  ok(pawn1.injury && pawn1.injury.type === 'leg' && pawn1.injury.severity === 1, '피격 시 부상 발생(확률 강제 성공) — 다리 부상');
+
+  // (b) 확률 굴림이 실패(임계값 이상)하면 부상 없음
+  var w1b = bootSim(2101).world;
+  var pawn1b = { id: 0, state: 'idle', px: 40, py: 40, x: 40, y: 40, hp: 100, armor: null };
+  var e1b = { id: w1b.nextEid++, x: 40, y: 41, px: 40, py: 41, hp: 999, maxHp: 999, cd: 0, dir: -1, anim: 0, kind: 'goblin', wave: 0 };
+  w1b.enemies.push(e1b);
+  updateEnemies(w1b, [pawn1b], 20, {}, function () { return 0.99; });
+  ok(!pawn1b.injury, '확률 굴림 실패 시 부상 없음');
+
+  // (c) 다리 부상 — 이동 속도 저하 (moveStep). 목표 타일을 강제로 통행 가능하게(잔디+장애물 제거) 만들어 측정.
+  var w2 = bootSim(2102).world;
+  w2.terrain[idx(10, 0)] = 1; delete w2.objects[idx(10, 0)]; delete w2.occupancy[idx(10, 0)];
+  var neutralTrait = { id: 'none', name: '평범', desc: '' };
+  var pNormal = createPawn(0, { trait: neutralTrait }, 0, 0);
+  pNormal.state = 'moving'; pNormal.path = [{ x: 10, y: 0 }];
+  updatePawn(w2, pNormal, 1, ctxBase);
+  var pInjured = createPawn(1, { trait: neutralTrait }, 0, 0);
+  pInjured.injury = { type: 'leg', severity: 1 };
+  pInjured.state = 'moving'; pInjured.path = [{ x: 10, y: 0 }];
+  updatePawn(w2, pInjured, 1, ctxBase);
+  ok(pNormal.px > 0, '평소엔 목표 타일 방향으로 정상 이동함(비교 기준 확보)');
+  ok(Math.abs(pInjured.px - pNormal.px * INJURY.legSpeedMult) < 1e-6,
+    '다리 부상 시 이동 거리가 legSpeedMult 배로 줄어듦 (' + pNormal.px.toFixed(2) + ' → ' + pInjured.px.toFixed(2) + ')');
+
+  // (d) 팔 부상 — 작업 속도 저하 (working, gather). 트레잇을 고정해 workMult 차이로 인한 오차를 배제.
+  var w3 = bootSim(2103).world;
+  w3.objects[0] = { kind: 'tree' };
+  w3.designations[0] = 'chop';
+  var wNormal = createPawn(0, { trait: neutralTrait }, 0, 0);
+  wNormal.job = { type: 'gather', idx: 0 }; wNormal.state = 'working'; wNormal.workLeft = 100;
+  updatePawn(w3, wNormal, 1, ctxBase);
+  var wInjured = createPawn(1, { trait: neutralTrait }, 0, 0);
+  wInjured.injury = { type: 'arm', severity: 1 };
+  wInjured.job = { type: 'gather', idx: 0 }; wInjured.state = 'working'; wInjured.workLeft = 100;
+  updatePawn(w3, wInjured, 1, ctxBase);
+  var normalProgress = 100 - wNormal.workLeft, injuredProgress = 100 - wInjured.workLeft;
+  ok(Math.abs(injuredProgress - normalProgress * INJURY.armWorkMult) < 1e-6,
+    '팔 부상 시 작업 진행이 armWorkMult 배로 줄어듦 (' + normalProgress.toFixed(3) + ' → ' + injuredProgress.toFixed(3) + ')');
+
+  // (e) 치료소에서 쉬면 부상이 서서히 낫고, hp 완쾌라도 부상이 남아있으면 계속 쉼 + 다 나으면 idle 복귀
+  // (원정 섬 상주 몬스터가 항상 world.enemies 에 존재하므로 — 이 시나리오만 별개로 비움)
+  var ctxRng = { onItemChange: function () {}, onEvent: function () {}, onCropChange: function () {}, onDeath: function () {}, onStorageFull: function () {}, rng: function () { return 0.5; } };
+  var w4 = bootSim(2104).world;
+  w4.enemies = [];
+  addBuilding(w4, 'clinic', 10, 10, { stage: 'built' });
+  var p4 = createPawn(0, {}, 11, 12);
+  p4.hp = 100; p4.injury = { type: 'leg', severity: 1 };
+  p4.job = { type: 'rest', x: 11, y: 12 }; p4.state = 'resting';
+  updatePawn(w4, p4, 1, ctxRng);
+  ok(p4.state === 'resting' && p4.injury && p4.injury.severity < 1,
+    'hp 는 이미 완쾌라도 부상이 남아있으면 계속 치료소에 머무름(심각도 ' + p4.injury.severity.toFixed(3) + ')');
+  for (var t = 0; t < 130; t++) updatePawn(w4, p4, 1, ctxRng);
+  ok(!p4.injury, '충분히 쉬면 부상이 완전히 나음');
+  ok(p4.state === 'idle', '부상까지 다 나으면 치료소를 떠나 idle 복귀');
+})();
+
+console.log('[sim-smoke] 46) GOALS 전면 확장 — 신규 도전과제 10종 (신규)');
+(function () {
+  var w = bootSim(2201).world;
+  var before = checkGoals(w, []).map(function (g) { return g.id; });
+  ok(before.indexOf('islands') < 0 && before.indexOf('boss') < 0 && before.indexOf('research') < 0,
+    '초기엔 신규 도전과제 미달성');
+
+  // 원정 섬 4곳 전부 발견
+  w.islands.forEach(function (isl) { isl.discovered = true; });
+  ok(checkGoals(w, []).some(function (g) { return g.id === 'islands'; }), '원정 섬 4곳 전부 발견 시 "미지의 발견" 달성');
+
+  // 보스 처치
+  w.bossDefeated = true;
+  ok(checkGoals(w, []).some(function (g) { return g.id === 'boss'; }), '보스 처치 시 "파괴자를 쓰러뜨리다" 달성');
+
+  // 연구 올클리어
+  Object.keys(RESEARCH).forEach(function (k) { w.research.unlocked[k] = true; });
+  ok(checkGoals(w, []).some(function (g) { return g.id === 'research'; }), '연구 올클리어 시 "지혜의 정점" 달성');
+
+  // 양털 비축
+  w.stock.wool = 30;
+  ok(checkGoals(w, []).some(function (g) { return g.id === 'wool'; }), '양털 30 비축 시 "포근한 양모" 달성');
+
+  // 정자 완공
+  addBuilding(w, 'pavilion', 5, 5, { stage: 'built' });
+  ok(checkGoals(w, []).some(function (g) { return g.id === 'pavilion'; }), '정자 완공 시 "화목한 마을" 달성');
+
+  // 금 500 비축
+  w.stock.gold = 500;
+  ok(checkGoals(w, []).some(function (g) { return g.id === 'richColony'; }), '금 500 비축 시 "부유한 콜로니" 달성');
+
+  // 정착민 10명
+  var tenPawns = Array.from({ length: 10 }, function (_, i) { return createPawn(i, {}, 0, 0); });
+  ok(checkGoals(w, tenPawns).some(function (g) { return g.id === 'pop10'; }), '정착민 10명 시 "대번영" 달성');
+
+  // 여신 강림 목격
+  w.goddessVisited = true;
+  ok(checkGoals(w, []).some(function (g) { return g.id === 'goddess'; }), '여신 강림 목격 시 "여신의 축복" 달성');
+
+  // 유물 5개 이상
+  w.relics = { worm: 3, banner: 2 };
+  ok(checkGoals(w, []).some(function (g) { return g.id === 'relics'; }), '유물 5개 이상 시 "유물 수집가" 달성');
+
+  // 강철 무기 제작
+  w.stock.ironSword = 1;
+  ok(checkGoals(w, []).some(function (g) { return g.id === 'steel'; }), '강철 무기 제작 시 "강철의 시대" 달성');
+
+  // 재알림 없음
+  ok(checkGoals(w, tenPawns).length === 0, '전부 달성 후 재알림 없음');
 })();
 
 console.log('');

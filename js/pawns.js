@@ -1,7 +1,7 @@
 // 정착민 AI (v0.3): 욕구 → 상태기계 → 작업 수행
 import {
   NEEDS, NATURE, BUILDS, WALK_MIN_PER_TILE, TRAITS, CROP, FRUITTREE, WEAPONS, ARMOR, ITEMS,
-  COMBAT, COOK_TIERS, GLORIOUS_FOOD, HUNT, TAME, CLINIC, ANIMALS, FISHING, FISH, catchFish, catchRareFish, skillMult,
+  COMBAT, COOK_TIERS, GLORIOUS_FOOD, HUNT, TAME, CLINIC, INJURY, ANIMALS, FISHING, FISH, catchFish, catchRareFish, skillMult,
   ROLES, ROLE_SPEED_BONUS,
 } from './config.js';
 import {
@@ -31,6 +31,7 @@ export function createPawn(id, def, x, y, rng) {
     role: def.role || 'none',   // 특화 역할 (config.ROLES 키). 'none' = 자유
     equipped: def.equipped || null, // 'sword' | 'bow' | null
     armor: def.armor || null,       // 'leatherArmor' | 'ironArmor' | null
+    injury: def.injury || null,     // { type: 'leg'|'arm', severity: 0~1 } | null — 치료소에서 쉬어야만 낫는다
     autoAttack: true,    // 무기 든 채 직접 조종 중에도 사거리 내 적 자동 공격(기본 ON, ⚔️로 끔)
     face: 1,             // 1 우 / -1 좌
     x: x, y: y,
@@ -213,7 +214,8 @@ function jobTarget(world, j) {
 }
 
 function moveStep(world, pawn, dtMin, ctx) {
-  var budget = dtMin / WALK_MIN_PER_TILE;
+  var legMult = (pawn.injury && pawn.injury.type === 'leg') ? INJURY.legSpeedMult : 1;
+  var budget = (dtMin / WALK_MIN_PER_TILE) * legMult;
   while (budget > 0 && pawn.path && pawn.path.length > 0) {
     var next = pawn.path[0];
     if (!isWalkable(world, next.x, next.y)) {
@@ -709,7 +711,8 @@ export function pawnRange(pawn) {
 }
 
 function greedyStep(world, pawn, tx, ty, dtMin, spd) {
-  var step = (dtMin / WALK_MIN_PER_TILE) * (spd || 1);
+  var legMult = (pawn.injury && pawn.injury.type === 'leg') ? INJURY.legSpeedMult : 1;
+  var step = (dtMin / WALK_MIN_PER_TILE) * (spd || 1) * legMult;
   var vx = Math.sign(tx - pawn.px), vy = Math.sign(ty - pawn.py);
   if (vx) pawn.face = vx;
   if (Math.abs(tx - pawn.px) >= Math.abs(ty - pawn.py)) {
@@ -885,7 +888,8 @@ export function updatePawn(world, pawn, dtMin, ctx) {
       // 역할 특화 보너스: 이 작업이 정착민 역할의 전문 작업이면 +15%
       var rdef = pawn.role && ROLES[pawn.role];
       var rm = (rdef && rdef.jobs.indexOf(j.type) >= 0) ? ROLE_SPEED_BONUS : 1;
-      pawn.workLeft -= dtMin * (pawn.trait.workMult || 1) * moodPenalty * sm * um * rm;
+      var im = (pawn.injury && pawn.injury.type === 'arm') ? INJURY.armWorkMult : 1;
+      pawn.workLeft -= dtMin * (pawn.trait.workMult || 1) * moodPenalty * sm * um * rm * im;
       if (pawn.workLeft <= 0) finishWork(world, pawn, ctx);
       break;
     }
@@ -916,7 +920,11 @@ export function updatePawn(world, pawn, dtMin, ctx) {
 
     case 'resting': {
       pawn.hp = Math.min(pawn.maxHp || 100, pawn.hp + CLINIC.restRegen * upgradeMult(world, 'healspeed') * dtMin);
-      if (pawn.hp >= CLINIC.healedAt) {
+      if (pawn.injury) {
+        pawn.injury.severity = Math.max(0, pawn.injury.severity - INJURY.healRate * dtMin);
+        if (pawn.injury.severity <= 0) pawn.injury = null;
+      }
+      if (pawn.hp >= CLINIC.healedAt && !pawn.injury) {
         releaseAllOf(world, pawn.id);
         pawn.job = null;
         pawn.state = 'idle';
@@ -1071,7 +1079,7 @@ function think(world, pawn, dtMin, ctx) {
   }
 
   // 부상 + 치료소 존재 + 적 없음 → 치료소로 가서 회복 (6)
-  if (pawn.hp < CLINIC.hurtAt && world.enemies.length === 0) {
+  if ((pawn.hp < CLINIC.hurtAt || pawn.injury) && world.enemies.length === 0) {
     var clinic = clinicExists(world);
     if (clinic) {
       var cf = buildingFront(world, clinic);
