@@ -721,16 +721,15 @@ export const STACK_MAX = 50;
 
 // 정착민 외형: Sunnyside World 치비 캐릭터(베이스+헤어 레이어, 96x64 프레임 가로 스트립).
 // look = { human: '<id>' }. hair=헤어 스트립 접두어, tint=헤어 색조(PIXI), css=외형 선택 UI 미리보기 필터.
-// dir 은 구 Ninja Adventure 시트 폴더 — 괴민(거인 적) 전용 렌더링이 아직 사용(assets/ninja/Caveman).
 export const HUMANS = {
-  villager:  { label: '농부', dir: 'Villager',  hair: 'shorthair',  tint: 0xffffff, css: '' },
-  villager2: { label: '주민', dir: 'Villager2', hair: 'bowlhair',   tint: 0xffffff, css: '' },
-  woman:     { label: '여인', dir: 'Woman',     hair: 'longhair',   tint: 0xffffff, css: '' },
-  boy:       { label: '청년', dir: 'Boy',       hair: 'spikeyhair', tint: 0xffffff, css: '' },
-  oldman:    { label: '노인', dir: 'OldMan',    hair: 'bowlhair',   tint: 0xe8e8e8, css: 'grayscale(0.9) brightness(1.15)' },
-  princess:  { label: '공주', dir: 'Princess',  hair: 'longhair',   tint: 0xffd76a, css: 'sepia(0.6) saturate(1.6) brightness(1.1)' },
-  cavegirl:  { label: '들녀', dir: 'Cavegirl',  hair: 'curlyhair',  tint: 0xffffff, css: '' },
-  caveman:   { label: '들남', dir: 'Caveman',   hair: 'mophair',    tint: 0xc09a6a, css: 'brightness(0.9)' },
+  villager:  { label: '농부', hair: 'shorthair',  tint: 0xffffff, css: '' },
+  villager2: { label: '주민', hair: 'bowlhair',   tint: 0xffffff, css: '' },
+  woman:     { label: '여인', hair: 'longhair',   tint: 0xffffff, css: '' },
+  boy:       { label: '청년', hair: 'spikeyhair', tint: 0xffffff, css: '' },
+  oldman:    { label: '노인', hair: 'bowlhair',   tint: 0xe8e8e8, css: 'grayscale(0.9) brightness(1.15)' },
+  princess:  { label: '공주', hair: 'longhair',   tint: 0xffd76a, css: 'sepia(0.6) saturate(1.6) brightness(1.1)' },
+  cavegirl:  { label: '들녀', hair: 'curlyhair',  tint: 0xffffff, css: '' },
+  caveman:   { label: '들남', hair: 'mophair',    tint: 0xc09a6a, css: 'brightness(0.9)' },
 };
 export const HUMAN_IDS = Object.keys(HUMANS);
 // 고블린(적) 외형 — Goblin.png 7열 5행

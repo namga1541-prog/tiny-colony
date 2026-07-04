@@ -72,15 +72,12 @@ npx serve -p 5800 .
 
 ## 크레딧
 
-- 마을 건물(집·창고·대장간·치료소·목장·축사·정자·오두막·상점·도서관·여관·선착장·망루): [Shade — MiniWorld Sprites](https://merchant-shade.itch.io/16x16-mini-world-sprites) (CC0). `assets/mw/`.
+- 마을 건물(집·창고·대장간·치료소·목장·축사·정자·오두막·상점·도서관·여관·선착장·망루)·초소(기본형·가시벽·석궁탑)·침공군(약탈자·전사·정복자)·보스(악마후배·미니 악마): [Shade — MiniWorld Sprites](https://merchant-shade.itch.io/16x16-mini-world-sprites) (CC0). `assets/mw/`.
 - 정착민·가축·자연물·적(고블린·스켈레톤) 캐릭터: [Daniel Diggle — Sunnyside World](https://danieldiggle.itch.io/sunnyside) — 무료·상업 사용 가능, 재판매·재배포 금지 (이 저장소의 `assets/sunnyside/`는 게임 구동용이며 에셋팩 재배포가 아닙니다. 에셋이 필요하면 원본 페이지에서 받아 주세요)
 - 아트(v0.3 메인): [Pixel Frog — Tiny Swords](https://pixelfrog-assets.itch.io/tiny-swords) — 무료·상업 사용 가능, 에셋 단독 재배포 금지 (이 저장소의 `assets/ts/`는 게임 구동용이며 에셋팩 재배포가 아닙니다. 에셋이 필요하면 원본 페이지에서 받아 주세요)
 - 아트(구버전): [Kenney](https://kenney.nl) Roguelike/RPG·Tiny Town·Tiny Dungeon (CC0), [pixel-boy — Ninja Adventure](https://pixel-boy.itch.io/ninja-adventure-asset-pack) (CC0)
-- 건물(집·창고·대장간·치료소·목장·망루·가시벽): [Kenney — Medieval RTS](https://kenney.nl/assets/medieval-rts) (CC0). `assets/mrts/`.
-- 공성 병기(특화 초소 — 투석기·석궁탑·속사탑): [LPC Siege Weapons — bluecarrot16 외](https://opengameart.org/content/lpc-siege-weapons) (CC-BY 4.0 / CC-BY 3.0 / OGA-BY 3.0). `assets/siege/` 는 게임 구동용이며, 전체 기여자 명단·라이선스는 원본 OpenGameArt 페이지를 따릅니다.
-- 언데드 몬스터(좀비, 대침공 혼합군): [Zombie and Skeleton 32x48 — Reemax / artisticdude](https://opengameart.org/content/zombie-and-skeleton-32x48) (CC0). `assets/monsters/zombie_skeleton.png`.
-- 스켈레톤(보물섬 수호자): [Skeleton Sprite — r0ar](https://opengameart.org/content/skeleton-sprite) (CC0). `assets/monsters/skeleton_bone.png`.
-- 최종 보스 「악마후배」: [Red Demons (Animated) - Classic Hero Edit — Umz](https://opengameart.org/content/red-demons-animated-classic-hero-edit) (CC0). `assets/monsters/demon.png`.
+- 울타리(목책): [Kenney — Medieval RTS](https://kenney.nl/assets/medieval-rts) (CC0). `assets/mrts/`.
+- 공성 병기(투석기·속사탑 — 석궁탑은 MiniWorld 로 교체): [LPC Siege Weapons — bluecarrot16 외](https://opengameart.org/content/lpc-siege-weapons) (CC-BY 4.0 / CC-BY 3.0 / OGA-BY 3.0). `assets/siege/` 는 게임 구동용이며, 전체 기여자 명단·라이선스는 원본 OpenGameArt 페이지를 따릅니다.
 - 섬의 수호신 「아보랑카도」: [Angels — AntumDeluge (원작 Svetlana Kushnariova)](https://opengameart.org/content/angels) (CC-BY 3.0). `assets/goddess/`.
 - 배경 장식(소품·초가집 폐허 4종·우물·성문·잔디 텍스처 변형): [The Fan-tasy Tileset (Free) — Ventilatore](https://ventilatore.itch.io/the-fantasy-tileset) — 무료 버전, **비상업용 한정**·수정 가능·재배포 금지. `assets/fantasy/`.
 - 야생동물(곰·사슴·사자·늑대는 여우 재사용): [LPC bears, deer, lions and more — tapatilorenzo (원작 Sevarihk)](https://opengameart.org/content/lpc-bears-deer-lions-and-more) (CC-BY 4.0). 호랑이는 전용 그림이 없어 사자 그림에 색조를 입혀 대체. `assets/wild/`.

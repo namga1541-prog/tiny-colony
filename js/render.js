@@ -24,8 +24,7 @@ export function createRenderer(world) {
     'House', 'House_C', 'Tower', 'Tower_C', 'Castle', 'Castle_C',
     'GoldMine_Active', 'GoldMine_Destroyed',
     'W_Idle', 'G_Idle', 'M_Idle',
-    'Bridge_All', 'Food_Grain',
-    'Pawn_Red', 'Warrior_Red', 'Warrior_Purple']; // 침략 세력(약탈자·전사·정복자) 적 스프라이트
+    'Bridge_All', 'Food_Grain'];
   var base = {};
   SHEETS.forEach(function (n) {
     base[n] = PIXI.BaseTexture.from(TS + n + '.png');
@@ -34,29 +33,34 @@ export function createRenderer(world) {
   // 건물 전용: Kenney Tiny Town 타일맵(16px, 12x11) — 건물별 고유 스프라이트 크롭용
   base.TinyTown = PIXI.BaseTexture.from('assets/town/Tilemap/tilemap_packed.png');
   base.TinyTown.scaleMode = PIXI.SCALE_MODES.NEAREST;
-  // 최종 보스 「악마후배」(CC0 Red Demons — Umz, OpenGameArt): 32x34 셀 2프레임(정면 idle)
-  base.Demon = PIXI.BaseTexture.from('assets/monsters/demon.png');
-  base.Demon.scaleMode = PIXI.SCALE_MODES.NEAREST;
   // 야생동물 전용 스프라이트 — [LPC] bears/deer/lions/fox(tapatilorenzo·Sevarihk, CC-BY 4.0) + LPC Horses(bluecarrot16, CC-BY/GPL)
   ['WildBear', 'WildDeer', 'WildLion', 'WildWolf', 'WildHorse'].forEach(function (n) {
     var file = { WildBear: 'bear', WildDeer: 'deer', WildLion: 'lion', WildWolf: 'wolf', WildHorse: 'horse' }[n];
     base[n] = PIXI.BaseTexture.from('assets/wild/' + file + '.png');
     base[n].scaleMode = PIXI.SCALE_MODES.NEAREST;
   });
-  // 공성 병기(LPC Siege Weapons, CC-BY): 특화 초소의 원거리 병기 전용 스프라이트
+  // 공성 병기(LPC Siege Weapons, CC-BY): 투석기·속사탑 전용 스프라이트(석궁탑은 MiniWorld 로 교체)
   var siegeTex = {
     catapult: PIXI.Texture.from('assets/siege/catapult.png'),
-    ballista: PIXI.Texture.from('assets/siege/ballista.png'),
     cannon: PIXI.Texture.from('assets/siege/cannon.png'),
   };
   for (var sgk in siegeTex) siegeTex[sgk].baseTexture.scaleMode = PIXI.SCALE_MODES.NEAREST;
+  // 초소 분기 전용(MiniWorld Sprites, CC0): 석궁탑·가시벽 — 시트에서 4배 베이크한 조각
+  function mwDef(name) {
+    var t = PIXI.Texture.from('assets/mw/defense/' + name + '.png');
+    t.baseTexture.scaleMode = PIXI.SCALE_MODES.NEAREST;
+    return t;
+  }
+  var mwBallistaTex = mwDef('ballista');
+  var mwSpearwallTex = mwDef('spearwall');
+  var mwOutpostTex = mwDef('outpost');
   // 초소 분기 → 병기 스프라이트 + 원본 폭(w: 텍스처 로드 전에도 안전한 스케일 계산용)
   var BRANCH_SIEGE = {
     catapult: { tex: siegeTex.catapult, w: 119 }, // 투석기
-    ballista: { tex: siegeTex.ballista, w: 105 }, // 석궁탑
+    ballista: { tex: mwBallistaTex,     w: 64 },  // 석궁탑(MiniWorld)
     rapid:    { tex: siegeTex.cannon,   w: 107 }, // 속사탑 → 캐논
   };
-  // 건물 스프라이트(Kenney Medieval RTS, CC0) — 건물별 고유 그림(64x64). 종류로 매핑.
+  // 남은 Medieval RTS 사용처 전용(CC0): 울타리(목책). 64x64.
   function mrts(name) { var t = PIXI.Texture.from('assets/mrts/' + name + '.png'); t.baseTexture.scaleMode = PIXI.SCALE_MODES.NEAREST; return t; }
   // 마을 건물(MiniWorld Sprites, CC0) — 시트에서 4배 베이크한 조각(폭 64px 기준). 종류로 매핑.
   function mwb(name) {
@@ -64,7 +68,7 @@ export function createRenderer(world) {
     t.baseTexture.scaleMode = PIXI.SCALE_MODES.NEAREST;
     return t;
   }
-  var MW_KIND = {};
+  var MW_KIND = { outpost: mwOutpostTex }; // 초소 기본형(분기 미확정) — Barracks 조각
   ['house', 'warehouse', 'smithy', 'clinic', 'ranch', 'barn', 'pavilion', 'minerLodge', 'farmLodge',
     'outfitter', 'library', 'tavern', 'dock', 'tower'].forEach(function (mk) { MW_KIND[mk] = mwb(mk); });
   var MW_SCALE = { tower: 1.35, dock: 1.25 }; // 세로 2칸(64x128) 조각은 폭 기준 공식 대신 절제된 배율
@@ -72,7 +76,6 @@ export function createRenderer(world) {
     fence: mrts('palisade'), // 목책 스프라이트를 그대로 울타리로 재사용
     fenceGate: PIXI.Texture.from(FANTASY + 'CityWall_Gate_1.png'), // 성문(The Fan-tasy Tileset, 이미 프로젝트에 있는 성문 그림 재사용)
   };
-  var MRTS_PALISADE = mrts('palisade'); // 가시벽(근접 특화 초소)
 
   // 정착민 — Sunnyside World 치비 캐릭터. 레이어(base/tools/헤어6종)별 가로 스트립(프레임 96x64).
   // hit = 타격 파티클을 쏘는 프레임 인덱스. hamering 은 팩 원본 파일명 오타 그대로.
@@ -212,30 +215,36 @@ export function createRenderer(world) {
   var goblinIdle = ssEnemyFrames('goblin_idle8', 8);
   var goblinWalk = ssEnemyFrames('goblin_walk8', 8);
   var goblinAtk = ssEnemyFrames('goblin_attack9', 9);
-  // 침략 세력 적 프레임 (Tiny Swords 진영 유닛, 192px 6프레임 · row0 대기 / row1 이동)
-  function enemyFrames(sheet) {
-    var idle = [], walk = [];
-    for (var i = 0; i < 6; i++) { idle.push(tx(sheet, i * 192, 0, 192, 192)); walk.push(tx(sheet, i * 192, 192, 192, 192)); }
-    return { idle: idle, walk: walk };
+  // 침략 세력 적 프레임 + 보스 계열 (MiniWorld Sprites, CC0 — 64px 4프레임, 정면 idle·측면 walk)
+  ['raider_idle4', 'raider_walk4', 'warrior_idle4', 'warrior_walk4', 'warlord_idle4', 'warlord_walk4',
+    'demon_idle4', 'minidemon_idle4'].forEach(function (esn) {
+    base['mwE_' + esn] = PIXI.BaseTexture.from('assets/mw/enemies/' + esn + '.png');
+    base['mwE_' + esn].scaleMode = PIXI.SCALE_MODES.NEAREST;
+  });
+  function mwEnemyFrames(name) {
+    var arr = [];
+    for (var i = 0; i < 4; i++) arr.push(tx('mwE_' + name, i * 64, 0, 64, 64));
+    return arr;
   }
-  var fxRaider = enemyFrames('Pawn_Red');        // 약탈자(빨강 도끼병)
-  var fxWarrior = enemyFrames('Warrior_Red');    // 침략 전사(빨강 기사)
-  var fxWarlord = enemyFrames('Warrior_Purple'); // 정복자(보라 기사·미니보스)
+  var fxRaider = { idle: mwEnemyFrames('raider_idle4'), walk: mwEnemyFrames('raider_walk4') };   // 약탈자(고블린 창병)
+  var fxWarrior = { idle: mwEnemyFrames('warrior_idle4'), walk: mwEnemyFrames('warrior_walk4') }; // 침략 전사(오크)
+  var fxWarlord = { idle: mwEnemyFrames('warlord_idle4'), walk: mwEnemyFrames('warlord_walk4') }; // 정복자(미노타우로스·미니보스)
+  var demonFrames = mwEnemyFrames('demon_idle4');         // 최종 보스(MiniWorld 무장 붉은 악마)
+  var minidemonFrames = mwEnemyFrames('minidemon_idle4'); // 미니 악마(MiniWorld 보라 악마)
   // 스켈레톤(Sunnyside) — 좀비는 같은 백골에 초록 색조로 구분(느린 살덩이 표현은 이동 속도가 담당)
   var fxSkelIdle = ssEnemyFrames('skeleton_idle6', 6);
   var fxSkelWalk = ssEnemyFrames('skeleton_walk8', 8);
-  var demonFrames = [tx('Demon', 0, 0, 32, 34), tx('Demon', 32, 0, 32, 34)]; // 붉은 뿔 악마(정면 2프레임)
   // 적 종류별 외형: idle/walk 프레임 + 선택적 tint·scale·anchorY(발 위치, 기본 0.72)
   var ENEMY_LOOK = {
     goblin:   { idle: goblinIdle, walk: goblinWalk, scale: 3.8, anchorY: 0.6 },
     cannibal: { idle: goblinIdle, walk: goblinWalk, scale: 3.8, anchorY: 0.6, tint: 0xffab8a }, // 식인종=불그스름한 고블린
-    raider:   { idle: fxRaider.idle, walk: fxRaider.walk },
-    warrior:  { idle: fxWarrior.idle, walk: fxWarrior.walk },
-    warlord:  { idle: fxWarlord.idle, walk: fxWarlord.walk, scale: 1.4 }, // 정복자=보라 기사(크게)
+    raider:   { idle: fxRaider.idle, walk: fxRaider.walk, scale: 3.8, anchorY: 0.62 },
+    warrior:  { idle: fxWarrior.idle, walk: fxWarrior.walk, scale: 4.3, anchorY: 0.62 }, // 약탈자보다 우람한 오크
+    warlord:  { idle: fxWarlord.idle, walk: fxWarlord.walk, scale: 5.3, anchorY: 0.65 }, // 정복자=미노타우로스(미니보스, 가장 거대)
     zombie:   { idle: fxSkelWalk, walk: fxSkelWalk, tint: 0x9fe08a, scale: 3.6, anchorY: 0.6 }, // 좀비=초록빛 언데드
     skeleton: { idle: fxSkelIdle, walk: fxSkelWalk, scale: 3.8, anchorY: 0.6 }, // 스켈레톤(Sunnyside 백골)
-    demon:    { idle: demonFrames, walk: demonFrames, scale: 15.75, anchorY: 0.97 }, // 최종 보스=붉은 뿔 악마(괴민의 1.5배 — 압도적 거대)
-    minidemon: { idle: demonFrames, walk: demonFrames, scale: 5.25, anchorY: 0.95, tint: 0xe0703a }, // 미니 악마=보스의 1/3 크기 + 주황빛(하수인 구분)
+    demon:    { idle: demonFrames, walk: demonFrames, scale: 31.5, anchorY: 0.9 }, // 최종 보스=MiniWorld 무장 붉은 악마(압도적 거대)
+    minidemon: { idle: minidemonFrames, walk: minidemonFrames, scale: 10.5, anchorY: 0.9 }, // 미니 악마=MiniWorld 보라 악마(보스의 1/3 크기)
   };
 
   // ── 레이어 ──
@@ -488,13 +497,13 @@ export function createRenderer(world) {
     if (b.kind === 'bridge' || b.kind === 'fishPlatform') return tx('Bridge_All', 0, 0, 192, 64);
     if (b.kind === 'campfire' || b.kind === 'heater') return fireFrames[0];
     if (DECOR_BUILD_TEX[b.kind]) return DECOR_BUILD_TEX[b.kind]; // 플레이어가 지은 장식 건물
-    // 완공된 특화 초소(투석기·석궁탑·속사탑)는 LPC 공성 병기 스프라이트로 표시
+    // 완공된 특화 초소 원거리형(투석기·석궁탑·속사탑)은 병기 스프라이트로 표시
     if (b.kind === 'outpost' && b.stage === 'built' && b.branch && BRANCH_SIEGE[b.branch]) {
       return BRANCH_SIEGE[b.branch].tex;
     }
-    // 가시벽(근접 특화 초소)은 Medieval RTS 목책으로 표시
-    if (b.kind === 'outpost' && b.stage === 'built' && b.branch === 'spike') return MRTS_PALISADE;
-    // 마을 건물(MiniWorld) 고유 스프라이트 (집·창고·대장간·치료소·목장·망루·여관 등)
+    // 가시벽(근접 특화 초소)은 MiniWorld 가시 목책으로 표시
+    if (b.kind === 'outpost' && b.stage === 'built' && b.branch === 'spike') return mwSpearwallTex;
+    // 마을 건물(MiniWorld) 고유 스프라이트 (집·창고·대장간·치료소·목장·망루·여관·초소 등)
     if (MW_KIND[b.kind]) return MW_KIND[b.kind];
     // 울타리·성문 (Medieval RTS·Fan-tasy)
     if (MRTS_KIND[b.kind]) return MRTS_KIND[b.kind];
@@ -589,10 +598,10 @@ export function createRenderer(world) {
     }
     if (b.kind === 'bridge') { rebuildLights(); return; }
     if (b.kind === 'fishPlatform') { updateBuildingBadge(b, def); rebuildLights(); return; }
-    // 완공된 특화 초소 = LPC 병기 스프라이트, 건물류 = Medieval RTS 스프라이트 (둘 다 원본 색 그대로)
+    // 완공된 특화 초소(원거리형) = 병기 스프라이트, 건물류 = MiniWorld/Medieval RTS 스프라이트 (전부 원본 색 그대로)
     var siege = (b.kind === 'outpost' && b.stage === 'built' && b.branch && BRANCH_SIEGE[b.branch]);
-    var mrtsBld = !!MRTS_KIND[b.kind] || (b.kind === 'outpost' && b.stage === 'built' && b.branch === 'spike');
-    var mwBld = !!MW_KIND[b.kind];
+    var mrtsBld = !!MRTS_KIND[b.kind];
+    var mwBld = !!MW_KIND[b.kind] || (b.kind === 'outpost' && b.stage === 'built' && b.branch === 'spike');
     var decorBld = !!DECOR_BUILD_TEX[b.kind];
     if (b.stage === 'bp') {
       var ready = bpMissing(b) === null;
