@@ -178,6 +178,19 @@ export const BUILDS = {
   decoSign:   { name: '장식 - 표지판', cost: { wood: 2 },              work: 8,  hp: 20, fw: 1, fh: 1, solid: false, desc: '오직 꾸미기용 장식물입니다.' },
   decoFlower: { name: '장식 - 화단',   cost: { wood: 1 },              work: 6,  hp: 15, fw: 1, fh: 1, solid: false, desc: '오직 꾸미기용 장식물입니다.' },
   decoBanner: { name: '장식 - 깃발',   cost: { wood: 2, leather: 2 },  work: 10, hp: 20, fw: 1, fh: 1, solid: false, desc: '오직 꾸미기용 장식물입니다.' },
+  // 이전에는 맵 생성 시 자동으로 흩뿌려지던 소품들 — 이제 전부 플레이어가 직접 지어야만 생김(2026-07).
+  decoBench2:    { name: '장식 - 벤치(2)',   cost: { wood: 3, leather: 1 }, work: 10, hp: 20, fw: 1, fh: 1, solid: false, desc: '오직 꾸미기용 장식물입니다.' },
+  decoBulletin:  { name: '장식 - 게시판',    cost: { wood: 3 },             work: 9,  hp: 20, fw: 1, fh: 1, solid: false, desc: '오직 꾸미기용 장식물입니다.' },
+  decoLog:       { name: '장식 - 통나무',    cost: { wood: 1 },             work: 6,  hp: 15, fw: 1, fh: 1, solid: false, desc: '오직 꾸미기용 장식물입니다.' },
+  decoCrateLarge:  { name: '장식 - 큰 상자',   cost: { wood: 3 }, work: 9, hp: 20, fw: 1, fh: 1, solid: false, desc: '오직 꾸미기용 장식물입니다.' },
+  decoCrateClosed: { name: '장식 - 닫힌 상자', cost: { wood: 2 }, work: 8, hp: 20, fw: 1, fh: 1, solid: false, desc: '오직 꾸미기용 장식물입니다.' },
+  decoCrateWater:  { name: '장식 - 물통',     cost: { wood: 2 }, work: 8, hp: 20, fw: 1, fh: 1, solid: false, desc: '오직 꾸미기용 장식물입니다.' },
+  decoFireplace: { name: '장식 - 화로',      cost: { wood: 2, gold: 1 },    work: 9,  hp: 20, fw: 1, fh: 1, solid: false, desc: '오직 꾸미기용 장식물입니다.' },
+  decoHaystack:  { name: '장식 - 건초더미',  cost: { wood: 2 },             work: 8,  hp: 20, fw: 1, fh: 1, solid: false, desc: '오직 꾸미기용 장식물입니다.' },
+  decoPlant:     { name: '장식 - 화분',      cost: { wood: 1 },             work: 6,  hp: 15, fw: 1, fh: 1, solid: false, desc: '오직 꾸미기용 장식물입니다.' },
+  decoSack:      { name: '장식 - 자루',      cost: { wood: 1 },             work: 6,  hp: 15, fw: 1, fh: 1, solid: false, desc: '오직 꾸미기용 장식물입니다.' },
+  decoSign2:     { name: '장식 - 표지판(2)', cost: { wood: 2 },             work: 8,  hp: 20, fw: 1, fh: 1, solid: false, desc: '오직 꾸미기용 장식물입니다.' },
+  decoFlowerWhite: { name: '장식 - 흰 화단', cost: { wood: 1 }, work: 6, hp: 15, fw: 1, fh: 1, solid: false, desc: '오직 꾸미기용 장식물입니다.' },
 };
 // 농부 오두막이 자동 농사 구역으로 만드는 주변 반경(풋프린트 바깥 타일)
 export const LODGE_FARM_RADIUS = 3;

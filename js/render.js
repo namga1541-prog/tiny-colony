@@ -243,6 +243,19 @@ export function createRenderer(world) {
     decoSign: decorTex.Sign_1,
     decoFlower: decorTex.Flowers_Red,
     decoBanner: decorTex.Banner_Stick_1_Purple,
+    // 예전엔 맵 생성 시 자동 산포되던 소품들 — 이제 전부 여기서 플레이어가 짓는 건물로만 등장
+    decoBench2: decorTex.Bench_3,
+    decoBulletin: decorTex.BulletinBoard_1,
+    decoLog: decorTex.Chopped_Tree_1,
+    decoCrateLarge: decorTex.Crate_Large_Empty,
+    decoCrateClosed: decorTex.Crate_Medium_Closed,
+    decoCrateWater: decorTex.Crate_Water_1,
+    decoFireplace: decorTex.Fireplace_1,
+    decoHaystack: decorTex.HayStack_2,
+    decoPlant: decorTex.Plant_2,
+    decoSack: decorTex.Sack_3,
+    decoSign2: decorTex.Sign_2,
+    decoFlowerWhite: decorTex.Flowers_White,
   };
   var ruinTex = {};
   DECOR_RUIN.forEach(function (n) {
@@ -255,7 +268,6 @@ export function createRenderer(world) {
     return new PIXI.Texture(fantasyGroundBase, new PIXI.Rectangle(c[0], c[1], 16, 16));
   });
   (function scatterDecor() {
-    var smallNames = DECOR.concat(DECOR_ANIM);
     var drng = mulberry32(world.seed ^ 0x4a11);
     for (var ti = 0; ti < MAP_W * MAP_H; ti++) {
       if (world.terrain[ti] !== T_GRASS) continue;
@@ -266,15 +278,10 @@ export function createRenderer(world) {
         g.x = ix(ti) * TILE; g.y = iy(ti) * TILE;
         g.scale.set(TILE / 16);
         groundDecor.addChild(g);
-      } else if (r < 0.06) { // 소품(통·바구니·벤치 등)
-        var n = smallNames[(drng() * smallNames.length) | 0];
-        var s = new PIXI.Sprite(decorTex[n]);
-        s.anchor.set(0.5, 0.85);
-        s.scale.set(2.4);
-        s.x = ix(ti) * TILE + 32; s.y = (iy(ti) + 1) * TILE - 8;
-        s.zIndex = (iy(ti) + 1) * TILE;
-        objLayer.addChild(s);
-      } else if (r < 0.0606) { // 폐허(초가집·우물·성문) — 아주 드물게
+        continue;
+      }
+      // 소품(통·바구니·벤치 등)은 더 이상 자동으로 흩뿌리지 않음 — 이제 「꾸미기」 탭에서 직접 지어야만 생김(2026-07)
+      if (r >= 0.06 && r < 0.0606) { // 폐허(초가집·우물·성문) — 아주 드물게(비율 유지)
         var rn = DECOR_RUIN[(drng() * DECOR_RUIN.length) | 0];
         var rs = new PIXI.Sprite(ruinTex[rn]);
         rs.anchor.set(0.5, 0.92);
