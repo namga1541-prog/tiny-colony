@@ -45,6 +45,7 @@ function checkInvariants(sim) {
     var pw = sim.pawns[p];
     if (!isFinite(pw.hp) || pw.hp < 0 || pw.hp > 100) return '정착민#' + pw.id + ' hp 범위밖(' + pw.hp + ')';
     if (!isFinite(pw.hunger) || pw.hunger < -0.001 || pw.hunger > 100.001) return '정착민#' + pw.id + ' hunger 범위밖(' + pw.hunger + ')';
+    if (pw.cold !== undefined && (!isFinite(pw.cold) || pw.cold < -0.001 || pw.cold > 100.001)) return '정착민#' + pw.id + ' cold 범위밖(' + pw.cold + ')';
     if (!isFinite(pw.px) || !isFinite(pw.py)) return '정착민#' + pw.id + ' 좌표 NaN(px=' + pw.px + ',py=' + pw.py + ')';
     if (pw.x < 0 || pw.x >= MAP_W || pw.y < 0 || pw.y >= MAP_H) return '정착민#' + pw.id + ' 맵 밖(x=' + pw.x + ',y=' + pw.y + ')';
   }

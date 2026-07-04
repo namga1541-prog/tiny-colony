@@ -50,7 +50,7 @@ export function saveGame(world, pawns) {
       return {
         id: p.id, name: p.name, look: p.look, trait: p.trait, equipped: p.equipped, armor: p.armor, skills: p.skills, role: p.role,
         x: p.x, y: p.y,
-        hunger: p.hunger, hp: p.hp, maxHp: p.maxHp, mood: p.mood,
+        hunger: p.hunger, hp: p.hp, maxHp: p.maxHp, mood: p.mood, cold: p.cold,
         dead: p.state === 'dead',
         carry: p.carry,
         injury: p.injury,

@@ -1,7 +1,7 @@
 // L1 시나리오 스모크 — 시드 고정, 헤드리스. stepWorld 추출이 올바른지 + 결정론 확인.
 import { bootSim, run, runDays, designateChop, give, snapshot, DAY_MIN, MAP_W, MAP_H } from './harness.mjs';
-import { addBuilding, storageCap, upgradeMult, upgradeAdd, maxPop, rankReqStatus, canAdvanceRank, advanceRank, defenseStats, tickTowers, enemyStats, spawnRaid, mulberry32, grantRelic, dailyIslandRespawn, checkIslandDiscovery, updateEnemies, idx, shipComplete, fishSpotTier, footprintTouchesWater, canPlaceBridge, isWalkable, autoDesignateLodges, footprintAdjacentMine, ensureBossIsland, tickBarns } from '../js/world.js';
-import { GIANT, ENEMY, CANNIBAL, ISLANDS, INVASION, OUTPOST_BRANCHES, RAIDER, INVWARRIOR, ZOMBIE, SKELETON, GIANT_JUMP, ARMOR, FRUITTREE, FISH, catchFish, catchRareFish, GODDESS, TRADER, BUILDS, BUILD_MIN_RANK, FISH_PLATFORM, DEMON, MINIDEMON, GLORIOUS_FOOD, RARE_FISH_SPOT, INJURY, WALK_MIN_PER_TILE, RESEARCH, EGG_HATCH, RANCH } from '../js/config.js';
+import { addBuilding, storageCap, upgradeMult, upgradeAdd, maxPop, rankReqStatus, canAdvanceRank, advanceRank, defenseStats, tickTowers, enemyStats, spawnRaid, mulberry32, grantRelic, dailyIslandRespawn, checkIslandDiscovery, updateEnemies, idx, shipComplete, fishSpotTier, footprintTouchesWater, canPlaceBridge, isWalkable, autoDesignateLodges, footprintAdjacentMine, ensureBossIsland, tickBarns, tickHeaters, seasonDef } from '../js/world.js';
+import { GIANT, ENEMY, CANNIBAL, ISLANDS, INVASION, OUTPOST_BRANCHES, RAIDER, INVWARRIOR, ZOMBIE, SKELETON, GIANT_JUMP, ARMOR, FRUITTREE, FISH, catchFish, catchRareFish, GODDESS, TRADER, BUILDS, BUILD_MIN_RANK, FISH_PLATFORM, DEMON, MINIDEMON, GLORIOUS_FOOD, RARE_FISH_SPOT, INJURY, WALK_MIN_PER_TILE, RESEARCH, EGG_HATCH, RANCH, WINTER } from '../js/config.js';
 import { findWorkJob, releaseAllOf, bpMissing, reserve } from '../js/jobs.js';
 import { findPath } from '../js/path.js';
 import { createPawn, updatePawn } from '../js/pawns.js';
@@ -1593,6 +1593,87 @@ console.log('[sim-smoke] 51) 악마후배 미니 악마 소환 + 레이저 사�
   var pawn3 = { id: 0, state: 'idle', px: 52, py: 50, x: 52, y: 50, hp: 100 };
   updateEnemies(w3, [pawn3], 1, {}, mulberry32(11));
   ok(w3.enemies.filter(function (e) { return e.kind === 'minidemon'; }).length === DEMON.summon.maxAlive, '상한(maxAlive)에 도달하면 추가 소환 안 함');
+})();
+
+console.log('[sim-smoke] 52) 겨울 냉기 — 온기 밖 cold↑·hp↓ · 난로 근처 무사 · 봄 무영향 · 난로 장작 소비 (신규)');
+(function () {
+  var ctxBase = { onItemChange: function () {}, onEvent: function () {}, onDeath: function () {}, onStorageFull: function () {}, onToast: function () {}, onBuildingChange: function () {} };
+
+  // 계절: 19일차 = 겨울(seasonIndex 3), 1일차 = 봄
+  var wSeason = bootSim(2501).world;
+  wSeason.day = 19;
+  ok(seasonDef(wSeason).cold === true, '19일차는 겨울(cold 시즌)');
+  wSeason.day = 1;
+  ok(!seasonDef(wSeason).cold, '1일차는 봄(냉기 없음)');
+
+  // (a) 겨울 + 온기 밖 → 체온 하락(cold 상승)
+  var w = bootSim(2501).world;
+  w.day = 19;
+  var p = createPawn(0, {}, 10, 10);
+  p.cold = 0; p.hunger = 80; p.hp = 100;
+  updatePawn(w, p, 100, ctxBase);
+  ok(p.cold > 0, '겨울에 온기 밖이면 cold 상승 (' + p.cold.toFixed(2) + ')');
+
+  // (b) 겨울 + 동결(cold>=freezeAt) → hp 감소
+  var w2 = bootSim(2501).world;
+  w2.day = 19;
+  var pf = createPawn(1, {}, 10, 10);
+  pf.cold = 95; pf.hunger = 50; pf.hp = 100; // hunger<60 → 회복분 없이 순수 냉기 피해
+  updatePawn(w2, pf, 50, ctxBase);
+  ok(pf.hp < 100, '동결 상태(cold>=' + WINTER.freezeAt + ')에서 hp 감소 (' + pf.hp.toFixed(2) + ')');
+
+  // (c) 겨울 + 난로 근처 → 체온 회복(cold 하락)
+  var w3 = bootSim(2502).world;
+  w3.day = 19;
+  addBuilding(w3, 'heater', 20, 20, { stage: 'built' });
+  var pw = createPawn(0, {}, 20, 20); // 난로 위(온기 반경 안)
+  pw.cold = 50; pw.hunger = 80; pw.hp = 100;
+  updatePawn(w3, pw, 100, ctxBase);
+  ok(pw.cold < 50, '겨울에 난로 근처면 cold 회복 (' + pw.cold.toFixed(2) + ')');
+  ok(pw.hp === 100, '난로 근처 정착민은 체력 무사');
+
+  // (d) 봄엔 온기 밖이어도 냉기가 자연 회복
+  var w4 = bootSim(2503).world;
+  w4.day = 1;
+  var ps = createPawn(0, {}, 10, 10);
+  ps.cold = 40; ps.hunger = 80; ps.hp = 100;
+  updatePawn(w4, ps, 100, ctxBase);
+  ok(ps.cold < 40, '봄엔 온기 밖이어도 cold 자연 회복 (' + ps.cold.toFixed(2) + ')');
+
+  // (e) 난로 장작 소비 + 떨어지면 꺼짐(이벤트 방출), 비겨울엔 소비 안 함
+  var w5 = bootSim(2504).world;
+  w5.day = 19;
+  w5.stock.wood = 5;
+  var heater = addBuilding(w5, 'heater', 30, 30, { stage: 'built' });
+  tickHeaters(w5, WINTER.heaterBurnInterval);
+  ok(w5.stock.wood === 5 - WINTER.heaterBurnAmount, '겨울 난로가 장작을 소비 (' + w5.stock.wood + ')');
+  ok(heater.lit === true, '장작 있으면 난로 켜짐(lit)');
+  w5.stock.wood = 0;
+  var hev = tickHeaters(w5, WINTER.heaterBurnInterval);
+  ok(heater.lit === false, '장작 떨어지면 난로 꺼짐(lit=false)');
+  ok(hev.some(function (e) { return e.type === 'heaterOut'; }), '난로 꺼짐 이벤트(heaterOut) 방출');
+  // 꺼진 난로는 온기 없음 → cold 상승
+  var pc = createPawn(2, {}, 30, 30);
+  pc.cold = 0; pc.hunger = 80;
+  updatePawn(w5, pc, 100, ctxBase);
+  ok(pc.cold > 0, '꺼진 난로 근처는 온기가 없어 cold 상승');
+
+  var w6 = bootSim(2504).world;
+  w6.day = 1; // 봄
+  w6.stock.wood = 5;
+  addBuilding(w6, 'heater', 30, 30, { stage: 'built' });
+  tickHeaters(w6, WINTER.heaterBurnInterval * 3);
+  ok(w6.stock.wood === 5, '비겨울엔 난로가 장작을 소비하지 않음');
+
+  // (f) 겨울 예고: 겨울(19일차) 시작 warnLeadDays 일 전에 경고가 정확히 1회 발생(실제 stepWorld 경유)
+  var simW = bootSim(2505);
+  simW.world.timeMin = 15 * 1440 + 1400; // 16일차 후반에서 시작
+  simW.world.day = 1 + Math.floor(simW.world.timeMin / DAY_MIN);
+  simW.world.prevSeason = 2; // 가을
+  var warnings = [];
+  simW.ctx.onEvent = function (m) { if (m.indexOf('겨울 대비 경고') >= 0) warnings.push(m); };
+  run(simW, 3 * DAY_MIN); // 16→19일차(겨울 진입)까지 진행
+  ok(warnings.length === 1, '겨울 시작 ' + WINTER.warnLeadDays + '일 전 예고가 정확히 1회 발생 (' + warnings.length + '회)');
 })();
 
 console.log('');

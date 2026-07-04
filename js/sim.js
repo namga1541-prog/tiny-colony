@@ -5,10 +5,10 @@
 //
 // 모든 렌더·UI·오디오 효과는 ctx 콜백으로만 방출한다(상태 변경과 효과 분리).
 // main.js 는 ctx 에 실제 R.*/UI.*/Audio2.* 를, 하네스는 기록용 stub 을 연결한다.
-import { DAY_MIN, RAID, GIANT_RAID, INVASION, GODDESS, TRADER, MAP_W, MAP_H } from './config.js';
+import { DAY_MIN, RAID, GIANT_RAID, INVASION, GODDESS, TRADER, MAP_W, MAP_H, SEASON_DAYS, SEASONS, WINTER } from './config.js';
 import {
   idx, addItem, mulberry32,
-  updateSheep, tickTowers, updateEnemies, tickResearch, tickCrops, tickRanches, tickBarns, autoDesignateLodges,
+  updateSheep, tickTowers, updateEnemies, tickResearch, tickCrops, tickRanches, tickBarns, tickHeaters, autoDesignateLodges,
   dailyRegrowth, dailyMineRegen, spawnRaid, seasonDef, seasonIndex, maxPop, grantRelic,
   dailyIslandRespawn, checkIslandDiscovery,
   grantLegendaryRelic, warlordsAliveInWave, shipComplete,
@@ -75,6 +75,10 @@ export function stepWorld(world, pawns, dtMin, rng, ctx, enemyCbs) {
     for (var re = 0; re < rev.length; re++) { if (rev[re].idx !== undefined) ctx.onItemChange(rev[re].idx); }
     var bev = tickBarns(world, dt, rng);
     for (var be = 0; be < bev.length; be++) { if (bev[be].idx !== undefined) ctx.onItemChange(bev[be].idx); }
+    var hev = tickHeaters(world, dt);
+    for (var he = 0; he < hev.length; he++) {
+      if (hev[he].type === 'heaterOut') { ctx.onBuildingChange(hev[he].b); ctx.onToast('🧊 난로의 장작이 떨어져 불이 꺼졌습니다 — 장작을 비축하세요!', true); }
+    }
   }
 
   // 일꾼 오두막 자동 지정(광부=인접 광산 채굴, 농부=주변 농사 구역). 바뀌면 구역 오버레이 갱신.
@@ -146,7 +150,17 @@ export function stepWorld(world, pawns, dtMin, rng, ctx, enemyCbs) {
     if (world.prevSeason !== si) {
       world.prevSeason = si;
       ctx.onEvent('🍃 계절: ' + sd.name);
-      if (sd.noFarm) ctx.onToast('❄️ 겨울입니다 — 작물이 자라지 않습니다', true);
+      if (sd.noFarm) ctx.onToast('❄️ 겨울입니다 — 작물이 자라지 않고, 온기 밖 정착민이 얼어붙습니다', true);
+    }
+    // 겨울 예고: 겨울 시작 warnLeadDays 일 전 1회 경고(장작·식량 비축 압박). 겨울 시작 오프셋 = SEASON_DAYS*3.
+    var cycleLen = SEASON_DAYS * SEASONS.length, winterStartPos = SEASON_DAYS * 3;
+    var cyclePos = (world.day - 1) % cycleLen;
+    var daysUntilWinter = cyclePos <= winterStartPos ? winterStartPos - cyclePos : cycleLen - cyclePos + winterStartPos;
+    var nextWinterDay = world.day + daysUntilWinter;
+    if (daysUntilWinter > 0 && daysUntilWinter <= WINTER.warnLeadDays && world.winterWarnedFor !== nextWinterDay) {
+      world.winterWarnedFor = nextWinterDay;
+      ctx.onToast('❄️ ' + daysUntilWinter + '일 뒤 겨울이 옵니다 — 장작(난로 연료)과 식량을 비축하세요!', true);
+      ctx.onEvent('❄️ 겨울 대비 경고 (' + daysUntilWinter + '일 전)');
     }
   }
 

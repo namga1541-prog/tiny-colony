@@ -168,6 +168,7 @@ body.touch .touch-only { display: inline-block; }
 .fill.hunger { background: linear-gradient(90deg, #ff9d5c, #ffc46b); }
 .fill.hp { background: linear-gradient(90deg, #ff6b81, #ff8fa0); }
 .fill.mood { background: linear-gradient(90deg, #9d7dff, #c9a8ff); }
+.fill.cold { background: linear-gradient(90deg, #4aa3ff, #9fd3ff); } /* 체온(따뜻함) — 겨울에 빌수록 얼어붙음 */
 
 .pawn-trait {
   font-size: 11.5px; color: #ffd76e;

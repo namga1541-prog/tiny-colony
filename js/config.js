@@ -102,9 +102,15 @@ export const BUILDS = {
   },
   campfire: {
     name: '모닥불', cost: { wood: 2 }, work: 10, hp: 30,
-    fw: 1, fh: 1, solid: false, light: true,
+    fw: 1, fh: 1, solid: false, light: true, warmth: 3.5, // warmth: 겨울 온기 반경(pawns.nearWarmth)
     img: null, pw: 128, ph: 128, // Fire 애니메이션으로 렌더
-    desc: '밤을 밝힙니다.',
+    desc: '밤을 밝히고, 겨울엔 주변을 따뜻하게 합니다(온기 반경).',
+  },
+  heater: {
+    name: '난로', cost: { wood: 12 }, work: 40, hp: 50,
+    fw: 1, fh: 1, solid: false, light: true, warmth: 7, // 모닥불보다 넓은 온기 반경
+    img: null, pw: 128, ph: 128, // 모닥불과 같은 Fire 애니메이션(더 크게) — render.js
+    desc: '겨울 전용 대형 난로. 모닥불보다 온기 반경이 훨씬 넓지만, 겨울 동안 장작을 계속 태웁니다(장작이 떨어지면 꺼짐).',
   },
   fence: {
     // 공격·조명 없이 체력만 있고 통행을 막는 저렴한 1칸 울타리. attack 필드가 없어 방어건물 로직(tickTowers)에서 자동 제외됨.
@@ -637,8 +643,20 @@ export const SEASONS = [
   { name: '봄', tint: null },
   { name: '여름', tint: null },
   { name: '가을', tint: 0xffcc66, tintA: 0.06 },
-  { name: '겨울', tint: 0x88aadd, tintA: 0.14, noFarm: true },
+  { name: '겨울', tint: 0x88aadd, tintA: 0.14, noFarm: true, cold: true }, // cold: 냉기 시스템 발동(pawns.js)
 ];
+
+// ── 겨울 냉기(추위): 허기 시스템과 대칭. 겨울에 온기(모닥불·난로) 반경 밖이면 pawn.cold 상승, 반경 안이면 회복.
+// cold 0=따뜻함, 100=동결. cold 가 freezeAt 이상이면 hp 감소(동사). 비겨울엔 cold 자연 회복. 값은 밸런스라 조정 가능.
+export const WINTER = {
+  coldRise: 100 / 2880,   // 온기 밖 노출 시 분당 상승 — 완전 노출 시 약 2일이면 동결
+  coldFall: 100 / 1440,   // 온기 안에서 분당 회복 — 하루면 완전 회복
+  freezeAt: 90,           // cold 가 이 값 이상이면 체력 감소 시작
+  coldHpDecay: 100 / 1000, // 동결 상태에서 분당 hp 감소(허기 아사보다 약간 완만)
+  warnLeadDays: 2,        // 겨울 시작 며칠 전 예고
+  heaterBurnInterval: 120, // 난로가 장작을 태우는 주기(게임분)
+  heaterBurnAmount: 1,    // 주기마다 태우는 장작 수 — 겨울 내내 장작 비축 필요
+};
 
 // ── 정착민 특성 (생성 시 1개 무작위 배정) ──
 export const TRAITS = [

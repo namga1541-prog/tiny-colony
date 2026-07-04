@@ -450,7 +450,7 @@ export function createRenderer(world) {
       return b.depleted ? tx('GoldMine_Destroyed', 0, 0, 192, 128) : tx('GoldMine_Active', 0, 0, 192, 128);
     }
     if (b.kind === 'bridge' || b.kind === 'fishPlatform') return tx('Bridge_All', 0, 0, 192, 64);
-    if (b.kind === 'campfire') return fireFrames[0];
+    if (b.kind === 'campfire' || b.kind === 'heater') return fireFrames[0];
     if (DECOR_BUILD_TEX[b.kind]) return DECOR_BUILD_TEX[b.kind]; // 플레이어가 지은 장식 건물
     // 완공된 특화 초소(투석기·석궁탑·속사탑)는 LPC 공성 병기 스프라이트로 표시
     if (b.kind === 'outpost' && b.stage === 'built' && b.branch && BRANCH_SIEGE[b.branch]) {
@@ -531,9 +531,10 @@ export function createRenderer(world) {
       e.zIndex = (b.y + def.fh) * TILE - 1;
       objLayer.addChild(e);
       bSprites[b.id] = e;
-      if (b.kind === 'campfire') {
+      if (b.kind === 'campfire' || b.kind === 'heater') {
         e.firePhase = ((b.x + b.y) % 7);
         e.anchor.set(0.5, 0.8);
+        if (b.kind === 'heater') e.scale.set(1.6); // 난로 = 더 큰 불꽃(넓은 온기 반경 시각화)
       }
       if (b.kind === 'bridge' || b.kind === 'fishPlatform') { // 1타일 다리·좌대: 판자 슬라이스를 타일 크기로
         e.anchor.set(0.5, 0.5);
@@ -1165,7 +1166,7 @@ export function createRenderer(world) {
       var wx = (b.x + def.fw / 2) * TILE;
       var wy = (b.y + def.fh * 0.55) * TILE;
       var spr = null;
-      if (b.kind === 'campfire') spr = new PIXI.Sprite(glowBig);
+      if (b.kind === 'campfire' || b.kind === 'heater') spr = new PIXI.Sprite(glowBig);
       else if (def.light) spr = new PIXI.Sprite(glowSmall);
       if (spr) {
         spr.anchor.set(0.5);
@@ -1570,8 +1571,10 @@ export function createRenderer(world) {
     var fireF = (animTime / 0.09) | 0;
     for (var id in bSprites) {
       var b = world.buildings[id];
-      if (b && b.kind === 'campfire' && b.stage === 'built') {
-        bSprites[id].texture = fireFrames[(fireF + bSprites[id].firePhase) % 7];
+      if (b && (b.kind === 'campfire' || b.kind === 'heater') && b.stage === 'built') {
+        var fsp = bSprites[id];
+        fsp.texture = fireFrames[(fireF + fsp.firePhase) % 7];
+        if (b.kind === 'heater') fsp.tint = (b.lit === false) ? 0x556070 : 0xffffff; // 꺼진 난로는 회색으로
       }
     }
     syncSheep();

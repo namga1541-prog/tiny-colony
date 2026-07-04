@@ -1,7 +1,7 @@
 // DOM HUD: 도구·시계·자원·정착민 패널·토스트·커스터마이징 모달·연구/제작 모달
 import { taskLabel } from './pawns.js';
 import { HUMANS, RESEARCH, WEAPONS, ARMOR, SKILL_LABEL, skillLevel, BUILDS, STORAGE, RODS, WAREHOUSE_TIERS, ROLES, RANKS, BUILD_MIN_RANK, DEFENSE_TIERS, OUTPOST_BRANCHES, RELICS, INVASION, TRADER, DAY_MIN, GLORIOUS_FOOD } from './config.js';
-import { totalRes, warehouseTier, warehouseCap, maxPop, rankReqStatus, defenseStats } from './world.js';
+import { totalRes, warehouseTier, warehouseCap, maxPop, rankReqStatus, defenseStats, seasonDef } from './world.js';
 
 export function createUI(handlers) {
   var tool = 'select';
@@ -216,6 +216,8 @@ export function createUI(handlers) {
   var barHunger = document.getElementById('barHunger');
   var barHp = document.getElementById('barHp');
   var barMood = document.getElementById('barMood');
+  var barCold = document.getElementById('barCold');
+  var needCold = document.getElementById('needCold');
   var pawnTrait = document.getElementById('pawnTrait');
   var pawnSkills = document.getElementById('pawnSkills');
   var pawnRole = document.getElementById('pawnRole');
@@ -236,6 +238,12 @@ export function createUI(handlers) {
     barHunger.style.width = pawn.hunger + '%';
     barHp.style.width = (pawn.hp / (pawn.maxHp || 100) * 100) + '%';
     barMood.style.width = Math.round(pawn.mood) + '%';
+    // 체온 바: 겨울이거나 아직 냉기가 남아있으면 표시. 표시값 = 따뜻함(100-cold) → 다른 바처럼 가득참=양호.
+    if (needCold && barCold) {
+      var showCold = seasonDef(world).cold || (pawn.cold || 0) > 0;
+      needCold.classList.toggle('hidden', !showCold);
+      if (showCold) barCold.style.width = (100 - (pawn.cold || 0)) + '%';
+    }
     pawnTrait.textContent = pawn.trait && pawn.trait.id !== 'none'
       ? '✦ ' + pawn.trait.name + ' — ' + pawn.trait.desc : '';
     // 스킬: 레벨 1 이상인 것만 표시

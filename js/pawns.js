@@ -1,14 +1,14 @@
 // 정착민 AI (v0.3): 욕구 → 상태기계 → 작업 수행
 import {
   NEEDS, NATURE, BUILDS, WALK_MIN_PER_TILE, TRAITS, CROP, FRUITTREE, WEAPONS, ARMOR, ITEMS,
-  COMBAT, COOK_TIERS, GLORIOUS_FOOD, HUNT, TAME, CLINIC, INJURY, ANIMALS, FISHING, FISH, catchFish, catchRareFish, skillMult,
+  COMBAT, COOK_TIERS, GLORIOUS_FOOD, HUNT, TAME, CLINIC, INJURY, WINTER, ANIMALS, FISHING, FISH, catchFish, catchRareFish, skillMult,
   ROLES, ROLE_SPEED_BONUS,
 } from './config.js';
 import {
   idx, ix, iy, isWalkable, addItem, removeItem, natureDef, stackRoom,
   buildingDef, buildingFront, consumeGlobal, canAfford, totalRes,
   mineResource, mineWork, mineDrops, nearestEnemy, sheepById, storageFull,
-  upgradeMult, grantRelic, fishSpotTier,
+  upgradeMult, grantRelic, fishSpotTier, seasonDef,
 } from './world.js';
 import { findPath } from './path.js';
 import {
@@ -32,6 +32,7 @@ export function createPawn(id, def, x, y, rng) {
     equipped: def.equipped || null, // 'sword' | 'bow' | null
     armor: def.armor || null,       // 'leatherArmor' | 'ironArmor' | null
     injury: def.injury || null,     // { type: 'leg'|'arm', severity: 0~1 } | null — 치료소에서 쉬어야만 낫는다
+    cold: def.cold || 0,            // 냉기(0 따뜻함~100 동결). 겨울에 온기 밖이면 상승, 최대치면 hp 감소
     autoAttack: true,    // 무기 든 채 직접 조종 중에도 사거리 내 적 자동 공격(기본 ON, ⚔️로 끔)
     face: 1,             // 1 우 / -1 좌
     x: x, y: y,
@@ -683,6 +684,21 @@ function pavilionExists(world) {
   return false;
 }
 
+// 겨울 온기: 완공된 모닥불·난로(warmth 반경) 안에 있으면 true. 난로는 장작이 떨어져 꺼지면(b.lit===false) 온기 없음.
+function nearWarmth(world, pawn) {
+  for (var id in world.buildings) {
+    var b = world.buildings[id];
+    if (b.stage !== 'built') continue;
+    var def = BUILDS[b.kind];
+    var r = def && def.warmth;
+    if (!r) continue;
+    if (b.kind === 'heater' && b.lit === false) continue; // 연료 떨어진 난로는 온기 없음
+    var bcx = b.x + (def.fw - 1) / 2, bcy = b.y + (def.fh - 1) / 2;
+    if (Math.hypot(pawn.px - bcx, pawn.py - bcy) <= r) return true;
+  }
+  return false;
+}
+
 // ── 전투 유틸 ──
 function cookTierDef(id) {
   for (var i = 0; i < COOK_TIERS.length; i++) if (COOK_TIERS[i].id === id) return COOK_TIERS[i];
@@ -829,6 +845,26 @@ export function updatePawn(world, pawn, dtMin, ctx) {
     }
   } else if (pawn.hunger > 60 && pawn.hp < (pawn.maxHp || 100)) {
     pawn.hp = Math.min(pawn.maxHp || 100, pawn.hp + NEEDS.hpRegen * (trait.hpRegenMult || 1) * dtMin);
+  }
+
+  // 겨울 냉기(허기와 대칭): 겨울에 온기 밖이면 cold 상승, 온기 안이면 회복. 최대치(freezeAt)면 동사.
+  if (seasonDef(world).cold) {
+    if (nearWarmth(world, pawn)) {
+      pawn.cold = Math.max(0, pawn.cold - WINTER.coldFall * dtMin);
+    } else {
+      pawn.cold = Math.min(100, pawn.cold + WINTER.coldRise * dtMin);
+      if (pawn.cold >= WINTER.freezeAt) {
+        pawn.hp = Math.max(0, pawn.hp - WINTER.coldHpDecay * dtMin);
+        if (pawn.hp <= 0) {
+          abandonJob(world, pawn);
+          pawn.state = 'dead';
+          ctx.onDeath(pawn);
+          return;
+        }
+      }
+    }
+  } else if (pawn.cold > 0) {
+    pawn.cold = Math.max(0, pawn.cold - WINTER.coldFall * dtMin); // 비겨울엔 자연 회복
   }
   if (pawn.stuckCd > 0) pawn.stuckCd -= dtMin;
 

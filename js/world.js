@@ -1,7 +1,7 @@
 // v0.3 월드: 바다 위의 섬 + 다중타일 건물(풋프린트) + 금광 + 양
 import {
   MAP_W, MAP_H, NATURE, STACK_MAX, BUILDS, BUILDING_HP_DEFAULT, GOLDMINE, IRONMINE, BRIDGE,
-  RESEARCH_RATE_PER_PAWN, ENEMY, RAID, GIANT, GIANT_FAST_MULT, GIANT_JUMP, SEASON_DAYS, SEASONS, STORAGE, RANCH, REGROW,
+  RESEARCH_RATE_PER_PAWN, ENEMY, RAID, GIANT, GIANT_FAST_MULT, GIANT_JUMP, SEASON_DAYS, SEASONS, WINTER, STORAGE, RANCH, REGROW,
   ANIMAL_TYPES, ANIMALS, WILD_ANIMAL_TYPES, BARN, EGG_HATCH, WAREHOUSE_TIERS, UPGRADES, RANKS, HOUSE_POP_BONUS, HOUSE_POP_CAP_COUNT, DEFENSE_TIERS, OUTPOST_BRANCHES, CANNON, RELICS, ISLANDS, CANNIBAL, WARLORD, RAIDER, INVWARRIOR, ZOMBIE, SKELETON, DEMON, MINIDEMON,
   ARMOR, FISH_PLATFORM, LODGE_FARM_RADIUS, RARE_FISH_SPOT, FORTIFY_KINDS, INJURY,
   T_WATER, T_GRASS, T_SAND,
@@ -716,6 +716,30 @@ export function seasonIndex(world) {
   return Math.floor((world.day - 1) / SEASON_DAYS) % SEASONS.length;
 }
 export function seasonDef(world) { return SEASONS[seasonIndex(world)]; }
+
+// ── 겨울 난로: 겨울 동안만 장작(전역 재고)을 주기적으로 태워 온기 유지. 장작이 떨어지면 꺼짐(b.lit=false).
+// 방금 꺼진(lit→false) 난로는 events 로 알림 → sim.js 가 토스트로 방출.
+export function tickHeaters(world, dtMin) {
+  var events = [];
+  if (!seasonDef(world).cold) return events; // 겨울에만 연료 소비
+  for (var id in world.buildings) {
+    var b = world.buildings[id];
+    if (b.kind !== 'heater' || b.stage !== 'built') continue;
+    b.fuelT = (b.fuelT || 0) + dtMin;
+    if (b.fuelT >= WINTER.heaterBurnInterval) {
+      b.fuelT = 0;
+      var wasLit = b.lit !== false;
+      if ((world.stock.wood || 0) >= WINTER.heaterBurnAmount) {
+        world.stock.wood -= WINTER.heaterBurnAmount;
+        b.lit = true;
+      } else {
+        b.lit = false;
+        if (wasLit) events.push({ type: 'heaterOut', b: b }); // 방금 꺼짐
+      }
+    }
+  }
+  return events;
+}
 
 // 매일 아침: 버섯·나무 재생 (맵 고갈 방지)
 export function dailyRegrowth(world, rng) {

@@ -80,6 +80,7 @@ if (saved) {
     pw.mood = p.mood === undefined ? 70 : p.mood;
     pw.carry = p.carry || null;
     pw.injury = p.injury || null;
+    pw.cold = p.cold || 0;
     if (p.dead) pw.state = 'dead';
     return pw;
   });
