@@ -547,7 +547,7 @@ export const BRIDGE = { name: '뗏목', cost: { wood: 2 }, work: 8 };
 // cxf/cyf/rf 는 맵 크기(MAP_W/MAP_H) 대비 비율. world.js 가 좌표로 환산해 지형에 새겨넣음.
 // theme: 'treasure'(보물상자) · 'cannibal'(식인종 상시 서식) · 'rare'(희귀 식물·동물)
 export const ISLANDS = [
-  { id: 'treasure', theme: 'treasure', name: '보물섬',    icon: '💰', cxf: 0.125, cyf: 0.125, rf: 0.075 },
+  { id: 'treasure', theme: 'treasure', name: '보물섬',    icon: '💰', cxf: 0.125, cyf: 0.125, rf: 0.11 }, // 스켈레톤 수호자가 지키는 만큼 다른 섬보다 크게
   { id: 'cannibal', theme: 'cannibal', name: '식인종의 섬', icon: '💀', cxf: 0.885, cyf: 0.885, rf: 0.075 },
   { id: 'rareland', theme: 'rare',     name: '비경의 섬',   icon: '🦄', cxf: 0.575, cyf: 0.935, rf: 0.075 },
   // 최종 보스 「악마후배」의 섬 — 시작 지점(맵 중앙)에서 멀리 떨어진 좌하단 외딴 구석, 조금 더 크게

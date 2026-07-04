@@ -482,6 +482,7 @@ var ctx = {
   onSeasonTint: function (tint, a) { R.setSeasonTint(tint, a); },
   onGoddessDescend: function (x, y) { R.spawnGoddessFx(x, y); },
   onZonesChanged: function () { R.refreshZones(); }, // 오두막 자동 지정 등으로 구역이 바뀜
+  onBoatLanding: function (x, y) { R.spawnBoatFx(x, y); }, // 습격·대침공 상륙 시 뗏목이 해안까지 오는 연출
 };
 
 // ── 도구 적용 ──

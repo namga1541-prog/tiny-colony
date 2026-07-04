@@ -36,9 +36,12 @@ export function createRenderer(world) {
   // 건물 전용: Kenney Tiny Town 타일맵(16px, 12x11) — 건물별 고유 스프라이트 크롭용
   base.TinyTown = PIXI.BaseTexture.from('assets/town/Tilemap/tilemap_packed.png');
   base.TinyTown.scaleMode = PIXI.SCALE_MODES.NEAREST;
-  // 언데드 몬스터(좀비·스켈레톤, CC0 Reemax/artisticdude): 24x64 셀, 4방향 행×프레임 열
+  // 언데드 몬스터(좀비, CC0 Reemax/artisticdude): 24x64 셀, 4방향 행×프레임 열
   base.ZombieSkeleton = PIXI.BaseTexture.from('assets/monsters/zombie_skeleton.png');
   base.ZombieSkeleton.scaleMode = PIXI.SCALE_MODES.NEAREST;
+  // 스켈레톤 전용 스프라이트(CC0 r0ar, OpenGameArt "Skeleton Sprite"): 50x50 셀 4x2 걷기 사이클
+  base.SkeletonBone = PIXI.BaseTexture.from('assets/monsters/skeleton_bone.png');
+  base.SkeletonBone.scaleMode = PIXI.SCALE_MODES.NEAREST;
   // 최종 보스 「악마후배」(CC0 Red Demons — Umz, OpenGameArt): 32x34 셀 2프레임(정면 idle)
   base.Demon = PIXI.BaseTexture.from('assets/monsters/demon.png');
   base.Demon.scaleMode = PIXI.SCALE_MODES.NEAREST;
@@ -168,15 +171,16 @@ export function createRenderer(world) {
   var fxRaider = enemyFrames('Pawn_Red');        // 약탈자(빨강 도끼병)
   var fxWarrior = enemyFrames('Warrior_Red');    // 침략 전사(빨강 기사)
   var fxWarlord = enemyFrames('Warrior_Purple'); // 정복자(보라 기사·미니보스)
-  // 언데드(좀비·스켈레톤, CC0): 24x64 셀. row1(왼쪽 프로필)을 걷기/대기 공용으로 사용(좌우는 스케일 부호로 반전).
-  // 좀비=열 0~2(3프레임), 스켈레톤=열 3~11(9프레임, 실제 다리 움직임 있는 걷기 사이클).
+  // 좀비(CC0): 24x64 셀 row1(왼쪽 프로필), 열 0~2(3프레임). 좌우는 스케일 부호로 반전.
   function undeadFrames(colStart, colCount) {
     var frames = [];
     for (var i = 0; i < colCount; i++) frames.push(tx('ZombieSkeleton', (colStart + i) * 24, 1 * 64, 24, 64));
     return frames;
   }
   var fxZombie = undeadFrames(0, 3);
-  var fxSkeleton = undeadFrames(3, 9);
+  // 스켈레톤 전용(CC0 r0ar): 50x50 셀 4x2 걷기 사이클(8프레임, 좌측 상단부터 행 우선).
+  var fxSkeleton = [];
+  for (var skf = 0; skf < 8; skf++) fxSkeleton.push(tx('SkeletonBone', (skf % 4) * 50, ((skf / 4) | 0) * 50, 50, 50));
   var demonFrames = [tx('Demon', 0, 0, 32, 34), tx('Demon', 32, 0, 32, 34)]; // 붉은 뿔 악마(정면 2프레임)
   // 적 종류별 외형: idle/walk 프레임 + 선택적 tint·scale·anchorY(발 위치, 기본 0.72)
   var ENEMY_LOOK = {
@@ -186,7 +190,7 @@ export function createRenderer(world) {
     warrior:  { idle: fxWarrior.idle, walk: fxWarrior.walk },
     warlord:  { idle: fxWarlord.idle, walk: fxWarlord.walk, scale: 1.4 }, // 정복자=보라 기사(크게)
     zombie:   { idle: fxZombie, walk: fxZombie, scale: 2.1, anchorY: 0.94 },     // 좀비(느린 살덩이) — 고블린과 비슷한 시각 크기
-    skeleton: { idle: fxSkeleton, walk: fxSkeleton, scale: 2.0, anchorY: 0.94 }, // 스켈레톤(걷기 사이클) — 고블린과 비슷한 시각 크기
+    skeleton: { idle: fxSkeleton, walk: fxSkeleton, scale: 2.2, anchorY: 0.85 }, // 스켈레톤 전용 백골 스프라이트 — 고블린과 비슷한 시각 크기
     demon:    { idle: demonFrames, walk: demonFrames, scale: 15.75, anchorY: 0.97 }, // 최종 보스=붉은 뿔 악마(괴민의 1.5배 — 압도적 거대)
   };
 
@@ -1262,6 +1266,50 @@ export function createRenderer(world) {
     };
   }
 
+  // ── 습격·대침공 상륙 연출: 상륙 지점 인근 물에서 뗏목이 해안까지 떠오는 짧은 연출(전투 로직과 무관, 순수 시각) ──
+  var boatFxList = []; // { spr, x1, y1, x2, y2, t, dur }
+  function spawnBoatFx(landX, landY) {
+    // 상륙 지점 주변(최대 5칸)에서 가장 가까운 물 타일을 찾아 그곳에서 출발시킴
+    var lx = Math.round(landX), ly = Math.round(landY);
+    var wx = null, wy = null;
+    for (var r = 1; r <= 5 && wx === null; r++) {
+      for (var dy = -r; dy <= r && wx === null; dy++) {
+        for (var dx = -r; dx <= r; dx++) {
+          var tx3 = lx + dx, ty3 = ly + dy;
+          if (!inMap(tx3, ty3) || world.terrain[idx(tx3, ty3)] !== T_WATER) continue;
+          wx = tx3; wy = ty3; break;
+        }
+      }
+    }
+    if (wx === null) return; // 주변에 물이 없으면 생략(내륙 스폰 등)
+    // 출발점을 상륙지점 반대 방향으로 더 밀어내 이동 거리를 확보
+    var sx = lx + (wx - lx) * 1.8, sy = ly + (wy - ly) * 1.8;
+    var spr = new PIXI.Sprite(tx('Bridge_All', 64, 0, 64, 64));
+    spr.anchor.set(0.5);
+    spr.tint = 0x9a7a4a;
+    objLayer.addChild(spr);
+    boatFxList.push({
+      spr: spr, t: 0, dur: 1.3,
+      x1: (sx + 0.5) * TILE, y1: (sy + 0.5) * TILE,
+      x2: (lx + 0.5) * TILE, y2: (ly + 0.5) * TILE,
+    });
+  }
+  function tickBoatFx(dtSec) {
+    for (var i = boatFxList.length - 1; i >= 0; i--) {
+      var b = boatFxList[i];
+      b.t += dtSec;
+      var f = Math.min(1, b.t / b.dur);
+      b.spr.x = b.x1 + (b.x2 - b.x1) * f;
+      b.spr.y = b.y1 + (b.y2 - b.y1) * f;
+      b.spr.zIndex = b.spr.y - 1; // 상륙 시점에 정착민·적 스프라이트보다 살짝 뒤
+      b.spr.alpha = f > 0.85 ? (1 - f) / 0.15 : 1; // 도착 직전 페이드아웃
+      if (f >= 1) {
+        objLayer.removeChild(b.spr); b.spr.destroy();
+        boatFxList.splice(i, 1);
+      }
+    }
+  }
+
   // ── 방어건물 공격 이펙트 ──
   var atkFxList = []; // { x1, y1, x2, y2, life }
   function spawnAttackFx(tx1, ty1, tx2, ty2) {
@@ -1469,6 +1517,7 @@ export function createRenderer(world) {
   // ── 애니메이션 틱 ──
   function tick(dtSec) {
     animTime += dtSec;
+    tickBoatFx(dtSec);
     tickAttackFx(dtSec);
     tickWorkFx(dtSec);
     tickGoddessFx(dtSec);
@@ -1525,6 +1574,7 @@ export function createRenderer(world) {
     invalidateMinimapTerrain: function () { miniLandCache = null; },
     tick: tick,
     spawnAttackFx: spawnAttackFx,
+    spawnBoatFx: spawnBoatFx,
     spawnBoomFx: spawnBoomFx,
     spawnGoddessFx: spawnGoddessFx,
     spawnHitFx: spawnHitFx,

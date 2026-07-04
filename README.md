@@ -76,7 +76,8 @@ npx serve -p 5800 .
 - 아트(구버전): [Kenney](https://kenney.nl) Roguelike/RPG·Tiny Town·Tiny Dungeon (CC0), [pixel-boy — Ninja Adventure](https://pixel-boy.itch.io/ninja-adventure-asset-pack) (CC0)
 - 건물(집·창고·대장간·치료소·목장·망루·가시벽): [Kenney — Medieval RTS](https://kenney.nl/assets/medieval-rts) (CC0). `assets/mrts/`.
 - 공성 병기(특화 초소 — 투석기·석궁탑·속사탑): [LPC Siege Weapons — bluecarrot16 외](https://opengameart.org/content/lpc-siege-weapons) (CC-BY 4.0 / CC-BY 3.0 / OGA-BY 3.0). `assets/siege/` 는 게임 구동용이며, 전체 기여자 명단·라이선스는 원본 OpenGameArt 페이지를 따릅니다.
-- 언데드 몬스터(좀비·스켈레톤, 대침공 혼합군): [Zombie and Skeleton 32x48 — Reemax / artisticdude](https://opengameart.org/content/zombie-and-skeleton-32x48) (CC0). `assets/monsters/`.
+- 언데드 몬스터(좀비, 대침공 혼합군): [Zombie and Skeleton 32x48 — Reemax / artisticdude](https://opengameart.org/content/zombie-and-skeleton-32x48) (CC0). `assets/monsters/zombie_skeleton.png`.
+- 스켈레톤(보물섬 수호자): [Skeleton Sprite — r0ar](https://opengameart.org/content/skeleton-sprite) (CC0). `assets/monsters/skeleton_bone.png`.
 - 최종 보스 「악마후배」: [Red Demons (Animated) - Classic Hero Edit — Umz](https://opengameart.org/content/red-demons-animated-classic-hero-edit) (CC0). `assets/monsters/demon.png`.
 - 섬의 수호신 「아보랑카도」: [Angels — AntumDeluge (원작 Svetlana Kushnariova)](https://opengameart.org/content/angels) (CC-BY 3.0). `assets/goddess/`.
 - 배경 장식(소품·초가집 폐허 4종·우물·성문·잔디 텍스처 변형): [The Fan-tasy Tileset (Free) — Ventilatore](https://ventilatore.itch.io/the-fantasy-tileset) — 무료 버전, **비상업용 한정**·수정 가능·재배포 금지. `assets/fantasy/`.

@@ -303,6 +303,18 @@ export function createWorld(seed) {
         var sp1 = islandSpot(isl, true);
         if (sp1) world.objects[idx(sp1.x, sp1.y)] = { kind: 'chest' };
       }
+      // 보물을 지키는 스켈레톤 수호자 무리 — 식인종 섬보다 넉넉하게(섬도 더 커짐)
+      var skelN = 6 + ((rng() * 5) | 0);
+      isl.cap = skelN;
+      for (var c1b = 0; c1b < skelN; c1b++) {
+        var sp1b = islandSpot(isl, false);
+        if (sp1b) {
+          world.enemies.push({
+            id: world.nextEid++, x: sp1b.x, y: sp1b.y, px: sp1b.x, py: sp1b.y,
+            hp: SKELETON.hp, maxHp: SKELETON.hp, cd: 0, dir: 1, anim: (rng() * 6) | 0, kind: 'skeleton',
+          });
+        }
+      }
     } else if (isl.theme === 'cannibal') {
       var cannN = 4 + ((rng() * 3) | 0);
       isl.cap = cannN;
@@ -714,15 +726,20 @@ export function dailyRegrowth(world, rng) {
 }
 
 // 매일 아침: 식인종 섬의 상주 인구를 상한(cap)까지 서서히 보충 (30% 확률로 1체)
+// 상시 서식 원정섬(식인종 섬·보물섬 수호자) 리스폰 — 테마별 종족·스탯 매핑.
+var ISLAND_GUARD_KIND = { cannibal: 'cannibal', treasure: 'skeleton' };
+var ISLAND_GUARD_STAT = { cannibal: CANNIBAL, treasure: SKELETON };
 export function dailyIslandRespawn(world, rng) {
   var spawned = 0;
   for (var wi = 0; wi < (world.islands || []).length; wi++) {
     var isl = world.islands[wi];
-    if (isl.theme !== 'cannibal' || !isl.cap) continue;
+    var kind = ISLAND_GUARD_KIND[isl.theme];
+    if (!kind || !isl.cap) continue;
+    var stat = ISLAND_GUARD_STAT[isl.theme];
     var count = 0;
     for (var ei = 0; ei < world.enemies.length; ei++) {
       var e = world.enemies[ei];
-      if (e.kind === 'cannibal' && Math.hypot(e.x - isl.cx, e.y - isl.cy) <= isl.r * 1.2) count++;
+      if (e.kind === kind && Math.hypot(e.x - isl.cx, e.y - isl.cy) <= isl.r * 1.2) count++;
     }
     if (count >= isl.cap || rng() >= 0.3) continue;
     for (var t = 0; t < 40; t++) {
@@ -731,7 +748,7 @@ export function dailyIslandRespawn(world, rng) {
       if (!inMap(sx, sy) || !isWalkable(world, sx, sy)) continue;
       world.enemies.push({
         id: world.nextEid++, x: sx, y: sy, px: sx, py: sy,
-        hp: CANNIBAL.hp, maxHp: CANNIBAL.hp, cd: 0, dir: 1, anim: (rng() * 6) | 0, kind: 'cannibal',
+        hp: stat.hp, maxHp: stat.hp, cd: 0, dir: 1, anim: (rng() * 6) | 0, kind: kind,
       });
       spawned++;
       break;

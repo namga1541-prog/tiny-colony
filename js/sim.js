@@ -31,6 +31,15 @@ function spawnInvasionWave(world, rng, sched, waveNo, withGiants) {
   }
 }
 
+// 방금 world.enemies 끝에 추가된 n 명의 상륙 중심 좌표(연출용 — 배가 도착하는 지점). 없으면 null.
+function landingCentroidTail(world, n) {
+  if (!n) return null;
+  var tail = world.enemies.slice(-n);
+  var xs = 0, ys = 0;
+  for (var i = 0; i < tail.length; i++) { xs += tail[i].x; ys += tail[i].y; }
+  return { x: xs / tail.length, y: ys / tail.length };
+}
+
 // 게임 세계를 dtMin 게임분 만큼 전진시킨다.
 //   world, pawns : 가변 상태 (직접 변형됨)
 //   dtMin        : 이번 호출로 흘릴 게임분 (내부에서 dt≤1 로 잘게 나눠 처리)
@@ -159,6 +168,8 @@ export function stepWorld(world, pawns, dtMin, rng, ctx, enemyCbs) {
     if (got > 0) {
       world.raidActive = true;
       world.nextRaidDay = world.day + RAID.intervalDays;
+      var raidLand = landingCentroidTail(world, got);
+      if (raidLand && ctx.onBoatLanding) ctx.onBoatLanding(raidLand.x, raidLand.y);
       ctx.onToast('⚔️ 고블린 습격! 고블린 ' + got + '마리가 상륙했습니다!', true);
       ctx.onEvent('⚔️ 고블린 습격 (' + got + '마리)');
       ctx.onSfx('alert');
@@ -174,6 +185,8 @@ export function stepWorld(world, pawns, dtMin, rng, ctx, enemyCbs) {
     if (gg > 0) {
       world.raidActive = true;
       world.raidHadGiant = true; // 격퇴 시 유물 확정
+      var giantLand = landingCentroidTail(world, gg);
+      if (giantLand && ctx.onBoatLanding) ctx.onBoatLanding(giantLand.x, giantLand.y);
       ctx.onToast('🧟 무지성 거인 「괴민」 출현! 느리지만 거대하고 강력합니다 — 힘을 합쳐 막으세요!', true);
       ctx.onEvent('🧟 거인 괴민 상륙' + (gg > 1 ? ' (' + gg + '체)' : ''));
       ctx.onSfx('alert');
@@ -230,7 +243,10 @@ export function stepWorld(world, pawns, dtMin, rng, ctx, enemyCbs) {
     if (inv.phase === 'countdown' && world.day >= inv.triggerDay && curHour >= INVASION.spawnHour) {
       inv.phase = 'active';
       inv.wave = 1;
+      var invLen0 = world.enemies.length;
       spawnInvasionWave(world, rng, sched, 1, true);
+      var invLand = landingCentroidTail(world, world.enemies.length - invLen0);
+      if (invLand && ctx.onBoatLanding) ctx.onBoatLanding(invLand.x, invLand.y);
       world.raidActive = true;
       ctx.onToast('🏴 대침공! 배를 타고 침략군(약탈자·전사)이 상륙합니다!' + (sched.giants ? ' 빠른 괴민 ' + sched.giants + '체 동반!' : '') + ' 정복자가 지휘합니다.', true);
       ctx.onEvent('🏴 대침공 웨이브 1/' + sched.waves + ' — 침략군 상륙' + (sched.giants ? ' (+괴민 ' + sched.giants + ')' : ''));
@@ -285,7 +301,10 @@ export function stepWorld(world, pawns, dtMin, rng, ctx, enemyCbs) {
       }
     } else if (inv.phase === 'gap' && world.timeMin >= inv.gapUntilMin) {
       var nextWave = inv.wave;
+      var invLen1 = world.enemies.length;
       spawnInvasionWave(world, rng, sched, nextWave, false);
+      var invLand2 = landingCentroidTail(world, world.enemies.length - invLen1);
+      if (invLand2 && ctx.onBoatLanding) ctx.onBoatLanding(invLand2.x, invLand2.y);
       world.invasion = { phase: 'active', schedIndex: inv.schedIndex, wave: nextWave };
       world.raidActive = true;
       ctx.onToast('🏴 ' + nextWave + '웨이브 상륙!', true);

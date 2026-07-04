@@ -1,5 +1,5 @@
 // L1 시나리오 스모크 — 시드 고정, 헤드리스. stepWorld 추출이 올바른지 + 결정론 확인.
-import { bootSim, run, runDays, designateChop, give, snapshot, DAY_MIN, MAP_W } from './harness.mjs';
+import { bootSim, run, runDays, designateChop, give, snapshot, DAY_MIN, MAP_W, MAP_H } from './harness.mjs';
 import { addBuilding, storageCap, upgradeMult, upgradeAdd, maxPop, rankReqStatus, canAdvanceRank, advanceRank, defenseStats, tickTowers, enemyStats, spawnRaid, mulberry32, grantRelic, dailyIslandRespawn, checkIslandDiscovery, updateEnemies, idx, shipComplete, fishSpotTier, footprintTouchesWater, canPlaceBridge, isWalkable, autoDesignateLodges, footprintAdjacentMine, ensureBossIsland } from '../js/world.js';
 import { GIANT, ENEMY, CANNIBAL, ISLANDS, INVASION, OUTPOST_BRANCHES, RAIDER, INVWARRIOR, ZOMBIE, SKELETON, GIANT_JUMP, ARMOR, FRUITTREE, FISH, catchFish, GODDESS, TRADER, BUILDS, BUILD_MIN_RANK, FISH_PLATFORM, DEMON } from '../js/config.js';
 import { findWorkJob, releaseAllOf } from '../js/jobs.js';
@@ -667,7 +667,8 @@ console.log('[sim-smoke] 26) 과일나무 — 심으면 베지 않고 계속 열
   var sim = bootSim(501); var w = sim.world;
   give(sim, { food: 40, meal: 10 }); // 저장고 기본 용량(120) 안쪽으로 — 과수확분(+5)이 들어갈 여유 확보
   w.research.unlocked.farming = true;
-  var cx = MAP_W / 2 | 0, cy = 50;
+  // 정착민 스폰 지점(맵 중앙+1) 바로 옆으로 — 맵 크기·지형 시드에 관계없이 항상 도달 가능하게
+  var cx = MAP_W / 2 | 0, cy = (MAP_H / 2 | 0) + 2;
   var i = idx(cx, cy);
   delete w.objects[i]; delete w.stockpile[i]; delete w.items[i];
   w.orchardZone[i] = true;
