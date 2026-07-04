@@ -529,11 +529,13 @@ function finishWork(world, pawn, ctx) {
     var shp = sheepById(world, j.sheepId);
     if (shp) {
       var adef = ANIMALS[shp.type || 'sheep'] || ANIMALS.sheep;
+      var vetMult = (world.research && world.research.unlocked && world.research.unlocked.veterinary) ? 1.25 : 1;
       if (!storageFull(world)) {
-        addItem(world, 0, 'food', adef.food);
-        if (adef.leather) addItem(world, 0, 'leather', adef.leather);
-        if (adef.meat) addItem(world, 0, 'meat', adef.meat);
+        addItem(world, 0, 'food', Math.round(adef.food * vetMult));
+        if (adef.leather) addItem(world, 0, 'leather', Math.round(adef.leather * vetMult));
+        if (adef.meat) addItem(world, 0, 'meat', Math.round(adef.meat * vetMult));
         if (adef.rareGold) addItem(world, 0, 'gold', adef.rareGold); // 희귀 동물(원정 섬) 처치 보너스
+        if (adef.wool) addItem(world, 0, 'wool', Math.round(adef.wool * vetMult));
       }
       else ctx.onStorageFull();
       var si2 = world.sheep.indexOf(shp);
@@ -601,10 +603,11 @@ function finishWork(world, pawn, ctx) {
   if (j.type === 'harvestCrop') {
     var cr = world.crops[j.idx];
     if (cr && cr.stage === 'ready') {
+      var irriMult = (world.research && world.research.unlocked && world.research.unlocked.irrigation) ? 1.3 : 1;
       if (cr.kind === 'fruit') {
         // 과일나무는 베지 않고 다시 자람 — 재파종 불필요
         if (storageFull(world)) ctx.onStorageFull();
-        else { addItem(world, j.idx, 'food', FRUITTREE.yield); ctx.onItemChange(j.idx); }
+        else { addItem(world, j.idx, 'food', Math.round(FRUITTREE.yield * irriMult)); ctx.onItemChange(j.idx); }
         cr.stage = 'growing';
         cr.timer = FRUITTREE.regrowTime;
         ctx.onCropChange(j.idx);
@@ -612,7 +615,7 @@ function finishWork(world, pawn, ctx) {
       } else {
         delete world.crops[j.idx];
         if (storageFull(world)) ctx.onStorageFull();
-        else { addItem(world, j.idx, 'food', CROP.yield); ctx.onItemChange(j.idx); }
+        else { addItem(world, j.idx, 'food', Math.round(CROP.yield * irriMult)); ctx.onItemChange(j.idx); }
         ctx.onCropChange(j.idx);
         ctx.onEvent(pawn.name + '이(가) 밀을 수확했습니다');
       }
@@ -671,6 +674,14 @@ function clinicExists(world) {
     if (b.kind === 'clinic' && b.stage === 'built') return b;
   }
   return null;
+}
+
+function pavilionExists(world) {
+  for (var id in world.buildings) {
+    var b = world.buildings[id];
+    if (b.kind === 'pavilion' && b.stage === 'built') return true;
+  }
+  return false;
 }
 
 // ── 전투 유틸 ──
@@ -821,8 +832,8 @@ export function updatePawn(world, pawn, dtMin, ctx) {
   }
   if (pawn.stuckCd > 0) pawn.stuckCd -= dtMin;
 
-  // 기분: 포만감·체력의 가중 평균으로 서서히 수렴
-  var moodTarget = pawn.hunger * 0.6 + pawn.hp * 0.4;
+  // 기분: 포만감·체력의 가중 평균으로 서서히 수렴 + 정자가 있으면 보정
+  var moodTarget = pawn.hunger * 0.6 + pawn.hp * 0.4 + (pavilionExists(world) ? 10 : 0);
   var moodRate = 0.006 * (trait.moodMult || 1);
   pawn.mood += (moodTarget - pawn.mood) * Math.min(1, moodRate * dtMin);
   pawn.mood = Math.max(0, Math.min(100, pawn.mood));

@@ -140,6 +140,13 @@ export const BUILDS = {
     town: { sx: 0, sy: 64, sw: 64, sh: 64 }, tint: 0xdfeaff, // 회색집 + 청백색조(치료소=청결·의료)
     desc: '부상당한 정착민이 찾아와 빠르게 회복합니다.',
   },
+  pavilion: {
+    name: '정자', cost: { wood: 15 }, work: 50, hp: 70,
+    fw: 2, fh: 2, solid: true, light: true,
+    img: 'House', imgC: 'House_C', pw: 128, ph: 192,
+    town: { sx: 64, sy: 64, sw: 64, sh: 64 }, tint: 0xffd9ec, // 빨강집 + 분홍조(정자=휴식·사기)
+    desc: '정착민들이 쉬며 사기를 북돋우는 휴식 공간입니다. 마을에 지으면 전체 사기가 소폭 오릅니다.',
+  },
   barn: {
     name: '축사', cost: { wood: 20, gold: 5 }, work: 80, hp: 100,
     fw: 2, fh: 2, solid: true,
@@ -291,7 +298,12 @@ export const RESEARCH = {
   farming:    { name: '농업', cost: 60,  desc: '농사 구역을 지정해 밀을 재배할 수 있습니다' },
   blacksmith: { name: '대장간 기술', cost: 90, desc: '검·활을 제작할 수 있습니다' },
   steel:      { name: '제철 기술', cost: 160, desc: '철광을 채굴하고 강철검·강철활을 제작할 수 있습니다' },
+  irrigation:    { name: '관개', cost: 140, desc: '밀·과일 수확량이 30% 늘어납니다' },
+  veterinary:    { name: '수의학', cost: 130, desc: '사냥·목축 산출량이 25% 늘어납니다' },
+  fortification: { name: '요새화', cost: 200, desc: '방어 계열 건물(초소·성)의 내구도가 40% 늘어납니다' },
 };
+// fortification 연구로 내구도가 보정되는 방어 계열 건물 kind 목록
+export const FORTIFY_KINDS = ['outpost', 'tower', 'castle'];
 
 // ── 콜로니 업그레이드 트리 (자원 소비형 영구 강화) ──
 // RESEARCH(포인트로 기술 해금)와 별개. 잉여 자원 소비처 + 장기 성장 목표.
@@ -431,7 +443,7 @@ export const GLORIOUS_FOOD = {
 // ── 사냥 (동물) ── 종류별 식량·가죽·고기 산출. 고기는 고급 요리(푸짐한 식사 이상)의 재료.
 export const HUNT = { work: 14 };
 export const ANIMALS = {
-  sheep:    { label: '양',     food: 4,  leather: 2, meat: 1, sheet: 'Sheep_Idle', big: true },
+  sheep:    { label: '양',     food: 4,  leather: 2, meat: 1, wool: 3, sheet: 'Sheep_Idle', big: true },
   pig:      { label: '돼지',   food: 6,  leather: 3, meat: 3, sheet: 'Pig',        big: false },
   cow:      { label: '소',     food: 9,  leather: 4, meat: 4, sheet: 'Cow',        big: false },
   chicken:  { label: '닭',     food: 2,  leather: 1, meat: 1, sheet: 'Chicken',    big: false },
@@ -504,7 +516,7 @@ export const GODDESS = { day: 7, spawnHour: 20, name: '아보랑카도', relicId
 // rates: 자원 1개당 지급하는 금(내림). 잉여 자원 처리 + 탈출선 등 금 소요 프로젝트로 이어지는 순환 고리.
 export const TRADER = {
   firstDay: 6, intervalDays: 4, spawnHour: 10, stayDays: 2,
-  rates: { wood: 0.15, iron: 0.5, food: 0.2, meal: 0.6, leather: 0.25, meat: 0.3, delicacy: 1.2, mealGood: 0.9, mealFeast: 1.5 },
+  rates: { wood: 0.15, iron: 0.5, food: 0.2, meal: 0.6, leather: 0.25, meat: 0.3, delicacy: 1.2, mealGood: 0.9, mealFeast: 1.5, wool: 0.35 },
 };
 
 // ── 낚시 ──

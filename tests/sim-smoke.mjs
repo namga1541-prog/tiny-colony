@@ -1168,6 +1168,70 @@ console.log('[sim-smoke] 42) 신규 도전과제 3종 — 성문·찬란한 음�
   ok(newly4.length === 0, '이미 달성한 목표는 재알림 없음');
 })();
 
+console.log('[sim-smoke] 43) 신규 연구 3종(관개·수의학·요새화) + 양털 + 정자 사기 보정 (신규)');
+(function () {
+  var ctxBase = { onItemChange: function () {}, onEvent: function () {}, onCropChange: function () {}, onDeath: function () {}, onStorageFull: function () {}, onSheepChange: function () {}, rng: function () { return 0.5; } };
+
+  // (a) 관개 — 밀 수확량이 30% 늘어남
+  var w1 = bootSim(1901).world;
+  var foodBefore1 = w1.stock.food || 0;
+  w1.crops[0] = { stage: 'ready', kind: 'wheat' };
+  var p1 = createPawn(0, {}, 0, 0);
+  p1.job = { type: 'harvestCrop', idx: 0 }; p1.state = 'working'; p1.workLeft = 0.01;
+  updatePawn(w1, p1, 1, ctxBase);
+  var yieldBase = (w1.stock.food || 0) - foodBefore1;
+  var foodBefore2 = w1.stock.food || 0;
+  w1.crops[0] = { stage: 'ready', kind: 'wheat' };
+  w1.research.unlocked.irrigation = true;
+  p1.job = { type: 'harvestCrop', idx: 0 }; p1.state = 'working'; p1.workLeft = 0.01;
+  updatePawn(w1, p1, 1, ctxBase);
+  var yieldIrri = (w1.stock.food || 0) - foodBefore2;
+  ok(yieldIrri > yieldBase, '관개 연구 해금 시 밀 수확량이 늘어남 (' + yieldBase + ' → ' + yieldIrri + ')');
+
+  // (b) 수의학 — 사냥 산출량이 늘어나고, 양은 양털도 함께 산출 (새로 push 한 양은 배열 맨 끝에 들어감에 주의)
+  var w2 = bootSim(1902).world;
+  w2.sheep.push({ id: w2.nextSid++, type: 'sheep', x: 0, y: 0 });
+  var sheepA = w2.sheep[w2.sheep.length - 1];
+  var foodBeforeA = w2.stock.food || 0;
+  var p2 = createPawn(0, {}, 0, 0);
+  p2.job = { type: 'hunt', sheepId: sheepA.id }; p2.state = 'working'; p2.workLeft = 0.01;
+  updatePawn(w2, p2, 1, ctxBase);
+  var foodGainBase = (w2.stock.food || 0) - foodBeforeA;
+  ok((w2.stock.wool || 0) > 0, '양 사냥 시 양털도 함께 산출됨 (' + (w2.stock.wool || 0) + ')');
+
+  w2.sheep.push({ id: w2.nextSid++, type: 'sheep', x: 0, y: 0 });
+  var sheepB = w2.sheep[w2.sheep.length - 1];
+  w2.research.unlocked.veterinary = true;
+  var foodBeforeB = w2.stock.food || 0;
+  var p2b = createPawn(1, {}, 0, 0);
+  p2b.job = { type: 'hunt', sheepId: sheepB.id }; p2b.state = 'working'; p2b.workLeft = 0.01;
+  updatePawn(w2, p2b, 1, ctxBase);
+  var foodGainVet = (w2.stock.food || 0) - foodBeforeB;
+  ok(foodGainVet > foodGainBase, '수의학 연구 해금 시 사냥 식량 산출이 늘어남 (' + foodGainBase + ' → ' + foodGainVet + ')');
+
+  // (c) 요새화 — 방어 계열 건물(초소·성) 내구도 +40%, 비방어 건물은 영향 없음
+  var w3 = bootSim(1903).world;
+  var towerBase = addBuilding(w3, 'tower', 10, 10);
+  var houseBase = addBuilding(w3, 'house', 12, 12);
+  w3.research.unlocked.fortification = true;
+  var towerFortified = addBuilding(w3, 'tower', 20, 20);
+  var houseFortified = addBuilding(w3, 'house', 22, 22);
+  ok(towerFortified.maxHp > towerBase.maxHp, '요새화 연구 해금 시 초소(방어 계열) 내구도 증가 (' + towerBase.maxHp + ' → ' + towerFortified.maxHp + ')');
+  ok(houseFortified.maxHp === houseBase.maxHp, '요새화는 방어 계열이 아닌 건물(집)엔 영향 없음');
+
+  // (d) 정자 — 완공되면 정착민 전체 사기가 소폭 올라감
+  var w4a = bootSim(1904).world;
+  var pa = createPawn(0, {}, 50, 50);
+  pa.hunger = 50; pa.hp = 50; pa.mood = 50;
+  for (var i = 0; i < 200; i++) updatePawn(w4a, pa, 1, ctxBase);
+  var w4b = bootSim(1904).world;
+  addBuilding(w4b, 'pavilion', 40, 40, { stage: 'built' });
+  var pb = createPawn(0, {}, 50, 50);
+  pb.hunger = 50; pb.hp = 50; pb.mood = 50;
+  for (var j = 0; j < 200; j++) updatePawn(w4b, pb, 1, ctxBase);
+  ok(pb.mood > pa.mood, '정자가 있으면 같은 조건에서도 사기가 더 높게 수렴함 (' + pa.mood.toFixed(1) + ' → ' + pb.mood.toFixed(1) + ')');
+})();
+
 console.log('');
 if (fails) { console.log('❌ sim-smoke 실패 ' + fails + '건'); process.exit(1); }
 console.log('✅ sim-smoke 전체 통과');

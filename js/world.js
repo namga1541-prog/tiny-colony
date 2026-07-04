@@ -3,7 +3,7 @@ import {
   MAP_W, MAP_H, NATURE, STACK_MAX, BUILDS, BUILDING_HP_DEFAULT, GOLDMINE, IRONMINE, BRIDGE,
   RESEARCH_RATE_PER_PAWN, ENEMY, RAID, GIANT, GIANT_FAST_MULT, GIANT_JUMP, SEASON_DAYS, SEASONS, STORAGE, RANCH, REGROW,
   ANIMAL_TYPES, ANIMALS, WILD_ANIMAL_TYPES, BARN, WAREHOUSE_TIERS, UPGRADES, RANKS, HOUSE_POP_BONUS, HOUSE_POP_CAP_COUNT, DEFENSE_TIERS, OUTPOST_BRANCHES, CANNON, RELICS, ISLANDS, CANNIBAL, WARLORD, RAIDER, INVWARRIOR, ZOMBIE, SKELETON, DEMON,
-  ARMOR, FISH_PLATFORM, LODGE_FARM_RADIUS, RARE_FISH_SPOT,
+  ARMOR, FISH_PLATFORM, LODGE_FARM_RADIUS, RARE_FISH_SPOT, FORTIFY_KINDS,
   T_WATER, T_GRASS, T_SAND,
 } from './config.js';
 import { findPath } from './path.js';
@@ -415,7 +415,13 @@ export function addBuilding(world, kind, x, y, opts) {
   if (opts && opts.charges !== undefined) { b.charges = opts.charges; b.maxCharges = opts.charges; }
   if (kind === 'warehouse') b.tier = 1;
   // 내구도: 자연물(광산 등)·다리 제외한 일반 건물만 적에게 파괴될 수 있음
-  if (!b.natural && kind !== 'bridge' && kind !== 'fishPlatform') { b.maxHp = def.hp || BUILDING_HP_DEFAULT; b.hp = b.maxHp; }
+  if (!b.natural && kind !== 'bridge' && kind !== 'fishPlatform') {
+    b.maxHp = def.hp || BUILDING_HP_DEFAULT;
+    if (FORTIFY_KINDS.indexOf(kind) >= 0 && world.research && world.research.unlocked && world.research.unlocked.fortification) {
+      b.maxHp = Math.round(b.maxHp * 1.4);
+    }
+    b.hp = b.maxHp;
+  }
   world.buildings[b.id] = b;
   for (var dy = 0; dy < def.fh; dy++) {
     for (var dx = 0; dx < def.fw; dx++) {
@@ -557,6 +563,7 @@ export function totalRes(world) {
     meat: s.meat || 0, delicacy: s.delicacy || 0, mealGood: s.mealGood || 0, mealFeast: s.mealFeast || 0,
     sword: s.sword || 0, bow: s.bow || 0, ironSword: s.ironSword || 0, ironBow: s.ironBow || 0,
     leatherArmor: s.leatherArmor || 0, ironArmor: s.ironArmor || 0,
+    wool: s.wool || 0,
   };
 }
 
@@ -625,7 +632,7 @@ export function storageCap(world) {
 export function totalStored(world) {
   var s = world.stock || {};
   return (s.wood || 0) + (s.gold || 0) + (s.food || 0) + (s.iron || 0) + (s.meal || 0) + (s.leather || 0) +
-    (s.meat || 0) + (s.delicacy || 0) + (s.mealGood || 0) + (s.mealFeast || 0);
+    (s.meat || 0) + (s.delicacy || 0) + (s.mealGood || 0) + (s.mealFeast || 0) + (s.wool || 0);
 }
 export function storageFull(world) { return totalStored(world) >= storageCap(world); }
 
