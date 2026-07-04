@@ -83,6 +83,8 @@ function collectBuild(world, pawn) {
   }
   return cands;
 }
+// 건설 자재 배달 — 바닥에 쌓인 실물 더미가 아니라 콜로니 전역 재고(world.stock)를 출처로 삼는 "가상 창고" 왕복.
+// 배치 시 즉시 전량 차감하던 것을 없애고, 일꾼이 직접 재고를 나르러 왕복해야 완공되게 함(레시피 3 재사용).
 function collectDeliver(world, pawn) {
   var cands = [];
   for (var id in world.buildings) {
@@ -90,11 +92,10 @@ function collectDeliver(world, pawn) {
     if (b.stage !== 'bp' || world.reserved['bp:' + id] !== undefined) continue;
     var need = bpMissing(b);
     if (need === null) continue;
-    var src = findItemSource(world, need.type);
-    if (src >= 0) {
-      cands.push({ type: 'deliver', bid: +id, srcIdx: src, resType: need.type,
-                   amount: need.n, _d: dist(pawn, src) });
-    }
+    if ((world.stock[need.type] || 0) <= 0) continue;
+    var srcIdx = idx(pawn.x, pawn.y); // 가상 출처(창고 개념) — 지금 있는 자리에서 바로 나른다고 취급
+    cands.push({ type: 'deliver', bid: +id, srcIdx: srcIdx, resType: need.type,
+                 amount: need.n, _d: distB(pawn, b) });
   }
   return cands;
 }
@@ -255,10 +256,7 @@ var COLLECTOR = {
 // 확정 작업에 예약락 부여 (역할 탐색·일반 탐색 공용)
 function reserveJob(world, job, pawn) {
   if (job.type === 'build') reserve(world, 'bp:' + job.bid, pawn.id);
-  else if (job.type === 'deliver') {
-    reserve(world, 'bp:' + job.bid, pawn.id);
-    reserve(world, 'item:' + job.srcIdx, pawn.id);
-  }
+  else if (job.type === 'deliver') reserve(world, 'bp:' + job.bid, pawn.id);
   else if (job.type === 'gather') reserve(world, 'job:' + job.idx, pawn.id);
   else if (job.type === 'mine') reserve(world, 'mine:' + job.bid, pawn.id);
   else if (job.type === 'haul') reserve(world, 'haul:' + job.idx, pawn.id);

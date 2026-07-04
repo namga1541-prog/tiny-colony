@@ -16,7 +16,7 @@
 ## 재고 모델 (글로벌 스톡)
 - 모든 자원은 **`world.stock`** 콜로니 전체 재고(바닥에 안 쌓임). `{ wood, gold, food, iron, meal }`.
 - `addItem(world, i, type, n)` / `removeItem(...)`(음수 클램프됨, 안전) / `consumeGlobal(world, type, n)` / `canAfford` / `totalRes`.
-- 건설: 착공 시 자재를 재고에서 즉시 차감(운반 단계 없음). 식사: 재고의 meal→food 순으로 그 자리 섭취.
+- 건설: 착공은 설계도만 배치(자재 즉시 차감 없음, `b.delivered={}`) — `deliver` 잡이 `world.stock` 을 출처로 삼아 왕복하며 `b.delivered` 를 채우고, `bpMissing()===null` 이 되면 `build` 잡으로 전환해 실제 공사가 시작됨(2026-07, `world.items` 물리 적재는 여전히 미사용). 식사: 재고의 meal→food 순으로 그 자리 섭취.
 - 저장 용량: `storageCap(world)`(창고 tier 합산) vs `totalStored` → 초과 시 `storageFull`.
 
 ## stepWorld / ctx 콜백 계약 (sim.js)

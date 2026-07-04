@@ -2,7 +2,7 @@
 import { bootSim, run, runDays, designateChop, give, snapshot, DAY_MIN, MAP_W, MAP_H } from './harness.mjs';
 import { addBuilding, storageCap, upgradeMult, upgradeAdd, maxPop, rankReqStatus, canAdvanceRank, advanceRank, defenseStats, tickTowers, enemyStats, spawnRaid, mulberry32, grantRelic, dailyIslandRespawn, checkIslandDiscovery, updateEnemies, idx, shipComplete, fishSpotTier, footprintTouchesWater, canPlaceBridge, isWalkable, autoDesignateLodges, footprintAdjacentMine, ensureBossIsland } from '../js/world.js';
 import { GIANT, ENEMY, CANNIBAL, ISLANDS, INVASION, OUTPOST_BRANCHES, RAIDER, INVWARRIOR, ZOMBIE, SKELETON, GIANT_JUMP, ARMOR, FRUITTREE, FISH, catchFish, catchRareFish, GODDESS, TRADER, BUILDS, BUILD_MIN_RANK, FISH_PLATFORM, DEMON, GLORIOUS_FOOD, RARE_FISH_SPOT, INJURY, WALK_MIN_PER_TILE, RESEARCH } from '../js/config.js';
-import { findWorkJob, releaseAllOf } from '../js/jobs.js';
+import { findWorkJob, releaseAllOf, bpMissing } from '../js/jobs.js';
 import { findPath } from '../js/path.js';
 import { createPawn, updatePawn } from '../js/pawns.js';
 import { checkGoals } from '../js/goals.js';
@@ -1388,6 +1388,56 @@ console.log('[sim-smoke] 46) GOALS 전면 확장 — 신규 도전과제 10종 (
 
   // 재알림 없음
   ok(checkGoals(w, tenPawns).length === 0, '전부 달성 후 재알림 없음');
+})();
+
+console.log('[sim-smoke] 47) 운반→건설 확장 — 배치 즉시 차감 대신 재고에서 나르는 가상 창고 왕복 (신규)');
+(function () {
+  var sim = bootSim(2301);
+  var w = sim.world;
+  // 경로탐색이 확실히 되도록 널찍한 잔디밭으로 미리 정리(장애물·건물 제거)
+  for (var cy = 15; cy <= 35; cy++) for (var cx = 15; cx <= 35; cx++) {
+    var ci = idx(cx, cy);
+    w.terrain[ci] = 1; delete w.objects[ci]; delete w.occupancy[ci]; delete w.stockpile[ci];
+  }
+  var woodBefore = w.stock.wood || 0;
+  give(sim, { wood: 10 });
+  var b = addBuilding(w, 'house', 30, 30); // stage 기본 'bp'
+  ok(b.stage === 'bp' && Object.keys(b.delivered).length === 0, '배치 직후엔 자재가 전혀 배달되지 않은 상태(delivered 빈 객체)');
+  ok((w.stock.wood || 0) === woodBefore + 10, '배치해도 재고가 즉시 차감되지 않음(가상 창고 방식)');
+  ok(bpMissing(b).type === 'wood' && bpMissing(b).n === 10, 'bpMissing 이 목재 10 부족을 보고');
+
+  var ctxD = { onItemChange: function () {}, onEvent: function () {}, onBuildingChange: function () {}, onBuildingBuilt: function () {}, onCropChange: function () {}, onDeath: function () {}, onStorageFull: function () {} };
+  var p = createPawn(0, {}, 25, 25);
+  var job = findWorkJob(w, p);
+  ok(job && job.type === 'deliver' && job.resType === 'wood', '재고에 자재가 있으면 deliver 잡을 잡음');
+  ok(w.reserved['bp:' + b.id] === p.id, 'bp: 락이 배달하는 일꾼에게 걸림');
+
+  job.stage = 'toSrc';
+  p.job = job; p.state = 'moving'; p.path = []; // 출처가 자기 자리라 이동 없이 즉시 도착 처리
+  updatePawn(w, p, 1, ctxD);
+  ok((w.stock.wood || 0) === woodBefore, 'toSrc 도착 시 전역 재고에서 실제로 차감됨(' + (woodBefore + 10) + '→' + woodBefore + ')');
+  ok(p.carry && p.carry.type === 'wood' && p.carry.n === 10, '일꾼이 목재 10을 들고 이동 중');
+  ok(p.job.stage === 'toBp', '다음 단계(건물로 이동)로 전환');
+
+  p.path = []; // 건물 앞까지 이미 도착했다고 간주(경로탐색 자체는 다른 시나리오에서 검증됨)
+  updatePawn(w, p, 1, ctxD);
+  ok(b.delivered.wood === 10, '건물에 목재 10 배달 완료(cost 와 일치)');
+  ok(!p.carry, '배달 완료 후 손엔 아무것도 없음');
+  ok(bpMissing(b) === null, '필요 자재를 모두 배달받음');
+  ok(p.job && p.job.type === 'build', '자재가 다 채워지면 곧바로 건설 작업으로 전환(같은 일꾼이 이어서 지음)');
+  ok(w.reserved['bp:' + b.id] === p.id, '건설 단계에서도 bp: 락이 계속 유지됨(같은 일꾼 전담)');
+
+  p.workLeft = 0.01;
+  updatePawn(w, p, 1, ctxD);
+  ok(b.stage === 'built', '건설 완료 → 건물 완공');
+  ok(w.reserved['bp:' + b.id] === undefined, '완공 후 bp: 락 해제(누수 없음)');
+  ok(p.state === 'idle' && !p.job, '완공 후 일꾼은 idle 로 복귀');
+
+  // 회귀 확인: 기존 세이브처럼 delivered 가 이미 cost 만큼 채워진 bp 건물은 즉시 건설 재개(구버전 호환)
+  var w2 = bootSim(2302).world;
+  var b2 = addBuilding(w2, 'house', 40, 40);
+  b2.delivered.wood = 10;
+  ok(bpMissing(b2) === null, '기존 방식대로 delivered 를 미리 채워둔 건물은 배달 없이 곧바로 건설 가능(회귀 없음)');
 })();
 
 console.log('');

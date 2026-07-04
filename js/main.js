@@ -724,9 +724,7 @@ function applyTool(tool, a, b) {
     forRect(a, b, function (i, x, y) {
       if (!footprintClear(world, x, y, 1, 1, false)) return;
       if (!canAfford(world, fdef.cost)) return;
-      for (var ct in fdef.cost) consumeGlobal(world, ct, fdef.cost[ct]);
       var fb = addBuilding(world, 'fence', x, y);
-      for (var ct2 in fdef.cost) fb.delivered[ct2] = fdef.cost[ct2];
       R.refreshBuilding(fb);
       count++;
     });
@@ -740,9 +738,7 @@ function applyTool(tool, a, b) {
     forRect(a, b, function (i, x, y) {
       if (!footprintClear(world, x, y, 1, 1, false)) return;
       if (!canAfford(world, gdef.cost)) return;
-      for (var ct3 in gdef.cost) consumeGlobal(world, ct3, gdef.cost[ct3]);
       var gb = addBuilding(world, 'fenceGate', x, y);
-      for (var ct4 in gdef.cost) gb.delivered[ct4] = gdef.cost[ct4];
       R.refreshBuilding(gb);
       count++;
     });
@@ -773,12 +769,10 @@ function applyTool(tool, a, b) {
       }).join(', ');
       UI.toast('⚠️ 자재가 부족합니다 — ' + def.name + ' (' + needStr + ')', true);
     } else {
-      // 자재를 재고에서 즉시 차감하고 설계도 배치 (일꾼이 와서 짓기만 하면 됨)
-      for (var ct in def.cost) consumeGlobal(world, ct, def.cost[ct]);
+      // 설계도만 배치 — 자재는 즉시 차감하지 않고, 일꾼이 재고에서 나르는 만큼(deliver 잡) 서서히 채워짐
       var bNew = addBuilding(world, tool, px, py);
-      for (var ct2 in def.cost) bNew.delivered[ct2] = def.cost[ct2]; // 운반 완료 상태로 시작
       R.refreshBuilding(bNew);
-      UI.toast('📐 ' + def.name + ' 착공 — 일꾼이 건설합니다');
+      UI.toast('📐 ' + def.name + ' 착공 — 일꾼이 자재를 나르고 건설합니다');
     }
   }
 

@@ -351,7 +351,6 @@ function onArrive(world, pawn, ctx) {
         var missing = bpMissing(b2);
         if (!missing || missing.type !== j.resType) return abandonJob(world, pawn);
         var got = removeItem(world, here, j.resType, Math.min(j.amount, CARRY_MAX));
-        release(world, 'item:' + j.srcIdx);
         if (got <= 0) return abandonJob(world, pawn);
         pawn.carry = { type: j.resType, n: got };
         ctx.onItemChange(here);
