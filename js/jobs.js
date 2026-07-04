@@ -177,7 +177,7 @@ function collectFarm(world, pawn) {
 function collectCook(world, pawn) {
   var cands = [];
   var res = totalRes(world);
-  var totalMeals = (res.meal || 0) + (res.mealGood || 0) + (res.mealFeast || 0);
+  var totalMeals = (res.meal || 0) + (res.mealVeg || 0) + (res.mealGood || 0) + (res.mealFeast || 0);
   if (totalMeals < 6 && world.reserved['cook'] === undefined) {
     var tier = null;
     for (var ti = COOK_TIERS.length - 1; ti >= 0; ti--) {

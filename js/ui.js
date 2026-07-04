@@ -153,7 +153,7 @@ export function createUI(handlers) {
     resGold.textContent = sum.gold || 0;
     if (resIron) resIron.textContent = sum.iron || 0;
     resFood.textContent = sum.food || 0;
-    if (resMeal) resMeal.textContent = (sum.meal || 0) + (sum.mealGood || 0) + (sum.mealFeast || 0) + (sum[GLORIOUS_FOOD.id] || 0);
+    if (resMeal) resMeal.textContent = (sum.meal || 0) + (sum.mealVeg || 0) + (sum.mealGood || 0) + (sum.mealFeast || 0) + (sum[GLORIOUS_FOOD.id] || 0);
     if (resLeather) resLeather.textContent = sum.leather || 0;
     if (resMeat) resMeat.textContent = sum.meat || 0;
     if (resWool) resWool.textContent = sum.wool || 0;
@@ -653,8 +653,8 @@ export function createUI(handlers) {
   // ── 자원 버리기 모달 ──
   function showDiscard() {
     var names = { wood: '목재', gold: '금', food: '식량', iron: '철', meal: '소박한 식사', leather: '가죽',
-      meat: '고기', delicacy: '진미', mealGood: '푸짐한 식사', mealFeast: '진수성찬', wool: '양털' };
-    var types = ['wood', 'gold', 'food', 'iron', 'meal', 'leather', 'meat', 'delicacy', 'mealGood', 'mealFeast', 'wool'];
+      meat: '고기', delicacy: '진미', mealGood: '푸짐한 식사', mealFeast: '진수성찬', wool: '양털', carrot: '당근', mealVeg: '채소죽' };
+    var types = ['wood', 'gold', 'food', 'iron', 'meal', 'mealVeg', 'leather', 'meat', 'delicacy', 'mealGood', 'mealFeast', 'wool', 'carrot'];
     var overlay = openModal('<h2>🗑️ 자원 버리기</h2>' +
       '<p class="dc-hint">저장고가 꽉 차면 벌목·채굴이 멈춥니다. 남는 자원을 버려 공간을 확보하세요.</p>' +
       '<div class="dc-rows"></div>' +
@@ -685,8 +685,8 @@ export function createUI(handlers) {
   // ── 떠돌이 상인 모달 ──
   function showTrader() {
     var names = { wood: '목재', iron: '철', food: '식량', meal: '소박한 식사', leather: '가죽',
-      meat: '고기', delicacy: '진미', mealGood: '푸짐한 식사', mealFeast: '진수성찬', wool: '양털' };
-    var types = ['wood', 'iron', 'food', 'meal', 'leather', 'meat', 'delicacy', 'mealGood', 'mealFeast', 'wool'];
+      meat: '고기', delicacy: '진미', mealGood: '푸짐한 식사', mealFeast: '진수성찬', wool: '양털', carrot: '당근', mealVeg: '채소죽' };
+    var types = ['wood', 'iron', 'food', 'meal', 'mealVeg', 'leather', 'meat', 'delicacy', 'mealGood', 'mealFeast', 'wool', 'carrot'];
     var overlay = openModal('<h2>🛒 떠돌이 상인</h2><div class="tr-body"></div>' +
       '<div class="cm-actions"><button class="cm-ok tr-close">닫기</button></div>');
     var body = overlay.querySelector('.tr-body');

@@ -278,6 +278,7 @@ export const ROLE_SPEED_BONUS = 1.15; // 역할 전문 작업 속도 +15%
 export const NATURE = {
   tree:      { work: 20, drops: { wood: 9 } },
   mushroom:  { work: 8,  drops: { food: 1 } },
+  carrotPatch: { work: 10, drops: { carrot: 2 } }, // 채집 전용 신규 재료 — 요리(채소죽) 재료
   chest:     { work: 45, drops: { gold: 60, iron: 20 } },  // 보물상자(원정섬) — 개봉 시 확률로 유물도 획득(pawns.js)
   rareplant: { work: 14, drops: { food: 6, gold: 3 } },    // 희귀 식물(원정섬) — 일반 자연물보다 산출 높음
 };
@@ -430,6 +431,7 @@ export const INVASION = {
 // 정착민은 collectCook 에서 재료가 되는 가장 높은 등급을 자동으로 골라 요리함(등급별 재고 각각 6개 상한).
 export const COOK_TIERS = [
   { id: 'meal',      name: '소박한 식사', cost: { food: 2 },                       work: 15, eatAmount: 95 },
+  { id: 'mealVeg',   name: '채소죽',     cost: { food: 1, carrot: 2 },            work: 18, eatAmount: 115 },
   { id: 'mealGood',  name: '푸짐한 식사', cost: { food: 2, meat: 2 },              work: 20, eatAmount: 140 },
   { id: 'mealFeast', name: '진수성찬',   cost: { food: 2, meat: 2, delicacy: 1 }, work: 26, eatAmount: 190 },
 ];
@@ -516,7 +518,7 @@ export const GODDESS = { day: 7, spawnHour: 20, name: '아보랑카도', relicId
 // rates: 자원 1개당 지급하는 금(내림). 잉여 자원 처리 + 탈출선 등 금 소요 프로젝트로 이어지는 순환 고리.
 export const TRADER = {
   firstDay: 6, intervalDays: 4, spawnHour: 10, stayDays: 2,
-  rates: { wood: 0.15, iron: 0.5, food: 0.2, meal: 0.6, leather: 0.25, meat: 0.3, delicacy: 1.2, mealGood: 0.9, mealFeast: 1.5, wool: 0.35 },
+  rates: { wood: 0.15, iron: 0.5, food: 0.2, meal: 0.6, leather: 0.25, meat: 0.3, delicacy: 1.2, mealGood: 0.9, mealFeast: 1.5, wool: 0.35, carrot: 0.2, mealVeg: 0.7 },
 };
 
 // ── 낚시 ──

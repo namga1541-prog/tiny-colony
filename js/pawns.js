@@ -116,7 +116,7 @@ export function toolIconOf(world, pawn) {
   switch (pawn.job.type) {
     case 'gather': {
       var o = world.objects[pawn.job.idx];
-      return (o && o.kind === 'mushroom') ? '🧺' : '🪓';
+      return (o && (o.kind === 'mushroom' || o.kind === 'carrotPatch')) ? '🧺' : '🪓';
     }
     case 'mine': return '⛏️';
     case 'build': return '🔨';

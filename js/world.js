@@ -563,7 +563,7 @@ export function totalRes(world) {
     meat: s.meat || 0, delicacy: s.delicacy || 0, mealGood: s.mealGood || 0, mealFeast: s.mealFeast || 0,
     sword: s.sword || 0, bow: s.bow || 0, ironSword: s.ironSword || 0, ironBow: s.ironBow || 0,
     leatherArmor: s.leatherArmor || 0, ironArmor: s.ironArmor || 0,
-    wool: s.wool || 0,
+    wool: s.wool || 0, carrot: s.carrot || 0, mealVeg: s.mealVeg || 0,
   };
 }
 
@@ -632,7 +632,8 @@ export function storageCap(world) {
 export function totalStored(world) {
   var s = world.stock || {};
   return (s.wood || 0) + (s.gold || 0) + (s.food || 0) + (s.iron || 0) + (s.meal || 0) + (s.leather || 0) +
-    (s.meat || 0) + (s.delicacy || 0) + (s.mealGood || 0) + (s.mealFeast || 0) + (s.wool || 0);
+    (s.meat || 0) + (s.delicacy || 0) + (s.mealGood || 0) + (s.mealFeast || 0) + (s.wool || 0) +
+    (s.carrot || 0) + (s.mealVeg || 0);
 }
 export function storageFull(world) { return totalStored(world) >= storageCap(world); }
 
@@ -749,6 +750,17 @@ export function dailyRegrowth(world, rng) {
     if (!nearTree && rng() < 0.7) continue; // 대부분 숲 근처에만
     world.objects[i2] = { kind: 'tree', phase: (rng() * 4) | 0 };
     spawned.push(i2); trees++; planted++;
+  }
+
+  // 당근밭 (채집 전용 신규 재료) 목표치까지 보충
+  var carrotPatches = 0;
+  for (i in world.objects) if (world.objects[i].kind === 'carrotPatch') carrotPatches++;
+  tries = 0;
+  while (carrotPatches < 10 && tries < 400) {
+    tries++;
+    x = (rng() * MAP_W) | 0; y = (rng() * MAP_H) | 0; i2 = idx(x, y);
+    if (!freeGrass(i2)) continue;
+    world.objects[i2] = { kind: 'carrotPatch' }; spawned.push(i2); carrotPatches++;
   }
 
   return spawned;

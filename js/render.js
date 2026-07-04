@@ -370,7 +370,7 @@ export function createRenderer(world) {
   function refreshTile(i) {
     var o = world.objects[i];
     var cur = objSprites[i];
-    var OBJ_KINDS = { tree: 1, mushroom: 1, chest: 1, rareplant: 1 };
+    var OBJ_KINDS = { tree: 1, mushroom: 1, carrotPatch: 1, chest: 1, rareplant: 1 };
     var wantKind = o && OBJ_KINDS[o.kind] ? o.kind : null;
     if (cur && cur.objKind !== wantKind) {
       objLayer.removeChild(cur); cur.destroy();
@@ -748,7 +748,7 @@ export function createRenderer(world) {
     if (!j) return null;
     if (j.type === 'gather') {
       var o = world.objects[j.idx];
-      if (o && o.kind === 'mushroom') return { m: 'bob', p: null, rate: 1.6 };
+      if (o && (o.kind === 'mushroom' || o.kind === 'carrotPatch')) return { m: 'bob', p: null, rate: 1.6 };
       return { m: 'swing', p: 'chips', rate: 2.4 };
     }
     return WORK_MOTION[j.type] || null;
@@ -814,7 +814,7 @@ export function createRenderer(world) {
     if (pawn.state !== 'working' || !pawn.job) return null;
     switch (pawn.job.type) {
       case 'gather': var o = world.objects[pawn.job.idx];
-        return (o && (o.kind === 'mushroom' || o.kind === 'chest' || o.kind === 'rareplant')) ? 'basket' : 'axe';
+        return (o && (o.kind === 'mushroom' || o.kind === 'carrotPatch' || o.kind === 'chest' || o.kind === 'rareplant')) ? 'basket' : 'axe';
       case 'mine': return 'pickaxe';
       case 'build': case 'craft': return 'hammer';
       case 'hunt': return 'bow';

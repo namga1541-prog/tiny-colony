@@ -1232,6 +1232,46 @@ console.log('[sim-smoke] 43) 신규 연구 3종(관개·수의학·요새화) + 
   ok(pb.mood > pa.mood, '정자가 있으면 같은 조건에서도 사기가 더 높게 수렴함 (' + pa.mood.toFixed(1) + ' → ' + pb.mood.toFixed(1) + ')');
 })();
 
+console.log('[sim-smoke] 44) 당근(채집 전용 신규 재료) + 채소죽(COOK_TIERS 신규 등급) (신규)');
+(function () {
+  var ctxBase = { onItemChange: function () {}, onEvent: function () {}, onCropChange: function () {}, onDeath: function () {}, onStorageFull: function () {}, onWorldChange: function () {}, rng: function () { return 0.5; } };
+
+  // (a) 매일 아침 재생성으로 당근밭이 맵에 보충됨
+  var sim = bootSim(2001);
+  run(sim, 25 * 60); // 하루 남짓 진행 → dailyRegrowth 최소 1회 실행
+  var hasCarrotPatch = false;
+  for (var i in sim.world.objects) if (sim.world.objects[i].kind === 'carrotPatch') hasCarrotPatch = true;
+  ok(hasCarrotPatch, '하루 경과 후 당근밭이 맵에 보충됨');
+
+  // (b) 채집(forage) 지정 → 당근 획득 (main.js 화이트리스트를 거치지 않고 job 파이프라인 자체를 직접 검증)
+  var w = bootSim(2002).world;
+  w.objects[0] = { kind: 'carrotPatch' };
+  w.designations[0] = 'forage';
+  var p = createPawn(0, {}, 0, 0);
+  p.job = { type: 'gather', idx: 0 }; p.state = 'working'; p.workLeft = 0.01;
+  updatePawn(w, p, 1, ctxBase);
+  ok((w.stock.carrot || 0) >= 2, '당근밭 채집 시 당근 재고 증가 (' + (w.stock.carrot || 0) + ')');
+  ok(!w.objects[0], '채집 후 당근밭은 사라짐(그루터기 없이 소모)');
+
+  // (c) 채소죽 요리 — food+carrot 소비, mealVeg 산출
+  var w2 = bootSim(2003).world;
+  w2.stock.food = 10; w2.stock.carrot = 10;
+  var p2 = createPawn(0, {}, 50, 50);
+  p2.job = { type: 'cook', tierId: 'mealVeg' }; p2.state = 'working'; p2.workLeft = 0.01;
+  updatePawn(w2, p2, 1, ctxBase);
+  ok(w2.stock.mealVeg === 1, '채소죽 요리 완료 시 mealVeg 재고 1 생성');
+  ok(w2.stock.food === 9 && w2.stock.carrot === 8, '요리 재료(식량1+당근2) 소비됨');
+
+  // (d) 채소죽만 있을 때 생식량보다 먼저 섭취됨
+  var w3 = bootSim(2004).world;
+  w3.stock.mealVeg = 1; w3.stock.food = 5;
+  var p3 = createPawn(0, {}, 50, 50);
+  p3.hunger = 60; p3.job = null; p3.state = 'eating'; p3.workLeft = 0.01;
+  updatePawn(w3, p3, 1, ctxBase);
+  ok(w3.stock.mealVeg === 0, '채소죽이 있으면 생식량보다 먼저 소비됨');
+  ok(w3.stock.food === 5, '생식량은 그대로(채소죽이 최우선 소비)');
+})();
+
 console.log('');
 if (fails) { console.log('❌ sim-smoke 실패 ' + fails + '건'); process.exit(1); }
 console.log('✅ sim-smoke 전체 통과');
