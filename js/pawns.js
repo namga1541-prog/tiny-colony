@@ -514,7 +514,7 @@ function finishWork(world, pawn, ctx) {
         if (fish.delicacy) addItem(world, 0, 'delicacy', fish.delicacy);
         var fgold = fish.gold ? ' (금 +' + fish.gold + ')' : '';
         var fdeli = fish.delicacy ? ' (진미 +' + fish.delicacy + ')' : '';
-        if (fish.spotOnly) ctx.onEvent('🐋 ' + pawn.name + ' 이(가) 초특급 희귀어종 "' + fish.name + '" 을(를) 낚았습니다!!' + fgold + fdeli);
+        if (fish.spotOnly) { world.caughtSpotOnlyFish = true; ctx.onEvent('🐋 ' + pawn.name + ' 이(가) 초특급 희귀어종 "' + fish.name + '" 을(를) 낚았습니다!!' + fgold + fdeli); }
         else if (fish.rare >= 2) ctx.onEvent('🎣 ' + pawn.name + ' 이(가) 희귀 어종 "' + fish.name + '" 을(를) 낚았습니다!' + fgold + fdeli);
         else ctx.onEvent('🎣 ' + pawn.name + ' 이(가) ' + fish.name + ' 을(를) 낚았습니다' + fgold);
       }
@@ -890,6 +890,7 @@ export function updatePawn(world, pawn, dtMin, ctx) {
             if (eatSrc.type === GLORIOUS_FOOD.id) {
               pawn.maxHp = (pawn.maxHp || 100) + GLORIOUS_FOOD.maxHpBonus;
               pawn.hp = Math.min(pawn.maxHp, pawn.hp + GLORIOUS_FOOD.maxHpBonus);
+              world.ateGloriousFood = true;
               if (ctx.onToast) ctx.onToast('✨ ' + pawn.name + '이(가) 「찬란한 음식」을 먹고 몸이 더 튼튼해졌습니다! (최대 체력 +' + GLORIOUS_FOOD.maxHpBonus + ')', true);
               ctx.onEvent('✨ ' + pawn.name + ' 최대 체력 +' + GLORIOUS_FOOD.maxHpBonus);
             }

@@ -172,6 +172,8 @@ export function createWorld(seed) {
     escaped: false,      // 탈출선(선체·엔진·반응로) 완성 후 탈출 성공(1회성) 여부
     autoEquip: false,    // 자동 무장 토글(관리): 유휴 정착민이 창고 무기를 미리 장착
     bossDefeated: false, // 최종 보스 「악마후배」 처치 여부
+    ateGloriousFood: false, // 찬란한 음식 섭취 여부 (도전과제용, 1회성)
+    caughtSpotOnlyFish: false, // 초특급 희귀어종 포획 여부 (도전과제용, 1회성)
     dug: {},            // idx -> true. 삽으로 파낸 땅 (자원 재생 없음 · 건설 공간)
     islands: [],        // {id,name,icon,theme,cx,cy,r,discovered,cap} — 원정 섬 메타(발견·리스폰용)
     rareFishTile: {},   // idx -> true. 초특급 희귀어종(밍크고래 등)만 낚이는 희귀 낚시 스팟(맵에 몇 곳뿐)

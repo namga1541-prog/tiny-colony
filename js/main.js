@@ -48,6 +48,8 @@ if (saved) {
   world.escaped = saved.escaped || false;
   world.autoEquip = saved.autoEquip || false;
   world.bossDefeated = saved.bossDefeated || false;
+  world.ateGloriousFood = saved.ateGloriousFood || false;
+  world.caughtSpotOnlyFish = saved.caughtSpotOnlyFish || false;
   world.invasion = saved.invasion || null;
   world.invasionWon = saved.invasionWon || false;
   world.invasionsCompleted = saved.invasionsCompleted || 0;

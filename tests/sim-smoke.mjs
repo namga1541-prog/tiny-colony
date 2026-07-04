@@ -5,6 +5,7 @@ import { GIANT, ENEMY, CANNIBAL, ISLANDS, INVASION, OUTPOST_BRANCHES, RAIDER, IN
 import { findWorkJob, releaseAllOf } from '../js/jobs.js';
 import { findPath } from '../js/path.js';
 import { createPawn, updatePawn } from '../js/pawns.js';
+import { checkGoals } from '../js/goals.js';
 
 var fails = 0;
 function ok(cond, msg) {
@@ -1126,6 +1127,45 @@ console.log('[sim-smoke] 41) 초특급 희귀 낚시 스팟 — 맵에 몇 곳�
   var ctxFish = { onItemChange: function () {}, onEvent: function () {}, onToast: function () {}, onDeath: function () {}, onStorageFull: function () {}, rng: function () { return 0.5; } };
   updatePawn(w, p, 1, ctxFish);
   ok((w.stock.food || 0) >= 25 && (w.stock.delicacy || 0) >= 2, '희귀 스팟 낚시 결과가 spotOnly 어종의 후한 식량·진미로 반영됨');
+})();
+
+console.log('[sim-smoke] 42) 신규 도전과제 3종 — 성문·찬란한 음식·초특급 희귀어종 (신규)');
+(function () {
+  var w = bootSim(1801).world;
+  ok(checkGoals(w, []).every(function (g) { return g.id !== 'gate' && g.id !== 'feast' && g.id !== 'abyss'; }),
+    '초기엔 신규 도전과제 3종 모두 미달성');
+
+  // (a) 성문 완공 → '출입 통제' 달성
+  addBuilding(w, 'fenceGate', 40, 40, { stage: 'built' });
+  var newly1 = checkGoals(w, []);
+  ok(newly1.some(function (g) { return g.id === 'gate'; }), '성문 완공 시 "출입 통제" 신규 달성');
+
+  // (b) 찬란한 음식 섭취 → '기적의 만찬' 달성 (실제 pawns.js 섭취 코드 경로로 플래그 설정 검증)
+  var p = createPawn(0, {}, 50, 50);
+  w.stock[GLORIOUS_FOOD.id] = 1;
+  p.hunger = 60; p.job = null; p.state = 'eating'; p.workLeft = 0.01;
+  var ctxEat = { onItemChange: function () {}, onEvent: function () {}, onToast: function () {}, onDeath: function () {} };
+  updatePawn(w, p, 1, ctxEat);
+  ok(w.ateGloriousFood === true, '찬란한 음식 섭취 시 world.ateGloriousFood 플래그 설정');
+  var newly2 = checkGoals(w, [p]);
+  ok(newly2.some(function (g) { return g.id === 'feast'; }), '찬란한 음식 섭취 시 "기적의 만찬" 신규 달성');
+
+  // (c) 초특급 희귀어종 포획 → '심해의 전설' 달성 (실제 pawns.js 낚시 완료 코드 경로로 플래그 설정 검증)
+  var spots = Object.keys(w.rareFishTile).map(function (s) { return +s; });
+  var rareIdx = spots[0];
+  var rx = rareIdx % MAP_W, ry = (rareIdx / MAP_W) | 0;
+  w.fishDesig[rareIdx] = true;
+  var p2 = createPawn(1, {}, rx, ry);
+  p2.hunger = 60; p2.job = { type: 'fish', idx: rareIdx }; p2.state = 'working'; p2.workLeft = 0.01;
+  var ctxFish2 = { onItemChange: function () {}, onEvent: function () {}, onToast: function () {}, onDeath: function () {}, onStorageFull: function () {}, rng: function () { return 0.5; } };
+  updatePawn(w, p2, 1, ctxFish2);
+  ok(w.caughtSpotOnlyFish === true, '초특급 희귀어종 포획 시 world.caughtSpotOnlyFish 플래그 설정');
+  var newly3 = checkGoals(w, [p, p2]);
+  ok(newly3.some(function (g) { return g.id === 'abyss'; }), '초특급 희귀어종 포획 시 "심해의 전설" 신규 달성');
+
+  // (d) 이미 달성한 목표는 재알림 없음(1회성)
+  var newly4 = checkGoals(w, [p, p2]);
+  ok(newly4.length === 0, '이미 달성한 목표는 재알림 없음');
 })();
 
 console.log('');

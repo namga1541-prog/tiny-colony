@@ -26,6 +26,9 @@ export var GOALS = [
   { id: 'castle', name: '왕국의 위용', desc: '성을 완공한다', test: function (w) { return countBuilt(w, 'castle') >= 1; } },
   { id: 'invasion', name: '나라의 시련', desc: '대침공을 완전히 격퇴한다', test: function (w) { return !!w.invasionWon; } },
   { id: 'escape', name: '탈출 성공', desc: '탈출선(선체·엔진·반응로)을 완성하고 발사한다', test: function (w) { return !!w.escaped; } },
+  { id: 'gate', name: '출입 통제', desc: '성문을 1개 완공한다', test: function (w) { return countBuilt(w, 'fenceGate') >= 1; } },
+  { id: 'feast', name: '기적의 만찬', desc: '찬란한 음식을 1회 섭취한다', test: function (w) { return !!w.ateGloriousFood; } },
+  { id: 'abyss', name: '심해의 전설', desc: '초특급 희귀어종을 1회 포획한다', test: function (w) { return !!w.caughtSpotOnlyFish; } },
 ];
 
 // 새로 달성된 목표 배열 반환 (알림용)

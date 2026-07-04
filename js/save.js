@@ -35,6 +35,8 @@ export function saveGame(world, pawns) {
     escaped: world.escaped,
     autoEquip: world.autoEquip,
     bossDefeated: world.bossDefeated,
+    ateGloriousFood: world.ateGloriousFood,
+    caughtSpotOnlyFish: world.caughtSpotOnlyFish,
     craftQueue: world.craftQueue,
     enemies: world.enemies,
     nextEid: world.nextEid,
