@@ -70,6 +70,7 @@ export function createRenderer(world) {
     house: mrts('house'), warehouse: mrts('warehouse'), smithy: mrts('smithy'),
     clinic: mrts('clinic'), ranch: mrts('ranch'), tower: mrts('tower'),
     fence: mrts('palisade'), // 목책 스프라이트를 그대로 울타리로 재사용
+    fenceGate: PIXI.Texture.from(FANTASY + 'CityWall_Gate_1.png'), // 성문(The Fan-tasy Tileset, 이미 프로젝트에 있는 성문 그림 재사용)
   };
   var MRTS_PALISADE = mrts('palisade'); // 가시벽(근접 특화 초소)
   // 사람 캐릭터 시트 (Ninja Adventure, 16px 4방향) — 사람별 Idle/Walk
@@ -284,6 +285,27 @@ export function createRenderer(world) {
       }
     }
   })();
+
+  // 초특급 희귀 낚시 스팟 표시 — 위치가 고정이라(월드 생성 시 결정) 한 번만 만들고 살짝 위아래로 흔들리게
+  var rareFishMarkers = [];
+  (function () {
+    for (var rti in world.rareFishTile) {
+      var rx = ix(+rti), ry = iy(+rti);
+      var m = new PIXI.Text('🐋', { fontSize: 30 });
+      m.anchor.set(0.5, 0.5);
+      m.x = (rx + 0.5) * TILE; m.baseY = (ry + 0.5) * TILE;
+      m.y = m.baseY;
+      m.zIndex = 999999;
+      objLayer.addChild(m);
+      rareFishMarkers.push(m);
+    }
+  })();
+  function tickRareFishMarkers(t) {
+    for (var i = 0; i < rareFishMarkers.length; i++) {
+      var m = rareFishMarkers[i];
+      m.y = m.baseY + Math.sin(t * 2 + i) * 5;
+    }
+  }
 
   var seasonOverlay = new PIXI.Graphics(); // 계절 색보정 (밤보다 아래)
   app.stage.addChild(seasonOverlay);
@@ -510,6 +532,10 @@ export function createRenderer(world) {
         e.width = TILE; e.height = TILE;
         e.x = (b.x + 0.5) * TILE; e.y = (b.y + 0.5) * TILE;
         e.zIndex = 0; // 지면 위, 유닛 아래
+      }
+      if (b.kind === 'fenceGate') { // 원본이 1타일보다 살짝 커서(80x96) 폭을 타일에 맞추고 비율 유지
+        e.anchor.set(0.5, 0.92);
+        e.width = TILE; e.height = TILE * (96 / 80);
       }
     } else {
       e.texture = buildingTexture(b);
@@ -1522,6 +1548,7 @@ export function createRenderer(world) {
     tickWorkFx(dtSec);
     tickGoddessFx(dtSec);
     tickDmgTexts(dtSec);
+    tickRareFishMarkers(animTime);
     var foamF = (animTime / 0.15) | 0;
     for (var n = 0; n < foamSprites.length; n++) {
       var fs = foamSprites[n];

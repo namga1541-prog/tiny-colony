@@ -112,6 +112,13 @@ export const BUILDS = {
     fw: 1, fh: 1, solid: true,
     desc: '공격 기능은 없지만 통행을 막습니다. 정착지 경계를 두르는 저렴한 울타리.',
   },
+  fenceGate: {
+    // solid:false(정착민 통과 자유) + enemyBlocked:true(적 길찾기만 차단, world.js isWalkable(forEnemy) 전용).
+    // 길이 완전히 막히면 적도 결국 부수고 들어옴(breakThrough 는 solid 여부와 무관하게 모든 건물을 대상으로 함).
+    name: '성문', cost: { wood: 5 }, work: 20, hp: 50,
+    fw: 1, fh: 1, solid: false, enemyBlocked: true,
+    desc: '정착민은 자유롭게 드나들지만 적은 통과하지 못합니다(막다른 길이면 결국 부숩니다). 방어선 안쪽에 마을 출입구를 낼 때 씁니다.',
+  },
   dock: {
     name: '선착장', cost: { wood: 20, gold: 8 }, work: 90, hp: 90,
     fw: 2, fh: 2, solid: false, requireCoast: true, // 물과 접한 곳에만 건설 가능(main.js 게이트)
@@ -414,6 +421,12 @@ export const COOK_TIERS = [
   { id: 'mealGood',  name: '푸짐한 식사', cost: { food: 2, meat: 2 },              work: 20, eatAmount: 140 },
   { id: 'mealFeast', name: '진수성찬',   cost: { food: 2, meat: 2, delicacy: 1 }, work: 26, eatAmount: 190 },
 ];
+// 요리 완성 시 극히 낮은 확률로 등급과 무관하게 "성공"해 나오는 기적의 음식.
+// 먹으면 그 정착민의 최대 체력이 영구히 늘어남(여러 번 먹으면 중첩).
+export const GLORIOUS_FOOD = {
+  id: 'gloriousMeal', name: '찬란한 음식', icon: '✨', chance: 0.01,
+  eatAmount: 200, maxHpBonus: 20,
+};
 
 // ── 사냥 (동물) ── 종류별 식량·가죽·고기 산출. 고기는 고급 요리(푸짐한 식사 이상)의 재료.
 export const HUNT = { work: 14 };
@@ -517,6 +530,10 @@ export const FISH = [
   { name: '심해 아귀왕', food: 10, gold: 0,  weight: 0.6, rare: 3, delicacy: 1 },
   { name: '오색 산천어', food: 7,  gold: 0,  weight: 0.8, rare: 3, delicacy: 1 },
   { name: '인어의 눈물고기', food: 6, gold: 0, weight: 0.5, rare: 3, delicacy: 1 },
+  // spotOnly: 일반 낚시터에서는 절대 나오지 않고, world.rareFishTile 로 지정된 초특급 스팟에서만 낚임(catchRareFish 전용).
+  // 금은 위의 황금 잉어가 유일 산출원이라는 기존 밸런스를 지키기 위해 gold 는 주지 않음(대신 식량·진미를 후하게).
+  { name: '밍크고래',   food: 40, gold: 0, weight: 1, rare: 4, delicacy: 3, spotOnly: true },
+  { name: '대왕오징어', food: 25, gold: 0, weight: 1, rare: 4, delicacy: 2, spotOnly: true },
 ];
 // 낚시터 등급별 희귀 보정 — 낚싯대(rodTier)와 같은 방식으로 합산(둘 다 있으면 시너지).
 // 0=해안(기본), 1=좌대(FISH_PLATFORM) 인접, 2=선착장(DOCK) 인접. world.js 의 fishSpotTier() 가 판정.
@@ -526,6 +543,7 @@ export function catchFish(rodTier, rng, spotBonus) {
   var total = 0, i, w = [];
   var bonus = (rodTier || 0) + (spotBonus || 0);
   for (i = 0; i < FISH.length; i++) {
+    if (FISH[i].spotOnly) { w.push(0); continue; } // 일반 낚시에서는 절대 뽑히지 않음
     var ww = FISH[i].weight * (1 + bonus * 0.9 * FISH[i].rare);
     w.push(ww); total += ww;
   }
@@ -533,6 +551,20 @@ export function catchFish(rodTier, rng, spotBonus) {
   for (i = 0; i < FISH.length; i++) { r -= w[i]; if (r <= 0) return FISH[i]; }
   return FISH[0];
 }
+
+// 초특급 희귀어종(밍크고래 등) 전용 스팟에서의 낚시 — spotOnly 어종끼리만 가중 추첨.
+var RARE_FISH_POOL = FISH.filter(function (f) { return f.spotOnly; });
+export function catchRareFish(rng) {
+  var total = 0, i, w = [];
+  for (i = 0; i < RARE_FISH_POOL.length; i++) { w.push(RARE_FISH_POOL[i].weight); total += RARE_FISH_POOL[i].weight; }
+  var r = rng() * total;
+  for (i = 0; i < RARE_FISH_POOL.length; i++) { r -= w[i]; if (r <= 0) return RARE_FISH_POOL[i]; }
+  return RARE_FISH_POOL[0];
+}
+
+// ── 초특급 희귀 낚시 스팟: 바다에 아주 드물게(맵당 2~4곳) 무작위로 생기는 지점.
+// world.js 의 createWorld 가 해안 물 타일 중 일부를 world.rareFishTile 로 표시(스폰 지점과는 멀리).
+export const RARE_FISH_SPOT = { countMin: 2, countMax: 4, minDistFromCenter: 24 };
 
 // ── 좌대: 물 위에 설치하는 저렴한 낚시 발판. 다리처럼 즉시 완공되고 밟고 설 수 있음(main.js 전용 도구).
 export const FISH_PLATFORM = { name: '좌대', cost: { wood: 6 } };

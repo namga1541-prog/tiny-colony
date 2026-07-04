@@ -1,7 +1,7 @@
 // 정착민 AI (v0.3): 욕구 → 상태기계 → 작업 수행
 import {
   NEEDS, NATURE, BUILDS, WALK_MIN_PER_TILE, TRAITS, CROP, FRUITTREE, WEAPONS, ARMOR, ITEMS,
-  COMBAT, COOK_TIERS, HUNT, TAME, CLINIC, ANIMALS, FISHING, FISH, catchFish, skillMult,
+  COMBAT, COOK_TIERS, GLORIOUS_FOOD, HUNT, TAME, CLINIC, ANIMALS, FISHING, FISH, catchFish, catchRareFish, skillMult,
   ROLES, ROLE_SPEED_BONUS,
 } from './config.js';
 import {
@@ -37,6 +37,7 @@ export function createPawn(id, def, x, y, rng) {
     px: x, py: y,
     hunger: 60 + rnd() * 30,
     hp: 100,
+    maxHp: def.maxHp || 100, // 찬란한 음식(GLORIOUS_FOOD)을 먹으면 영구 증가
     mood: 70,
     state: 'idle',       // idle | moving | working | eating | dead
     job: null,
@@ -479,9 +480,17 @@ function finishWork(world, pawn, ctx) {
     var ctier = cookTierDef(j.tierId);
     if (ctier && canAfford(world, ctier.cost)) {
       for (var cct in ctier.cost) consumeGlobal(world, cct, ctier.cost[cct]);
-      addItem(world, idx(pawn.x, pawn.y), ctier.id, 1);
-      ctx.onItemChange(idx(pawn.x, pawn.y));
-      ctx.onEvent(pawn.name + '이(가) ' + ctier.name + '을(를) 완성했습니다');
+      // 등급과 무관하게 극히 낮은 확률로 "성공"해 찬란한 음식이 대신 나옴
+      if ((ctx.rng || Math.random)() < GLORIOUS_FOOD.chance) {
+        addItem(world, idx(pawn.x, pawn.y), GLORIOUS_FOOD.id, 1);
+        ctx.onItemChange(idx(pawn.x, pawn.y));
+        if (ctx.onToast) ctx.onToast('✨ ' + pawn.name + '이(가) 요리 중 기적처럼 「찬란한 음식」을 만들어냈습니다!', true);
+        ctx.onEvent('✨ ' + pawn.name + ' 이(가) 「찬란한 음식」을 완성했습니다');
+      } else {
+        addItem(world, idx(pawn.x, pawn.y), ctier.id, 1);
+        ctx.onItemChange(idx(pawn.x, pawn.y));
+        ctx.onEvent(pawn.name + '이(가) ' + ctier.name + '을(를) 완성했습니다');
+      }
     }
     releaseAllOf(world, pawn.id);
     pawn.job = null;
@@ -493,14 +502,20 @@ function finishWork(world, pawn, ctx) {
     if (world.fishDesig[j.idx]) {
       if (storageFull(world)) { ctx.onStorageFull(); }
       else {
-        var spotBonus = Math.max(0, fishSpotTier(world, ix(j.idx), iy(j.idx)));
-        var fish = catchFish(world.rodTier || 0, ctx.rng || Math.random, spotBonus);
+        var fish;
+        if (world.rareFishTile[j.idx]) {
+          fish = catchRareFish(ctx.rng || Math.random); // 초특급 희귀어종 전용 스팟 — 밍크고래 등만 낚임
+        } else {
+          var spotBonus = Math.max(0, fishSpotTier(world, ix(j.idx), iy(j.idx)));
+          fish = catchFish(world.rodTier || 0, ctx.rng || Math.random, spotBonus);
+        }
         addItem(world, 0, 'food', fish.food);
         if (fish.gold) addItem(world, 0, 'gold', fish.gold);
         if (fish.delicacy) addItem(world, 0, 'delicacy', fish.delicacy);
         var fgold = fish.gold ? ' (금 +' + fish.gold + ')' : '';
         var fdeli = fish.delicacy ? ' (진미 +' + fish.delicacy + ')' : '';
-        if (fish.rare >= 2) ctx.onEvent('🎣 ' + pawn.name + ' 이(가) 희귀 어종 "' + fish.name + '" 을(를) 낚았습니다!' + fgold + fdeli);
+        if (fish.spotOnly) ctx.onEvent('🐋 ' + pawn.name + ' 이(가) 초특급 희귀어종 "' + fish.name + '" 을(를) 낚았습니다!!' + fgold + fdeli);
+        else if (fish.rare >= 2) ctx.onEvent('🎣 ' + pawn.name + ' 이(가) 희귀 어종 "' + fish.name + '" 을(를) 낚았습니다!' + fgold + fdeli);
         else ctx.onEvent('🎣 ' + pawn.name + ' 이(가) ' + fish.name + ' 을(를) 낚았습니다' + fgold);
       }
     }
@@ -663,8 +678,9 @@ function cookTierDef(id) {
   for (var i = 0; i < COOK_TIERS.length; i++) if (COOK_TIERS[i].id === id) return COOK_TIERS[i];
   return null;
 }
-// 먹을거리 선택: 등급 높은 요리부터(포만감 회복이 크므로 먼저 소비), 없으면 생식량.
+// 먹을거리 선택: 찬란한 음식(최상급) → 등급 높은 요리부터(포만감 회복이 크므로 먼저 소비), 없으면 생식량.
 function pickEatSource(world) {
+  if ((world.stock[GLORIOUS_FOOD.id] || 0) > 0) return { type: GLORIOUS_FOOD.id, amt: GLORIOUS_FOOD.eatAmount };
   for (var i = COOK_TIERS.length - 1; i >= 0; i--) {
     var t = COOK_TIERS[i];
     if ((world.stock[t.id] || 0) > 0) return { type: t.id, amt: t.eatAmount };
@@ -800,8 +816,8 @@ export function updatePawn(world, pawn, dtMin, ctx) {
       ctx.onDeath(pawn);
       return;
     }
-  } else if (pawn.hunger > 60 && pawn.hp < 100) {
-    pawn.hp = Math.min(100, pawn.hp + NEEDS.hpRegen * (trait.hpRegenMult || 1) * dtMin);
+  } else if (pawn.hunger > 60 && pawn.hp < (pawn.maxHp || 100)) {
+    pawn.hp = Math.min(pawn.maxHp || 100, pawn.hp + NEEDS.hpRegen * (trait.hpRegenMult || 1) * dtMin);
   }
   if (pawn.stuckCd > 0) pawn.stuckCd -= dtMin;
 
@@ -869,7 +885,15 @@ export function updatePawn(world, pawn, dtMin, ctx) {
         var eatSrc = pickEatSource(world);
         if (eatSrc) {
           var got = removeItem(world, 0, eatSrc.type, 1);
-          if (got > 0) pawn.hunger = Math.min(100, pawn.hunger + eatSrc.amt);
+          if (got > 0) {
+            pawn.hunger = Math.min(100, pawn.hunger + eatSrc.amt);
+            if (eatSrc.type === GLORIOUS_FOOD.id) {
+              pawn.maxHp = (pawn.maxHp || 100) + GLORIOUS_FOOD.maxHpBonus;
+              pawn.hp = Math.min(pawn.maxHp, pawn.hp + GLORIOUS_FOOD.maxHpBonus);
+              if (ctx.onToast) ctx.onToast('✨ ' + pawn.name + '이(가) 「찬란한 음식」을 먹고 몸이 더 튼튼해졌습니다! (최대 체력 +' + GLORIOUS_FOOD.maxHpBonus + ')', true);
+              ctx.onEvent('✨ ' + pawn.name + ' 최대 체력 +' + GLORIOUS_FOOD.maxHpBonus);
+            }
+          }
         }
         releaseAllOf(world, pawn.id);
         pawn.job = null;
@@ -879,7 +903,7 @@ export function updatePawn(world, pawn, dtMin, ctx) {
     }
 
     case 'resting': {
-      pawn.hp = Math.min(100, pawn.hp + CLINIC.restRegen * upgradeMult(world, 'healspeed') * dtMin);
+      pawn.hp = Math.min(pawn.maxHp || 100, pawn.hp + CLINIC.restRegen * upgradeMult(world, 'healspeed') * dtMin);
       if (pawn.hp >= CLINIC.healedAt) {
         releaseAllOf(world, pawn.id);
         pawn.job = null;

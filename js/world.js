@@ -3,7 +3,7 @@ import {
   MAP_W, MAP_H, NATURE, STACK_MAX, BUILDS, BUILDING_HP_DEFAULT, GOLDMINE, IRONMINE, BRIDGE,
   RESEARCH_RATE_PER_PAWN, ENEMY, RAID, GIANT, GIANT_FAST_MULT, GIANT_JUMP, SEASON_DAYS, SEASONS, STORAGE, RANCH, REGROW,
   ANIMAL_TYPES, ANIMALS, WILD_ANIMAL_TYPES, BARN, WAREHOUSE_TIERS, UPGRADES, RANKS, HOUSE_POP_BONUS, HOUSE_POP_CAP_COUNT, DEFENSE_TIERS, OUTPOST_BRANCHES, CANNON, RELICS, ISLANDS, CANNIBAL, WARLORD, RAIDER, INVWARRIOR, ZOMBIE, SKELETON, DEMON,
-  ARMOR, FISH_PLATFORM, LODGE_FARM_RADIUS,
+  ARMOR, FISH_PLATFORM, LODGE_FARM_RADIUS, RARE_FISH_SPOT,
   T_WATER, T_GRASS, T_SAND,
 } from './config.js';
 import { findPath } from './path.js';
@@ -174,6 +174,7 @@ export function createWorld(seed) {
     bossDefeated: false, // 최종 보스 「악마후배」 처치 여부
     dug: {},            // idx -> true. 삽으로 파낸 땅 (자원 재생 없음 · 건설 공간)
     islands: [],        // {id,name,icon,theme,cx,cy,r,discovered,cap} — 원정 섬 메타(발견·리스폰용)
+    rareFishTile: {},   // idx -> true. 초특급 희귀어종(밍크고래 등)만 낚이는 희귀 낚시 스팟(맵에 몇 곳뿐)
   };
 
   var coast = makeNoise(rng, 8);
@@ -356,6 +357,19 @@ export function createWorld(seed) {
     }
   }
 
+  // 초특급 희귀 낚시 스팟(밍크고래 등) — 스폰 지점에서 멀리 떨어진 해안 물 타일 중 몇 곳을 무작위로 표시
+  var rareFishN = RARE_FISH_SPOT.countMin + ((rng() * (RARE_FISH_SPOT.countMax - RARE_FISH_SPOT.countMin + 1)) | 0);
+  for (var rf = 0; rf < rareFishN; rf++) {
+    for (var rft = 0; rft < 80; rft++) {
+      var fx = (rng() * MAP_W) | 0, fy = (rng() * MAP_H) | 0;
+      if (world.terrain[idx(fx, fy)] !== T_WATER) continue;
+      if (Math.hypot(fx - cx, fy - cy) < RARE_FISH_SPOT.minDistFromCenter) continue;
+      if (fishSpotTier(world, fx, fy) < 0) continue; // 해안(육지 인접)이어야 실제로 낚시 지정 가능
+      world.rareFishTile[idx(fx, fy)] = true;
+      break;
+    }
+  }
+
   return world;
 }
 
@@ -447,7 +461,9 @@ export function sheepById(world, id) {
   return null;
 }
 
-export function isWalkable(world, x, y) {
+// forEnemy: 적 길찾기 전용 판정이면 true — solid 는 기존과 동일하게 막되, enemyBlocked(성문 등 정착민만
+// 통과하는 건물)도 추가로 막는다. 정착민·기타 판정(기본값)은 이 인자를 생략해 기존과 동일하게 동작.
+export function isWalkable(world, x, y, forEnemy) {
   if (!inMap(x, y)) return false;
   var i = idx(x, y);
   var bid = world.occupancy[i];
@@ -463,7 +479,11 @@ export function isWalkable(world, x, y) {
   if (o && o.kind === 'tree') return false;
   if (bid !== undefined) {
     var b = world.buildings[bid];
-    if (b && b.stage === 'built' && buildingDef(b.kind).solid) return false;
+    if (b && b.stage === 'built') {
+      var bd = buildingDef(b.kind);
+      if (bd.solid) return false;
+      if (forEnemy && bd.enemyBlocked) return false;
+    }
   }
   return true;
 }
@@ -1104,11 +1124,11 @@ function greedyStepEnemy(world, e, tx, ty, step) {
   if (vx !== 0) e.dir = vx;
   var moved = false;
   if (Math.abs(tx - e.px) >= Math.abs(ty - e.py)) {
-    if (vx !== 0 && isWalkable(world, Math.round(e.px + vx), Math.round(e.py))) { e.px += vx * step; moved = true; }
-    else if (vy !== 0 && isWalkable(world, Math.round(e.px), Math.round(e.py + vy))) { e.py += vy * step; moved = true; }
+    if (vx !== 0 && isWalkable(world, Math.round(e.px + vx), Math.round(e.py), true)) { e.px += vx * step; moved = true; }
+    else if (vy !== 0 && isWalkable(world, Math.round(e.px), Math.round(e.py + vy), true)) { e.py += vy * step; moved = true; }
   } else {
-    if (vy !== 0 && isWalkable(world, Math.round(e.px), Math.round(e.py + vy))) { e.py += vy * step; moved = true; }
-    else if (vx !== 0 && isWalkable(world, Math.round(e.px + vx), Math.round(e.py))) { e.px += vx * step; moved = true; }
+    if (vy !== 0 && isWalkable(world, Math.round(e.px), Math.round(e.py + vy), true)) { e.py += vy * step; moved = true; }
+    else if (vx !== 0 && isWalkable(world, Math.round(e.px + vx), Math.round(e.py), true)) { e.px += vx * step; moved = true; }
   }
   if (moved) { e.x = Math.round(e.px); e.y = Math.round(e.py); }
   return moved;
@@ -1285,7 +1305,7 @@ export function updateEnemies(world, pawns, dtMin, cb) {
         e.pathCd = (e.pathCd || 0) - dtMin;
         var goalMoved = !e.pathGoal || (Math.abs(e.pathGoal.x - gx) + Math.abs(e.pathGoal.y - gy) > 2);
         if (e.path === undefined || e.pathCd <= 0 || goalMoved) {
-          e.path = findPath(world, ex0, ey0, gx, gy, true);
+          e.path = findPath(world, ex0, ey0, gx, gy, true, true);
           e.pathGoal = { x: gx, y: gy };
           e.pathCd = 30 + (e.id % 20);
         }

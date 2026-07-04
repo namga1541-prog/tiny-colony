@@ -1,6 +1,6 @@
 // DOM HUD: 도구·시계·자원·정착민 패널·토스트·커스터마이징 모달·연구/제작 모달
 import { taskLabel } from './pawns.js';
-import { HUMANS, RESEARCH, WEAPONS, ARMOR, SKILL_LABEL, skillLevel, BUILDS, STORAGE, RODS, WAREHOUSE_TIERS, ROLES, RANKS, BUILD_MIN_RANK, DEFENSE_TIERS, OUTPOST_BRANCHES, RELICS, INVASION, TRADER, DAY_MIN } from './config.js';
+import { HUMANS, RESEARCH, WEAPONS, ARMOR, SKILL_LABEL, skillLevel, BUILDS, STORAGE, RODS, WAREHOUSE_TIERS, ROLES, RANKS, BUILD_MIN_RANK, DEFENSE_TIERS, OUTPOST_BRANCHES, RELICS, INVASION, TRADER, DAY_MIN, GLORIOUS_FOOD } from './config.js';
 import { totalRes, warehouseTier, warehouseCap, maxPop, rankReqStatus, defenseStats } from './world.js';
 
 export function createUI(handlers) {
@@ -152,7 +152,7 @@ export function createUI(handlers) {
     resGold.textContent = sum.gold || 0;
     if (resIron) resIron.textContent = sum.iron || 0;
     resFood.textContent = sum.food || 0;
-    if (resMeal) resMeal.textContent = (sum.meal || 0) + (sum.mealGood || 0) + (sum.mealFeast || 0);
+    if (resMeal) resMeal.textContent = (sum.meal || 0) + (sum.mealGood || 0) + (sum.mealFeast || 0) + (sum[GLORIOUS_FOOD.id] || 0);
     if (resLeather) resLeather.textContent = sum.leather || 0;
     if (resMeat) resMeat.textContent = sum.meat || 0;
     if (resDelicacy) resDelicacy.textContent = sum.delicacy || 0;
@@ -190,7 +190,7 @@ export function createUI(handlers) {
       var selected = controlled && controlled.indexOf(p) >= 0;
       row.className = 'roster-row' + (p.state === 'dead' ? ' dead' : '') + (selected ? ' sel' : '');
       row.querySelector('.rn').textContent = p.name;
-      row.querySelector('.roster-hp > div').style.width = Math.max(0, Math.round(p.hp)) + '%';
+      row.querySelector('.roster-hp > div').style.width = Math.max(0, Math.round(p.hp / (p.maxHp || 100) * 100)) + '%';
     }
   }
 
@@ -232,7 +232,7 @@ export function createUI(handlers) {
     pawnName.textContent = (pawn.role && pawn.role !== 'none' ? rdef.icon + ' ' : '') + pawn.name;
     pawnTask.textContent = taskLabel(pawn);
     barHunger.style.width = pawn.hunger + '%';
-    barHp.style.width = pawn.hp + '%';
+    barHp.style.width = (pawn.hp / (pawn.maxHp || 100) * 100) + '%';
     barMood.style.width = Math.round(pawn.mood) + '%';
     pawnTrait.textContent = pawn.trait && pawn.trait.id !== 'none'
       ? '✦ ' + pawn.trait.name + ' — ' + pawn.trait.desc : '';

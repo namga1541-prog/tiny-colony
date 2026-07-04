@@ -74,6 +74,7 @@ if (saved) {
   pawns = saved.pawns.map(function (p) {
     var pw = createPawn(p.id, { name: p.name, look: p.look, color: p.color, trait: p.trait, equipped: p.equipped, armor: p.armor, skills: p.skills, role: p.role }, p.x, p.y);
     pw.hunger = p.hunger; pw.hp = p.hp;
+    pw.maxHp = p.maxHp || 100; // 구버전 세이브엔 필드 없음 — 기본값 100
     pw.mood = p.mood === undefined ? 70 : p.mood;
     pw.carry = p.carry || null;
     if (p.dead) pw.state = 'dead';
@@ -727,6 +728,22 @@ function applyTool(tool, a, b) {
       count++;
     });
     if (count) UI.toast('🧱 울타리 ' + count + '칸 착공 — 일꾼이 건설합니다');
+    else UI.toast('⚠️ 목재가 부족하거나 지을 수 없는 위치입니다', true);
+  }
+
+  else if (tool === 'fenceGate') {
+    // 성문: 정착민은 통과·적은 차단(solid:false + enemyBlocked:true) — 다른 1칸 도구와 동일 패턴
+    var gdef = BUILDS.fenceGate;
+    forRect(a, b, function (i, x, y) {
+      if (!footprintClear(world, x, y, 1, 1, false)) return;
+      if (!canAfford(world, gdef.cost)) return;
+      for (var ct3 in gdef.cost) consumeGlobal(world, ct3, gdef.cost[ct3]);
+      var gb = addBuilding(world, 'fenceGate', x, y);
+      for (var ct4 in gdef.cost) gb.delivered[ct4] = gdef.cost[ct4];
+      R.refreshBuilding(gb);
+      count++;
+    });
+    if (count) UI.toast('🚪 성문 ' + count + '칸 착공 — 일꾼이 건설합니다');
     else UI.toast('⚠️ 목재가 부족하거나 지을 수 없는 위치입니다', true);
   }
 

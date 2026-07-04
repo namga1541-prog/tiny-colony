@@ -40,9 +40,10 @@ function heapPop(heap) {
 
 /**
  * (sx,sy) → (tx,ty) 경로. adjacentOk 이면 목표 인접 칸 도달로 성공 처리.
+ * forEnemy: 적 전용 길찾기면 true(성문 등 enemyBlocked 건물도 장애물로 취급).
  * 반환: [{x,y}, ...] (시작 칸 제외) 또는 null
  */
-export function findPath(world, sx, sy, tx, ty, adjacentOk) {
+export function findPath(world, sx, sy, tx, ty, adjacentOk, forEnemy) {
   if (sx === tx && sy === ty) return [];
   if (adjacentOk && Math.abs(sx - tx) + Math.abs(sy - ty) === 1) return [];
 
@@ -76,7 +77,7 @@ export function findPath(world, sx, sy, tx, ty, adjacentOk) {
 
     for (var d = 0; d < 4; d++) {
       var nx = cx + dx[d], ny = cy + dy[d];
-      if (!isWalkable(world, nx, ny)) continue;
+      if (!isWalkable(world, nx, ny, forEnemy)) continue;
       var ni = idx(nx, ny);
       if (closed[ni]) continue;
       var tentative = gScore[cur] + 1;

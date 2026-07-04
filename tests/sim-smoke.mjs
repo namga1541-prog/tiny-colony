@@ -1,8 +1,10 @@
 // L1 시나리오 스모크 — 시드 고정, 헤드리스. stepWorld 추출이 올바른지 + 결정론 확인.
 import { bootSim, run, runDays, designateChop, give, snapshot, DAY_MIN, MAP_W, MAP_H } from './harness.mjs';
 import { addBuilding, storageCap, upgradeMult, upgradeAdd, maxPop, rankReqStatus, canAdvanceRank, advanceRank, defenseStats, tickTowers, enemyStats, spawnRaid, mulberry32, grantRelic, dailyIslandRespawn, checkIslandDiscovery, updateEnemies, idx, shipComplete, fishSpotTier, footprintTouchesWater, canPlaceBridge, isWalkable, autoDesignateLodges, footprintAdjacentMine, ensureBossIsland } from '../js/world.js';
-import { GIANT, ENEMY, CANNIBAL, ISLANDS, INVASION, OUTPOST_BRANCHES, RAIDER, INVWARRIOR, ZOMBIE, SKELETON, GIANT_JUMP, ARMOR, FRUITTREE, FISH, catchFish, GODDESS, TRADER, BUILDS, BUILD_MIN_RANK, FISH_PLATFORM, DEMON } from '../js/config.js';
+import { GIANT, ENEMY, CANNIBAL, ISLANDS, INVASION, OUTPOST_BRANCHES, RAIDER, INVWARRIOR, ZOMBIE, SKELETON, GIANT_JUMP, ARMOR, FRUITTREE, FISH, catchFish, catchRareFish, GODDESS, TRADER, BUILDS, BUILD_MIN_RANK, FISH_PLATFORM, DEMON, GLORIOUS_FOOD, RARE_FISH_SPOT } from '../js/config.js';
 import { findWorkJob, releaseAllOf } from '../js/jobs.js';
+import { findPath } from '../js/path.js';
+import { createPawn, updatePawn } from '../js/pawns.js';
 
 var fails = 0;
 function ok(cond, msg) {
@@ -1027,6 +1029,103 @@ console.log('[sim-smoke] 38) 악마후배 — 앞을 막은 건물을 부수며 
   w3.bossDefeated = true;
   w3.enemies = w3.enemies.filter(function (e) { return e.kind !== 'demon'; });
   ok(ensureBossIsland(w3) === false, '이미 격파한 경우엔 다시 스폰하지 않음');
+})();
+
+console.log('[sim-smoke] 39) 성문(fenceGate) — 정착민은 통과·적은 차단 + 막다른 길이면 결국 돌파 (신규)');
+(function () {
+  var w = bootSim(1501).world;
+  var gx = 48, gy = 48;
+  addBuilding(w, 'fenceGate', gx, gy, { stage: 'built' });
+  ok(isWalkable(w, gx, gy), '정착민 시점(기본값)에는 성문이 통행 가능');
+  ok(isWalkable(w, gx, gy, true) === false, '적 시점(forEnemy)에는 성문이 통행 불가');
+
+  // (a) 목적지(50,50)를 나무 링(5x5 테두리)으로 완전히 에워싸고, 테두리 위쪽 한 칸만 성문으로 뚫어둠
+  //     → 정착민은 성문을 통과해 들어가지만, 적 시점 길찾기는 유일한 통로(성문)가 막혀 경로가 없다
+  for (var yy = 44; yy <= 54; yy++) for (var xx = 44; xx <= 54; xx++) { delete w.objects[idx(xx, yy)]; }
+  for (var rx = 48; rx <= 52; rx++) { w.objects[idx(rx, 48)] = { kind: 'tree' }; w.objects[idx(rx, 52)] = { kind: 'tree' }; }
+  for (var ry = 49; ry <= 51; ry++) { w.objects[idx(48, ry)] = { kind: 'tree' }; w.objects[idx(52, ry)] = { kind: 'tree' }; }
+  gx = 50; gy = 48;
+  delete w.objects[idx(gx, gy)]; // 위쪽 변 가운데 한 칸을 성문 자리로 비움
+  addBuilding(w, 'fenceGate', gx, gy, { stage: 'built' });
+  var pawnPath = findPath(w, 50, 44, 50, 50, false);
+  var enemyPath = findPath(w, 50, 44, 50, 50, false, true);
+  ok(pawnPath !== null, '정착민 길찾기는 성문을 통과해 링 안쪽까지 경로를 찾음');
+  ok(enemyPath === null, '적 길찾기는 성문이 유일한 통로면 경로를 못 찾음(우회·직진 모두 불가)');
+
+  // (b) 링의 다른 변에 우회 통로를 하나 더 뚫으면 — 적은 성문 칸을 피해 그 우회로로 돌아간다
+  delete w.objects[idx(48, 50)]; // 왼쪽 변에 우회 통로 하나 더 뚫음
+  var enemyPath2 = findPath(w, 50, 44, 50, 50, false, true);
+  ok(enemyPath2 !== null, '우회로가 있으면 적도 결국 도달함(성문 칸만 피해서)');
+  ok(enemyPath2.every(function (p) { return !(p.x === gx && p.y === gy); }), '적의 우회 경로는 성문 칸을 지나지 않음');
+})();
+
+console.log('[sim-smoke] 40) 찬란한 음식 — 요리 중 극저확률로 등급 대신 성공 + 먹으면 최대 체력 영구 증가 (신규)');
+(function () {
+  var w = bootSim(1601).world;
+  var p = createPawn(0, {}, 50, 50);
+  p.hunger = 60; p.mood = 70;
+  w.stock.food = 10;
+  var ctxBase = { onItemChange: function () {}, onEvent: function () {}, onToast: function () {}, onDeath: function () {} };
+
+  // (a) 확률 굴림이 실패(임계값 이상)하면 평소대로 등급 요리가 나옴
+  p.job = { type: 'cook', tierId: 'meal' };
+  p.state = 'working'; p.workLeft = 0.01;
+  updatePawn(w, p, 1, Object.assign({}, ctxBase, { rng: function () { return 0.99; } }));
+  ok((w.stock.meal || 0) === 1, '확률 굴림 실패 시 평소대로 등급 요리(소박한 식사)가 나옴');
+  ok(!w.stock[GLORIOUS_FOOD.id], '이번엔 찬란한 음식이 나오지 않음');
+
+  // (b) 확률 굴림이 성공(임계값 미만)하면 등급과 무관하게 찬란한 음식이 나옴
+  w.stock.food = 10;
+  p.job = { type: 'cook', tierId: 'meal' };
+  p.state = 'working'; p.workLeft = 0.01;
+  updatePawn(w, p, 1, Object.assign({}, ctxBase, { rng: function () { return 0; } }));
+  ok(w.stock[GLORIOUS_FOOD.id] === 1, '확률 굴림 성공 시 찬란한 음식이 나옴');
+  ok((w.stock.meal || 0) === 1, '기존에 있던 등급 요리 재고는 그대로(추가 생산 안 됨)');
+
+  // (c) 찬란한 음식을 먹으면 최대 체력이 영구 증가하고, 그만큼 체력도 회복됨
+  var maxHpBefore = p.maxHp;
+  p.hp = 50;
+  p.job = null; p.state = 'eating'; p.workLeft = 0.01;
+  updatePawn(w, p, 1, Object.assign({}, ctxBase, { rng: function () { return 0.99; } }));
+  ok(p.maxHp === maxHpBefore + GLORIOUS_FOOD.maxHpBonus, '찬란한 음식을 먹으면 최대 체력이 영구 증가 (' + maxHpBefore + '→' + p.maxHp + ')');
+  ok(p.hp === 50 + GLORIOUS_FOOD.maxHpBonus, '체력도 증가분만큼 즉시 회복됨');
+  ok(!w.stock[GLORIOUS_FOOD.id], '먹은 만큼 찬란한 음식 재고 소비됨');
+  ok((w.stock.meal || 0) === 1, '일반 등급 요리는 건드리지 않음(찬란한 음식이 최우선으로 소비됨)');
+})();
+
+console.log('[sim-smoke] 41) 초특급 희귀 낚시 스팟 — 맵에 몇 곳뿐인 전용 지점 + 밍크고래 등 전용 어종 (신규)');
+(function () {
+  var w = bootSim(1701).world;
+  var spots = Object.keys(w.rareFishTile).map(function (s) { return +s; });
+  ok(spots.length >= RARE_FISH_SPOT.countMin && spots.length <= RARE_FISH_SPOT.countMax,
+    '맵당 스팟 개수가 설정 범위 안(' + spots.length + '개, ' + RARE_FISH_SPOT.countMin + '~' + RARE_FISH_SPOT.countMax + ')');
+  var cx = MAP_W / 2, cy = MAP_H / 2;
+  ok(spots.every(function (i) {
+    var x = i % MAP_W, y = (i / MAP_W) | 0;
+    return w.terrain[i] === 0 && Math.hypot(x - cx, y - cy) >= RARE_FISH_SPOT.minDistFromCenter && fishSpotTier(w, x, y) >= 0;
+  }), '모든 스팟이 스폰 지점에서 멀리 떨어진 해안 물 타일(육지 인접)');
+
+  // (a) 일반 낚시(catchFish)에서는 spotOnly 어종이 절대 나오지 않음
+  var rng1 = mulberry32(555);
+  var sawSpotOnly = false;
+  for (var i = 0; i < 3000; i++) { if (catchFish(3, rng1, 2).spotOnly) sawSpotOnly = true; }
+  ok(!sawSpotOnly, '일반 낚시에서는 밍크고래 등 spotOnly 어종이 절대 나오지 않음(3000회 시행)');
+
+  // (b) 희귀 스팟 전용 낚시(catchRareFish)는 항상 spotOnly 어종만 나옴
+  var rng2 = mulberry32(556);
+  var allSpotOnly = true;
+  for (var i2 = 0; i2 < 200; i2++) { var f = catchRareFish(rng2); if (!f.spotOnly) allSpotOnly = false; }
+  ok(allSpotOnly, '희귀 스팟에서는 항상 spotOnly 어종(밍크고래·대왕오징어)만 낚임(200회 시행)');
+
+  // (c) 실제 낚시 작업 완료 시 — 희귀 스팟 타일이면 spotOnly 어종, 일반 타일이면 일반 어종
+  var rareIdx = spots[0];
+  var rx = rareIdx % MAP_W, ry = (rareIdx / MAP_W) | 0;
+  w.fishDesig[rareIdx] = true;
+  var p = createPawn(0, {}, rx, ry);
+  p.hunger = 60; p.job = { type: 'fish', idx: rareIdx }; p.state = 'working'; p.workLeft = 0.01;
+  var ctxFish = { onItemChange: function () {}, onEvent: function () {}, onToast: function () {}, onDeath: function () {}, onStorageFull: function () {}, rng: function () { return 0.5; } };
+  updatePawn(w, p, 1, ctxFish);
+  ok((w.stock.food || 0) >= 25 && (w.stock.delicacy || 0) >= 2, '희귀 스팟 낚시 결과가 spotOnly 어종의 후한 식량·진미로 반영됨');
 })();
 
 console.log('');
