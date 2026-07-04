@@ -19,6 +19,9 @@ echo "[pre-commit] FUNCTIONS.md 재생성..."
 node tools/gen-functions.mjs
 git add FUNCTIONS.md
 
+echo "[pre-commit] 스타일·불변식 검사..."
+node tools/check-style.mjs
+
 echo "[pre-commit] L1 시뮬 스모크..."
 node tests/sim-smoke.mjs
 

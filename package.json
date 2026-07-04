@@ -9,7 +9,8 @@
     "test:invariants": "node tests/invariants.mjs",
     "test:browser": "node tests/browser-smoke.mjs",
     "gen:functions": "node tools/gen-functions.mjs",
-    "check": "npm run gen:functions && npm run test:sim && npm run test:invariants && npm run test:browser && npm run test:mobile",
+    "check:style": "node tools/check-style.mjs",
+    "check": "npm run gen:functions && npm run check:style && npm run test:sim && npm run test:invariants && npm run test:browser && npm run test:mobile",
     "test:mobile": "node tests/mobile-smoke.mjs"
   }
 }
