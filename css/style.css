@@ -94,12 +94,13 @@ body.touch .touch-only { display: inline-block; }
   pointer-events: none;
 }
 /* 대제목 탭 (도구·건설·관리) — 누르면 아래 소제목 그룹이 바뀜 */
-.tool-cats { display: flex; gap: 6px; justify-content: center; margin-bottom: 2px; }
+.tool-cats { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-bottom: 2px; }
 .tool-cat {
   background: linear-gradient(180deg, #2c333f, #20262f);
   border: 1px solid #10131a; color: #b9c0d0;
   border-radius: 9px; padding: 7px 18px;
   font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit;
+  white-space: nowrap; /* 라벨이 "🎨 꾸미"/"기" 처럼 단어 중간에서 줄바꿈되지 않도록 */
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
   transition: background 0.12s, color 0.12s;
 }
@@ -123,6 +124,7 @@ body.touch .touch-only { display: inline-block; }
   font-size: 13px; font-weight: 600;
   cursor: pointer;
   font-family: inherit;
+  white-space: nowrap; /* 좁은 창에서 라벨이 단어 중간에서 줄바꿈되지 않도록(줄바꿈은 버튼 사이에서만) */
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 1px 2px rgba(0, 0, 0, 0.4);
   transition: background 0.12s, box-shadow 0.12s, color 0.12s, transform 0.08s;
 }
@@ -240,7 +242,7 @@ body.touch .touch-only { display: inline-block; }
 .dc-rows { display: flex; flex-direction: column; gap: 7px; }
 .dc-row { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 9px;
   background: rgba(255, 255, 255, 0.05); }
-.dc-name { font-size: 13px; color: #dde2ee; width: 44px; }
+.dc-name { font-size: 13px; color: #dde2ee; width: 76px; white-space: nowrap; } /* "소박한 식사"(5자) 등이 줄바꿈되지 않도록 폭 확보 */
 .dc-amt { font-size: 14px; color: #ffd98a; min-width: 52px; font-variant-numeric: tabular-nums; }
 .dc-btns { margin-left: auto; display: flex; gap: 5px; }
 .dc-btns button { background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.14);
