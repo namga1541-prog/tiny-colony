@@ -20,13 +20,12 @@ export function createRenderer(world) {
   PIXI.settings.SCALE_MODE = PIXI.SCALE_MODES.NEAREST;
 
   // ── 베이스 텍스처 ──
-  var SHEETS = ['Tilemap_Flat', 'Water', 'Foam', 'Tree', 'Fire', 'Dead',
+  var SHEETS = ['Tilemap_Flat', 'Water', 'Foam', 'Fire', 'Dead',
     'House', 'House_C', 'Tower', 'Tower_C', 'Castle', 'Castle_C',
     'GoldMine_Active', 'GoldMine_Destroyed',
     'W_Idle', 'G_Idle', 'M_Idle',
     'Goblin', 'Bridge_All', 'Food_Grain',
-    'Pawn_Red', 'Warrior_Red', 'Warrior_Purple', // 침략 세력(약탈자·전사·정복자) 적 스프라이트
-    'deco03'];
+    'Pawn_Red', 'Warrior_Red', 'Warrior_Purple']; // 침략 세력(약탈자·전사·정복자) 적 스프라이트
   var base = {};
   SHEETS.forEach(function (n) {
     base[n] = PIXI.BaseTexture.from(TS + n + '.png');
@@ -137,8 +136,19 @@ export function createRenderer(world) {
 
   var foamFrames = [], treeFrames = [], fireFrames = [];
   for (var ff = 0; ff < 8; ff++) foamFrames.push(tx('Foam', ff * 192, 0, 192, 192));
-  for (var tf = 0; tf < 4; tf++) treeFrames.push(tx('Tree', tf * 192, 0, 192, 192));
-  var stumpTex = tx('Tree', 0, 384, 192, 192);
+  // 자연물(Sunnyside): 나무 4프레임(32x34)·버섯 4프레임(16x16) 스트립
+  base.SSTree = PIXI.BaseTexture.from('assets/sunnyside/nature/tree_strip4.png');
+  base.SSTree.scaleMode = PIXI.SCALE_MODES.NEAREST;
+  base.SSMush = PIXI.BaseTexture.from('assets/sunnyside/nature/mushroom_strip4.png');
+  base.SSMush.scaleMode = PIXI.SCALE_MODES.NEAREST;
+  for (var tf = 0; tf < 4; tf++) treeFrames.push(tx('SSTree', tf * 32, 0, 32, 34));
+  // 단품 자연물(그루터기·과일덤불·작물)은 개별 파일 텍스처
+  function ssnTex(file) {
+    var t = PIXI.Texture.from('assets/sunnyside/nature/' + file + '.png');
+    t.baseTexture.scaleMode = PIXI.SCALE_MODES.NEAREST;
+    return t;
+  }
+  var stumpTex = ssnTex('stump');
   for (var fi = 0; fi < 7; fi++) fireFrames.push(tx('Fire', fi * 128, 0, 128, 128));
   // 가축(양·돼지·소·닭): Sunnyside World 32x32 4프레임 스트립 — 정착민과 같은 팩으로 통일
   var SS_ANIMAL_FILES = {
@@ -163,20 +173,14 @@ export function createRenderer(world) {
     horse: [tx('WildHorse', 0, 5 * 128, 128, 128), tx('WildHorse', 2 * 128, 5 * 128, 128, 128)],
   };
   wildAnimalFrames.tiger = wildAnimalFrames.lion; // 전용 스프라이트 없음 — 사자 실루엣 + 주황 색조로 대체
-  var mushroomTex = PIXI.Texture.from(TS + 'deco03.png');
+  var mushroomTex = tx('SSMush', 0, 0, 16, 16);
+  var carrotPatchTex = ssnTex('carrot_patch');
 
-  // 작물 스프라이트 (v0.2 때 받아둔 Kenney RPG 시트 재사용 — 새 에셋 불필요)
-  var rpgBase = PIXI.BaseTexture.from('assets/rpg/roguelikeSheet_transparent.png');
-  rpgBase.scaleMode = PIXI.SCALE_MODES.NEAREST;
-  function rpgTex(i) {
-    var cols = 57, sp = 1, cell = 16;
-    var col = i % cols, row = (i / cols) | 0;
-    return new PIXI.Texture(rpgBase, new PIXI.Rectangle(col * (cell + sp), row * (cell + sp), cell, cell));
-  }
-  var cropGrowingTex = rpgTex(649); // 새싹
-  var cropReadyTex = rpgTex(594);   // 열매 맺은 밀 (수확 가능)
-  var fruitGrowingTex = rpgTex(538); // 열매 없는 어린 나무
-  var fruitReadyTex = rpgTex(536);   // 열매 맺은 나무 (수확 가능)
+  // 작물 스프라이트 (Sunnyside 작물 시트)
+  var cropGrowingTex = ssnTex('wheat_growing');       // 밀 새싹
+  var cropReadyTex = ssnTex('wheat_ready');           // 여문 밀 (수확 가능)
+  var fruitGrowingTex = ssnTex('fruit_bush_growing'); // 열매 없는 덤불나무
+  var fruitReadyTex = ssnTex('fruit_bush_ready');     // 사과 맺은 덤불나무 (수확 가능)
   var ITEM_TEX = {
     wood: function () { return tx('W_Idle', 0, 0, 128, 128); },
     gold: function () { return tx('G_Idle', 0, 0, 128, 128); },
@@ -431,7 +435,8 @@ export function createRenderer(world) {
       var s;
       if (wantKind === 'tree') {
         s = new PIXI.Sprite(treeFrames[o.phase || 0]);
-        s.anchor.set(0.5, 0.88);
+        s.anchor.set(0.5, 1); // 프레임 바닥이 그림자선
+        s.scale.set(4.2);     // 32x34 → 약 2타일 높이
         s.x = ix(i) * TILE + 32; s.y = (iy(i) + 1) * TILE;
         s.treePhase = o.phase || 0;
         treeList.push(s);
@@ -440,9 +445,10 @@ export function createRenderer(world) {
         s.anchor.set(0.5, 0.85);
         s.scale.set(2.2);
         s.x = ix(i) * TILE + 32; s.y = (iy(i) + 1) * TILE - 8;
-      } else {
-        s = new PIXI.Sprite(mushroomTex);
+      } else { // 버섯·당근밭 (16px 단품)
+        s = new PIXI.Sprite(wantKind === 'carrotPatch' ? carrotPatchTex : mushroomTex);
         s.anchor.set(0.5, 0.85);
+        s.scale.set(3);
         s.x = ix(i) * TILE + 32; s.y = (iy(i) + 1) * TILE - 8;
       }
       s.objKind = wantKind;
@@ -454,8 +460,9 @@ export function createRenderer(world) {
     var wantStump = o && o.kind === 'stump';
     if (wantStump && !stumpSprites[i]) {
       var st = new PIXI.Sprite(stumpTex);
-      st.anchor.set(0.5, 0.88);
-      st.x = ix(i) * TILE + 32; st.y = (iy(i) + 1) * TILE;
+      st.anchor.set(0.5, 0.9);
+      st.scale.set(3);
+      st.x = ix(i) * TILE + 32; st.y = (iy(i) + 1) * TILE - 10;
       groundDecor.addChild(st);
       stumpSprites[i] = st;
     } else if (!wantStump && stumpSprites[i]) {
@@ -477,7 +484,7 @@ export function createRenderer(world) {
     if (!e) {
       e = new PIXI.Sprite(cropGrowingTex);
       e.anchor.set(0.5, 0.85);
-      e.scale.set(2.6);
+      e.scale.set(3.2); // Sunnyside 작물은 11~13px 로 작아 살짝 키움
       e.x = ix(i) * TILE + 32; e.y = (iy(i) + 1) * TILE - 8;
       groundDecor.addChild(e);
       cropSprites[i] = e;
