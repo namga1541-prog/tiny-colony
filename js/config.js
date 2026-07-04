@@ -20,6 +20,15 @@ export const DECOR = [
 // 24프레임 스프라이트시트(32x32칸) — 0번 프레임만 정지 이미지로 사용
 export const DECOR_ANIM = ['Flowers_Red', 'Flowers_White'];
 
+// 폐허 장식(초가집·우물·성문 — 매우 드물게 산포, 게임 로직 비연동)
+export const DECOR_RUIN = ['House_Hay_1', 'House_Hay_2', 'House_Hay_3', 'House_Hay_4_Purple', 'Well_Hay_1', 'CityWall_Gate_1'];
+
+// 잔디 텍스처 변형 패치(장식용 12종, Tileset_Ground.png 내 16px 셀 좌표 — 원작 Tiled wangset 타일ID 96-101·108-113)
+export const GRASS_DECAL_CELLS = [
+  [0, 128], [16, 128], [32, 128], [48, 128], [64, 128], [80, 128],
+  [0, 144], [16, 144], [32, 144], [48, 144], [64, 144], [80, 144],
+];
+
 // 건설 정의 — 완성형 건물 (fw/fh = 점유 타일 풋프린트)
 export const BUILDS = {
   house: {

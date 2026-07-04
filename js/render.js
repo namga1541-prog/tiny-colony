@@ -1,7 +1,7 @@
 // v0.3 렌더러 (Tiny Swords): 지형·거품·건물·유닛 애니메이션·조명·색보정
 /* global PIXI */
 import {
-  TILE, MAP_W, MAP_H, TS, FANTASY, DECOR, DECOR_ANIM, BUILDS, HUMANS, OUTPOST_BRANCHES,
+  TILE, MAP_W, MAP_H, TS, FANTASY, DECOR, DECOR_ANIM, DECOR_RUIN, GRASS_DECAL_CELLS, BUILDS, HUMANS, OUTPOST_BRANCHES,
   ZOOM_DEFAULT, ZOOM_MIN, ZOOM_MAX,
 } from './config.js';
 import {
@@ -201,7 +201,7 @@ export function createRenderer(world) {
   var overlayLayer = new PIXI.Container(); // 전투 피드백: 데미지 숫자·건물 체력바 (항상 최상단)
   camera.addChild(waterLayer, foamLayer, landLayer, groundDecor, zoneGfx, itemLayer, objLayer, fxLayer, overlayLayer, selGfx, dragGfx);
 
-  // ── 배경 장식 소품(The Fan-tasy Tileset) — 게임 로직 비연동, 시드 기반 1회 산포 ──
+  // ── 배경 장식(The Fan-tasy Tileset) — 게임 로직 비연동, 시드 기반 1회 산포 ──
   var decorTex = {};
   DECOR.forEach(function (n) {
     decorTex[n] = PIXI.Texture.from(FANTASY + n + '.png');
@@ -212,20 +212,45 @@ export function createRenderer(world) {
     b.scaleMode = PIXI.SCALE_MODES.NEAREST;
     decorTex[n] = new PIXI.Texture(b, new PIXI.Rectangle(0, 0, 32, 32));
   });
+  var ruinTex = {};
+  DECOR_RUIN.forEach(function (n) {
+    ruinTex[n] = PIXI.Texture.from(FANTASY + n + '.png');
+    ruinTex[n].baseTexture.scaleMode = PIXI.SCALE_MODES.NEAREST;
+  });
+  var fantasyGroundBase = PIXI.BaseTexture.from(FANTASY + 'Tileset_Ground.png');
+  fantasyGroundBase.scaleMode = PIXI.SCALE_MODES.NEAREST;
+  var grassDecalTex = GRASS_DECAL_CELLS.map(function (c) {
+    return new PIXI.Texture(fantasyGroundBase, new PIXI.Rectangle(c[0], c[1], 16, 16));
+  });
   (function scatterDecor() {
-    var names = DECOR.concat(DECOR_ANIM);
+    var smallNames = DECOR.concat(DECOR_ANIM);
     var drng = mulberry32(world.seed ^ 0x4a11);
     for (var ti = 0; ti < MAP_W * MAP_H; ti++) {
       if (world.terrain[ti] !== T_GRASS) continue;
       if (world.objects[ti] || world.occupancy[ti] !== undefined) continue;
-      if (drng() > 0.01) continue;
-      var n = names[(drng() * names.length) | 0];
-      var s = new PIXI.Sprite(decorTex[n]);
-      s.anchor.set(0.5, 0.85);
-      s.scale.set(2.4);
-      s.x = ix(ti) * TILE + 32; s.y = (iy(ti) + 1) * TILE - 8;
-      s.zIndex = (iy(ti) + 1) * TILE;
-      objLayer.addChild(s);
+      var r = drng();
+      if (r < 0.05) { // 잔디 텍스처 변형 패치(타일에 꼭 맞게, 4배=64/16)
+        var g = new PIXI.Sprite(grassDecalTex[(drng() * grassDecalTex.length) | 0]);
+        g.x = ix(ti) * TILE; g.y = iy(ti) * TILE;
+        g.scale.set(TILE / 16);
+        groundDecor.addChild(g);
+      } else if (r < 0.06) { // 소품(통·바구니·벤치 등)
+        var n = smallNames[(drng() * smallNames.length) | 0];
+        var s = new PIXI.Sprite(decorTex[n]);
+        s.anchor.set(0.5, 0.85);
+        s.scale.set(2.4);
+        s.x = ix(ti) * TILE + 32; s.y = (iy(ti) + 1) * TILE - 8;
+        s.zIndex = (iy(ti) + 1) * TILE;
+        objLayer.addChild(s);
+      } else if (r < 0.0606) { // 폐허(초가집·우물·성문) — 아주 드물게
+        var rn = DECOR_RUIN[(drng() * DECOR_RUIN.length) | 0];
+        var rs = new PIXI.Sprite(ruinTex[rn]);
+        rs.anchor.set(0.5, 0.92);
+        rs.scale.set(1.3);
+        rs.x = ix(ti) * TILE + 32; rs.y = (iy(ti) + 1) * TILE;
+        rs.zIndex = (iy(ti) + 1) * TILE;
+        objLayer.addChild(rs);
+      }
     }
   })();
 

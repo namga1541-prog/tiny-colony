@@ -79,5 +79,5 @@ npx serve -p 5800 .
 - 언데드 몬스터(좀비·스켈레톤, 대침공 혼합군): [Zombie and Skeleton 32x48 — Reemax / artisticdude](https://opengameart.org/content/zombie-and-skeleton-32x48) (CC0). `assets/monsters/`.
 - 최종 보스 「악마후배」: [Red Demons (Animated) - Classic Hero Edit — Umz](https://opengameart.org/content/red-demons-animated-classic-hero-edit) (CC0). `assets/monsters/demon.png`.
 - 섬의 수호신 「아보랑카도」: [Angels — AntumDeluge (원작 Svetlana Kushnariova)](https://opengameart.org/content/angels) (CC-BY 3.0). `assets/goddess/`.
-- 배경 장식 소품(통·바구니·벤치·게시판·상자·화로·건초더미·가로등·화분·자루·표지판·탁자·깃발 등): [The Fan-tasy Tileset (Free) — Ventilatore](https://ventilatore.itch.io/the-fantasy-tileset) — 무료 버전, **비상업용 한정**·수정 가능·재배포 금지. `assets/fantasy/`.
+- 배경 장식(소품·초가집 폐허 4종·우물·성문·잔디 텍스처 변형): [The Fan-tasy Tileset (Free) — Ventilatore](https://ventilatore.itch.io/the-fantasy-tileset) — 무료 버전, **비상업용 한정**·수정 가능·재배포 금지. `assets/fantasy/`.
 - 렌더링: [PixiJS](https://pixijs.com) 7 (MIT)
