@@ -1183,6 +1183,11 @@ var enemyCbs = {
     Audio2.play('alert');
     UI.toast('☄️ 악마후배가 광역 레이저를 발사했습니다!', true);
   },
+  onDemonSummon: function (e, n) { // 악마후배 미니 악마 소환
+    R.spawnBoomFx(e.x, e.y);
+    Audio2.play('alert');
+    UI.toast('👹 악마후배가 미니 악마 ' + n + '마리를 소환했습니다!', true);
+  },
 };
 
 // 계절 초기 표시 (prevSeason 은 stepWorld 가 world.prevSeason 으로 추적)

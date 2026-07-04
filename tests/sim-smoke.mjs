@@ -1,7 +1,7 @@
 // L1 시나리오 스모크 — 시드 고정, 헤드리스. stepWorld 추출이 올바른지 + 결정론 확인.
 import { bootSim, run, runDays, designateChop, give, snapshot, DAY_MIN, MAP_W, MAP_H } from './harness.mjs';
 import { addBuilding, storageCap, upgradeMult, upgradeAdd, maxPop, rankReqStatus, canAdvanceRank, advanceRank, defenseStats, tickTowers, enemyStats, spawnRaid, mulberry32, grantRelic, dailyIslandRespawn, checkIslandDiscovery, updateEnemies, idx, shipComplete, fishSpotTier, footprintTouchesWater, canPlaceBridge, isWalkable, autoDesignateLodges, footprintAdjacentMine, ensureBossIsland, tickBarns } from '../js/world.js';
-import { GIANT, ENEMY, CANNIBAL, ISLANDS, INVASION, OUTPOST_BRANCHES, RAIDER, INVWARRIOR, ZOMBIE, SKELETON, GIANT_JUMP, ARMOR, FRUITTREE, FISH, catchFish, catchRareFish, GODDESS, TRADER, BUILDS, BUILD_MIN_RANK, FISH_PLATFORM, DEMON, GLORIOUS_FOOD, RARE_FISH_SPOT, INJURY, WALK_MIN_PER_TILE, RESEARCH, EGG_HATCH, RANCH } from '../js/config.js';
+import { GIANT, ENEMY, CANNIBAL, ISLANDS, INVASION, OUTPOST_BRANCHES, RAIDER, INVWARRIOR, ZOMBIE, SKELETON, GIANT_JUMP, ARMOR, FRUITTREE, FISH, catchFish, catchRareFish, GODDESS, TRADER, BUILDS, BUILD_MIN_RANK, FISH_PLATFORM, DEMON, MINIDEMON, GLORIOUS_FOOD, RARE_FISH_SPOT, INJURY, WALK_MIN_PER_TILE, RESEARCH, EGG_HATCH, RANCH } from '../js/config.js';
 import { findWorkJob, releaseAllOf, bpMissing, reserve } from '../js/jobs.js';
 import { findPath } from '../js/path.js';
 import { createPawn, updatePawn } from '../js/pawns.js';
@@ -1544,6 +1544,55 @@ console.log('[sim-smoke] 50) 가금 사육 연구 — 축사가 알을 품어 �
   var atCap = w.sheep.length;
   tickBarns(w, EGG_HATCH.interval + 1, rng);
   ok(w.sheep.length === atCap, '길들인 개체 상한(RANCH.maxSheep)에 도달하면 더 이상 부화하지 않음');
+})();
+
+console.log('[sim-smoke] 51) 악마후배 미니 악마 소환 + 레이저 사거리 3배 (신규)');
+(function () {
+  // (a) 스탯: 미니 악마는 고블린보다 강하고 괴민보다 약함 + 레이저 사거리 42(=14×3)
+  ok(MINIDEMON.hp > ENEMY.hp && MINIDEMON.power > ENEMY.power, '미니 악마가 고블린보다 강함 (hp ' + MINIDEMON.hp + ', power ' + MINIDEMON.power + ')');
+  ok(MINIDEMON.hp < GIANT.hp && MINIDEMON.power < GIANT.power, '미니 악마가 괴민보다 약함');
+  ok(DEMON.laser.range === 42, '레이저 사거리 42(기존 14의 3배)');
+  ok(enemyStats({ kind: 'minidemon' }) === MINIDEMON, "enemyStats 가 'minidemon' → MINIDEMON 매핑");
+
+  // (b) 사거리 내 목표가 있을 때 쿨다운마다 미니 악마 소환
+  var w = bootSim(1501).world;
+  w.enemies = [];
+  for (var yy = 40; yy <= 60; yy++) for (var xx = 40; xx <= 60; xx++) {
+    var i = yy * 128 + xx; w.terrain[i] = 1; delete w.objects[i]; delete w.occupancy[i];
+  }
+  var demon = { id: w.nextEid++, x: 50, y: 50, px: 50, py: 50, hp: 9000, maxHp: 9000, cd: 999, dir: -1, anim: 0, kind: 'demon', boss: true, laserCd: 999, summonCd: 0 };
+  w.enemies = [demon];
+  var pawn = { id: 0, state: 'idle', px: 52, py: 50, x: 52, y: 50, hp: 100 };
+  var summons = [];
+  var rng = mulberry32(7);
+  updateEnemies(w, [pawn], 1, { onDemonSummon: function (e, n) { summons.push(n); } }, rng);
+  var minis = w.enemies.filter(function (e) { return e.kind === 'minidemon'; });
+  ok(minis.length === DEMON.summon.count, '사거리 내 목표가 있으면 미니 악마 ' + DEMON.summon.count + '마리 소환 (' + minis.length + ')');
+  ok(summons.length === 1 && summons[0] === DEMON.summon.count, '소환 콜백(onDemonSummon) 1회 호출');
+  ok(minis.every(function (m) { return m.hp === MINIDEMON.hp && m.maxHp === MINIDEMON.hp; }), '소환된 미니 악마는 MINIDEMON 체력');
+  ok(demon.summonCd === DEMON.summon.cooldown, '소환 후 쿨다운 재설정');
+
+  // (c) 목표가 사거리 밖이면 소환하지 않음 (건물·작물도 공격 대상이므로 함께 비워 순수 검증)
+  var w2 = bootSim(1502).world;
+  w2.enemies = []; w2.buildings = {}; w2.crops = {};
+  var demon2 = { id: w2.nextEid++, x: 50, y: 50, px: 50, py: 50, hp: 9000, maxHp: 9000, cd: 999, dir: -1, anim: 0, kind: 'demon', boss: true, laserCd: 999, summonCd: 0 };
+  w2.enemies = [demon2];
+  var farPawn = { id: 0, state: 'idle', px: 110, py: 110, x: 110, y: 110, hp: 100 }; // 사거리(42) 밖
+  updateEnemies(w2, [farPawn], 1, {}, mulberry32(9));
+  ok(w2.enemies.filter(function (e) { return e.kind === 'minidemon'; }).length === 0, '사거리 밖 목표만 있으면 소환하지 않음');
+
+  // (d) 이미 상한(maxAlive)이면 더 소환하지 않음
+  var w3 = bootSim(1503).world;
+  w3.enemies = [];
+  for (var y3 = 40; y3 <= 60; y3++) for (var x3 = 40; x3 <= 60; x3++) {
+    var i3 = y3 * 128 + x3; w3.terrain[i3] = 1; delete w3.objects[i3]; delete w3.occupancy[i3];
+  }
+  var demon3 = { id: w3.nextEid++, x: 50, y: 50, px: 50, py: 50, hp: 9000, maxHp: 9000, cd: 999, dir: -1, anim: 0, kind: 'demon', boss: true, laserCd: 999, summonCd: 0 };
+  w3.enemies = [demon3];
+  for (var k = 0; k < DEMON.summon.maxAlive; k++) w3.enemies.push({ id: w3.nextEid++, x: 51, y: 51, px: 51, py: 51, hp: MINIDEMON.hp, maxHp: MINIDEMON.hp, cd: 0, dir: 1, anim: 0, kind: 'minidemon', wave: 0 });
+  var pawn3 = { id: 0, state: 'idle', px: 52, py: 50, x: 52, y: 50, hp: 100 };
+  updateEnemies(w3, [pawn3], 1, {}, mulberry32(11));
+  ok(w3.enemies.filter(function (e) { return e.kind === 'minidemon'; }).length === DEMON.summon.maxAlive, '상한(maxAlive)에 도달하면 추가 소환 안 함');
 })();
 
 console.log('');

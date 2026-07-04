@@ -2,7 +2,7 @@
 import {
   MAP_W, MAP_H, NATURE, STACK_MAX, BUILDS, BUILDING_HP_DEFAULT, GOLDMINE, IRONMINE, BRIDGE,
   RESEARCH_RATE_PER_PAWN, ENEMY, RAID, GIANT, GIANT_FAST_MULT, GIANT_JUMP, SEASON_DAYS, SEASONS, STORAGE, RANCH, REGROW,
-  ANIMAL_TYPES, ANIMALS, WILD_ANIMAL_TYPES, BARN, EGG_HATCH, WAREHOUSE_TIERS, UPGRADES, RANKS, HOUSE_POP_BONUS, HOUSE_POP_CAP_COUNT, DEFENSE_TIERS, OUTPOST_BRANCHES, CANNON, RELICS, ISLANDS, CANNIBAL, WARLORD, RAIDER, INVWARRIOR, ZOMBIE, SKELETON, DEMON,
+  ANIMAL_TYPES, ANIMALS, WILD_ANIMAL_TYPES, BARN, EGG_HATCH, WAREHOUSE_TIERS, UPGRADES, RANKS, HOUSE_POP_BONUS, HOUSE_POP_CAP_COUNT, DEFENSE_TIERS, OUTPOST_BRANCHES, CANNON, RELICS, ISLANDS, CANNIBAL, WARLORD, RAIDER, INVWARRIOR, ZOMBIE, SKELETON, DEMON, MINIDEMON,
   ARMOR, FISH_PLATFORM, LODGE_FARM_RADIUS, RARE_FISH_SPOT, FORTIFY_KINDS, INJURY,
   T_WATER, T_GRASS, T_SAND,
 } from './config.js';
@@ -1000,6 +1000,7 @@ export function enemyStats(e) {
   if (e && e.kind === 'zombie') return ZOMBIE;
   if (e && e.kind === 'skeleton') return SKELETON;
   if (e && e.kind === 'demon') return DEMON;
+  if (e && e.kind === 'minidemon') return MINIDEMON;
   return ENEMY;
 }
 
@@ -1199,8 +1200,32 @@ export function updateEnemies(world, pawns, dtMin, cb, rng) {
       continue;
     }
     if (e.atkT) e.atkT = Math.max(0, e.atkT - dtMin); // 공격 찌르기 모션 타이머(렌더 전용)
-    // 최종 보스 「악마후배」 광역 레이저: 쿨다운마다 사거리 내 목표가 있으면 반경 전체에 강력한 피해
+    // 최종 보스 「악마후배」: 미니 악마 소환(긴 쿨다운) + 광역 레이저
     if (e.kind === 'demon') {
+      // 미니 악마 소환 — 긴 쿨다운마다, 사거리 내 목표가 있을 때만(플레이어가 보스에 접근했을 때 증원).
+      // 레이저·이동과 별개(틱을 소모하지 않음). 무한 누적 방지를 위해 동시 상한(maxAlive)을 둔다.
+      e.summonCd = (e.summonCd === undefined ? DEMON.summon.cooldown : e.summonCd) - dtMin;
+      if (e.summonCd <= 0) {
+        var stgt = nearestAttackable(world, pawns, e.px, e.py);
+        var aliveMinis = 0;
+        for (var mi = 0; mi < world.enemies.length; mi++) if (world.enemies[mi].kind === 'minidemon' && world.enemies[mi].hp > 0) aliveMinis++;
+        if (stgt && stgt.dist <= DEMON.summon.range && aliveMinis < DEMON.summon.maxAlive) {
+          e.summonCd = DEMON.summon.cooldown;
+          var summoned = 0;
+          for (var sm = 0; sm < DEMON.summon.count && aliveMinis + summoned < DEMON.summon.maxAlive; sm++) {
+            var smx = Math.max(1, Math.min(MAP_W - 2, Math.round(e.px + ((rngF() * 5) | 0) - 2)));
+            var smy = Math.max(1, Math.min(MAP_H - 2, Math.round(e.py + ((rngF() * 5) | 0) - 2)));
+            if (!isWalkable(world, smx, smy)) { smx = Math.round(e.px); smy = Math.round(e.py); }
+            world.enemies.push({
+              id: world.nextEid++, x: smx, y: smy, px: smx, py: smy,
+              hp: MINIDEMON.hp, maxHp: MINIDEMON.hp, cd: 0, dir: 1, anim: (rngF() * 6) | 0,
+              kind: 'minidemon', wave: e.wave || 0,
+            });
+            summoned++;
+          }
+          if (summoned > 0 && cb.onDemonSummon) cb.onDemonSummon(e, summoned);
+        }
+      }
       e.laserCd = (e.laserCd === undefined ? DEMON.laser.cooldown : e.laserCd) - dtMin;
       if (e.laserCd <= 0) {
         var ltgt = nearestAttackable(world, pawns, e.px, e.py);

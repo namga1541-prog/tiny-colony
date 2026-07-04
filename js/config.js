@@ -432,8 +432,15 @@ export const DEMON = {
   power: 60, attackCd: 18, moveMinPerTile: 2.4,
   dropGold: 2000, dropIron: 800, name: '악마후배',
   // 광역 레이저: 쿨다운마다 사거리 내 목표가 있으면 반경 전체에 강력한 피해(일반 공격과 별개)
-  laser: { cooldown: 240, range: 14, radius: 6, damage: 45 },
+  // range 42 = 기존 14의 3배 — 아주 멀리서도 강타하는 압도적 화력.
+  laser: { cooldown: 240, range: 42, radius: 6, damage: 45 },
+  // 소환: 긴 쿨다운마다, 사거리 내 목표가 있을 때만 미니 악마 여러 마리를 주변에 소환(레이저와 별개, 이동을 막지 않음).
+  // maxAlive: 동시에 존재할 수 있는 미니 악마 상한(무한 누적 방지).
+  summon: { cooldown: 720, count: 3, range: 42, maxAlive: 9 },
 };
+// ── 미니 악마: 최종 보스 「악마후배」가 소환하는 하수인. 괴민보다 약하지만 고블린보다 확실히 강함 ──
+// hp 130·power 15 → 고블린(45/8)과 괴민(900/22) 사이. moveMinPerTile 1.3(고블린보다 약간 빠름).
+export const MINIDEMON = { hp: 130, power: 15, attackCd: 13, moveMinPerTile: 1.3, dropGold: 12, dropIron: 3, name: '미니 악마' };
 
 // ── 나라의 시련(대침공): 달력상 고정된 날짜(10일차·20일차)에 파도식 습격. 정복자가 각 웨이브를 이끈다.
 // 나라 단계 도달 여부와 무관하게 무조건 발동 — 방어를 못 갖췄어도 시련을 겪는 가혹한 난이도.

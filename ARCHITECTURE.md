@@ -27,7 +27,7 @@
 `onStarving(pawn)`, `onSheepChange()`
 **ctx (오케스트레이션 효과 콜백)**: `onTileChange(i)`, `onToast(msg,warn)`, `onSfx(name)`, `onRecruit()`, `onSeasonTint(tint,alpha)`,
 `onGoddessDescend(x,y)`(여신 강림 연출), `onBoatLanding(x,y)`(습격 상륙 배 연출), `onZonesChanged()`(구역 오버레이 갱신)
-**enemyCbs (전투)**: `onHit(pawn,dmg)`, `onPawnDeath(pawn)`, `onEnemyDown(enemy)`, `onTowerFire(tower,enemy)`, `onCannonFire(castle,enemy)`(성 대포 tier 광역)
+**enemyCbs (전투)**: `onHit(pawn,dmg)`, `onPawnDeath(pawn)`, `onEnemyDown(enemy)`, `onTowerFire(tower,enemy)`, `onCannonFire(castle,enemy)`(성 대포 tier 광역), `onGiantJump(e,x,y)`, `onDemonLaser(e,tx,ty)`, `onDemonSummon(e,n)`(악마후배 미니 악마 소환)
 
 - main.js 는 ctx 에 실제 R.*/UI.*/Audio2.*/recruitWanderer 를 연결. 헤드리스 하네스는 기록용 stub 연결.
 - **stepWorld 안에서 렌더/DOM/오디오 직접 호출 금지** — 이 규칙이 헤드리스 테스트를 가능케 함.

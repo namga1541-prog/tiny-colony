@@ -193,6 +193,7 @@ export function createRenderer(world) {
     zombie:   { idle: fxZombie, walk: fxZombie, scale: 2.1, anchorY: 0.94 },     // 좀비(느린 살덩이) — 고블린과 비슷한 시각 크기
     skeleton: { idle: fxSkeleton, walk: fxSkeleton, scale: 2.2, anchorY: 0.85 }, // 스켈레톤 전용 백골 스프라이트 — 고블린과 비슷한 시각 크기
     demon:    { idle: demonFrames, walk: demonFrames, scale: 15.75, anchorY: 0.97 }, // 최종 보스=붉은 뿔 악마(괴민의 1.5배 — 압도적 거대)
+    minidemon: { idle: demonFrames, walk: demonFrames, scale: 5.25, anchorY: 0.95, tint: 0xe0703a }, // 미니 악마=보스의 1/3 크기 + 주황빛(하수인 구분)
   };
 
   // 사람 스프라이트 크롭. dir: 0정면 1뒤 2좌 3우.
