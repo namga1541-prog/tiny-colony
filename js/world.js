@@ -127,7 +127,7 @@ export function createWorld(seed) {
     buildings: {},      // id -> {id, kind, x, y, stage:'bp'|'built', delivered, work, charges?, natural?}
     occupancy: {},      // idx -> buildingId
     nextBid: 1,
-    stock: { wood: 0, gold: 0, food: 0, iron: 0, meal: 0 }, // 콜로니 전체 재고 (바닥에 안 쌓임)
+    stock: { wood: 0, gold: 0, food: 0, iron: 0, meal: 0, leather: 0 }, // 콜로니 전체 재고 (바닥에 안 쌓임)
     items: {},          // (구) 타일 아이템 — 현재는 미사용, 재고로 통합됨
     stockpile: {},
     designations: {},   // idx -> 'chop'|'forage'  |  'mine:'+bid 는 mineDesig 에
@@ -497,7 +497,7 @@ export function totalRes(world) {
   var s = world.stock || {};
   return {
     wood: s.wood || 0, gold: s.gold || 0, food: s.food || 0,
-    iron: s.iron || 0, meal: s.meal || 0,
+    iron: s.iron || 0, meal: s.meal || 0, leather: s.leather || 0,
     sword: s.sword || 0, bow: s.bow || 0, ironSword: s.ironSword || 0, ironBow: s.ironBow || 0,
     leatherArmor: s.leatherArmor || 0, ironArmor: s.ironArmor || 0,
   };
@@ -531,7 +531,7 @@ export function rankReqStatus(world, alive) {
     all = all && ok;
   }
   if (req.res) { var res = totalRes(world); for (var t in req.res) {
-    var nm = { wood: '목재', gold: '금', iron: '철', food: '식량' }[t] || t;
+    var nm = { wood: '목재', gold: '금', iron: '철', food: '식량', leather: '가죽' }[t] || t;
     ok = (res[t] || 0) >= req.res[t];
     items.push({ label: nm + ' ' + Math.min(res[t] || 0, req.res[t]) + '/' + req.res[t], ok: ok });
     all = all && ok;
@@ -567,7 +567,7 @@ export function storageCap(world) {
 }
 export function totalStored(world) {
   var s = world.stock || {};
-  return (s.wood || 0) + (s.gold || 0) + (s.food || 0) + (s.iron || 0) + (s.meal || 0);
+  return (s.wood || 0) + (s.gold || 0) + (s.food || 0) + (s.iron || 0) + (s.meal || 0) + (s.leather || 0);
 }
 export function storageFull(world) { return totalStored(world) >= storageCap(world); }
 

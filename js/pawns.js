@@ -502,6 +502,7 @@ function finishWork(world, pawn, ctx) {
       var adef = ANIMALS[shp.type || 'sheep'] || ANIMALS.sheep;
       if (!storageFull(world)) {
         addItem(world, 0, 'food', adef.food);
+        if (adef.leather) addItem(world, 0, 'leather', adef.leather);
         if (adef.rareGold) addItem(world, 0, 'gold', adef.rareGold); // 희귀 동물(원정 섬) 처치 보너스
       }
       else ctx.onStorageFull();
@@ -889,10 +890,11 @@ export function manualInteract(world, pawn, ctx) {
     if (Math.abs(shp.x - pawn.x) <= 1 && Math.abs(shp.y - pawn.y) <= 1) {
       var adef = ANIMALS[shp.type || 'sheep'] || ANIMALS.sheep;
       addItem(world, 0, 'food', adef.food);
+      if (adef.leather) addItem(world, 0, 'leather', adef.leather);
       if (adef.rareGold) addItem(world, 0, 'gold', adef.rareGold); // 희귀 동물(원정 섬) 처치 보너스
       world.sheep.splice(s, 1);
       if (ctx.onSheepChange) ctx.onSheepChange();
-      return '🥩 ' + adef.label + ' 사냥 성공 (+식량 ' + adef.food + (adef.rareGold ? ' · 금 +' + adef.rareGold : '') + ')';
+      return '🥩 ' + adef.label + ' 사냥 성공 (+식량 ' + adef.food + (adef.leather ? ' · 가죽 +' + adef.leather : '') + (adef.rareGold ? ' · 금 +' + adef.rareGold : '') + ')';
     }
   }
   var best = null; // {pri, d, start}

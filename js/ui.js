@@ -119,6 +119,7 @@ export function createUI(handlers) {
   var resIron = document.getElementById('resIron');
   var resFood = document.getElementById('resFood');
   var resMeal = document.getElementById('resMeal');
+  var resLeather = document.getElementById('resLeather');
   var resPop = document.getElementById('resPop');
 
   function updateClock(day, timeMin) {
@@ -136,6 +137,7 @@ export function createUI(handlers) {
     if (resIron) resIron.textContent = sum.iron || 0;
     resFood.textContent = sum.food || 0;
     if (resMeal) resMeal.textContent = sum.meal || 0;
+    if (resLeather) resLeather.textContent = sum.leather || 0;
     resPop.textContent = alivePawns;
   }
   function updateStorage(used, cap) {
@@ -630,8 +632,8 @@ export function createUI(handlers) {
 
   // ── 자원 버리기 모달 ──
   function showDiscard() {
-    var names = { wood: '목재', gold: '금', food: '식량', iron: '철', meal: '요리' };
-    var types = ['wood', 'gold', 'food', 'iron', 'meal'];
+    var names = { wood: '목재', gold: '금', food: '식량', iron: '철', meal: '요리', leather: '가죽' };
+    var types = ['wood', 'gold', 'food', 'iron', 'meal', 'leather'];
     var overlay = openModal('<h2>🗑️ 자원 버리기</h2>' +
       '<p class="dc-hint">저장고가 꽉 차면 벌목·채굴이 멈춥니다. 남는 자원을 버려 공간을 확보하세요.</p>' +
       '<div class="dc-rows"></div>' +
@@ -661,8 +663,8 @@ export function createUI(handlers) {
 
   // ── 떠돌이 상인 모달 ──
   function showTrader() {
-    var names = { wood: '목재', iron: '철', food: '식량', meal: '요리' };
-    var types = ['wood', 'iron', 'food', 'meal'];
+    var names = { wood: '목재', iron: '철', food: '식량', meal: '요리', leather: '가죽' };
+    var types = ['wood', 'iron', 'food', 'meal', 'leather'];
     var overlay = openModal('<h2>🛒 떠돌이 상인</h2><div class="tr-body"></div>' +
       '<div class="cm-actions"><button class="cm-ok tr-close">닫기</button></div>');
     var body = overlay.querySelector('.tr-body');
@@ -698,7 +700,7 @@ export function createUI(handlers) {
   // ── 제작 모달 (무기 + 낚싯대) ──
   function costStr(cost, res) {
     return Object.keys(cost).map(function (t) {
-      var nm = { wood: '목재', gold: '금', iron: '철', food: '식량' }[t] || t;
+      var nm = { wood: '목재', gold: '금', iron: '철', food: '식량', leather: '가죽' }[t] || t;
       return nm + ' ' + cost[t] + ' (보유 ' + (res[t] || 0) + ')';
     }).join(', ');
   }

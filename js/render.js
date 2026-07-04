@@ -213,6 +213,17 @@ export function createRenderer(world) {
     b.scaleMode = PIXI.SCALE_MODES.NEAREST;
     decorTex[n] = new PIXI.Texture(b, new PIXI.Rectangle(0, 0, 32, 32));
   });
+  // 플레이어가 직접 짓는 장식 건물(순수 꾸미기, DECOR 텍스처 재사용) — kind → 소품 이름
+  var DECOR_BUILD_TEX = {
+    decoBarrel: decorTex.Barrel_Small_Empty,
+    decoBasket: decorTex.Basket_Empty,
+    decoBench: decorTex.Bench_1,
+    decoTable: decorTex.Table_Medium_1,
+    decoLamp: decorTex.LampPost_3,
+    decoSign: decorTex.Sign_1,
+    decoFlower: decorTex.Flowers_Red,
+    decoBanner: decorTex.Banner_Stick_1_Purple,
+  };
   var ruinTex = {};
   DECOR_RUIN.forEach(function (n) {
     ruinTex[n] = PIXI.Texture.from(FANTASY + n + '.png');
@@ -390,6 +401,7 @@ export function createRenderer(world) {
     }
     if (b.kind === 'bridge' || b.kind === 'fishPlatform') return tx('Bridge_All', 0, 0, 192, 64);
     if (b.kind === 'campfire') return fireFrames[0];
+    if (DECOR_BUILD_TEX[b.kind]) return DECOR_BUILD_TEX[b.kind]; // 플레이어가 지은 장식 건물
     // 완공된 특화 초소(투석기·석궁탑·속사탑)는 LPC 공성 병기 스프라이트로 표시
     if (b.kind === 'outpost' && b.stage === 'built' && b.branch && BRANCH_SIEGE[b.branch]) {
       return BRANCH_SIEGE[b.branch].tex;
@@ -487,6 +499,7 @@ export function createRenderer(world) {
     // 완공된 특화 초소 = LPC 병기 스프라이트, 건물류 = Medieval RTS 스프라이트 (둘 다 원본 색 그대로)
     var siege = (b.kind === 'outpost' && b.stage === 'built' && b.branch && BRANCH_SIEGE[b.branch]);
     var mrtsBld = !!MRTS_KIND[b.kind] || (b.kind === 'outpost' && b.stage === 'built' && b.branch === 'spike');
+    var decorBld = !!DECOR_BUILD_TEX[b.kind];
     if (b.stage === 'bp') {
       var ready = bpMissing(b) === null;
       e.alpha = ready ? 0.95 : 0.45;
@@ -513,6 +526,8 @@ export function createRenderer(world) {
       var tScale = (def.fw * TILE) / def.town.sw;
       if (b.kind === 'warehouse') tScale *= 1 + ((b.tier || 1) - 1) * 0.08; // 창고 단계 확대 유지
       e.scale.set(tScale);
+    } else if (decorBld) {
+      e.scale.set(2.4); // 배경 장식 산포와 동일한 배율(The Fan-tasy Tileset 소스)
     } else if (b.kind === 'warehouse') {
       // 창고 업그레이드 단계: 단계가 오를수록 조금씩 커 보이게 (앵커가 바닥이라 자연스럽게 위로 자람)
       var wScale = 1 + ((b.tier || 1) - 1) * 0.08;

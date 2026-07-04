@@ -148,6 +148,15 @@ export const BUILDS = {
     town: { sx: 64, sy: 64, sw: 64, sh: 64 }, tint: 0x8fca5a, // 초록(농경)
     desc: '완공 시 주변 잔디를 자동으로 농사 구역으로 만들어 계속 재배합니다. (농업 연구 필요)',
   },
+  // ── 장식(순수 꾸미기용, 게임 로직 없음 — 통행 차단도 안 함). The Fan-tasy Tileset 소품 재활용.
+  decoBarrel: { name: '장식 - 통',     cost: { wood: 2 },              work: 8,  hp: 20, fw: 1, fh: 1, solid: false, desc: '오직 꾸미기용 장식물입니다.' },
+  decoBasket: { name: '장식 - 바구니', cost: { wood: 2 },              work: 8,  hp: 20, fw: 1, fh: 1, solid: false, desc: '오직 꾸미기용 장식물입니다.' },
+  decoBench:  { name: '장식 - 벤치',   cost: { wood: 3, leather: 1 },  work: 10, hp: 20, fw: 1, fh: 1, solid: false, desc: '오직 꾸미기용 장식물입니다.' },
+  decoTable:  { name: '장식 - 탁자',   cost: { wood: 3, leather: 1 },  work: 10, hp: 20, fw: 1, fh: 1, solid: false, desc: '오직 꾸미기용 장식물입니다.' },
+  decoLamp:   { name: '장식 - 가로등', cost: { wood: 3, gold: 1 },     work: 10, hp: 20, fw: 1, fh: 1, solid: false, light: true, desc: '꾸미기용 장식물. 밤을 밝힙니다.' },
+  decoSign:   { name: '장식 - 표지판', cost: { wood: 2 },              work: 8,  hp: 20, fw: 1, fh: 1, solid: false, desc: '오직 꾸미기용 장식물입니다.' },
+  decoFlower: { name: '장식 - 화단',   cost: { wood: 1 },              work: 6,  hp: 15, fw: 1, fh: 1, solid: false, desc: '오직 꾸미기용 장식물입니다.' },
+  decoBanner: { name: '장식 - 깃발',   cost: { wood: 2, leather: 2 },  work: 10, hp: 20, fw: 1, fh: 1, solid: false, desc: '오직 꾸미기용 장식물입니다.' },
 };
 // 농부 오두막이 자동 농사 구역으로 만드는 주변 반경(풋프린트 바깥 타일)
 export const LODGE_FARM_RADIUS = 3;
@@ -323,7 +332,7 @@ export const WEAPONS = {
 };
 // 방어구 — 착용 시 피격 데미지를 defense 만큼 경감(최소 1 데미지는 항상 관통). iron 계열은 강철 연구 후 해금.
 export const ARMOR = {
-  leatherArmor: { name: '가죽 갑옷', cost: { wood: 6, food: 2 }, work: 45, equip: 'armor', defense: 4 },
+  leatherArmor: { name: '가죽 갑옷', cost: { leather: 6 }, work: 45, equip: 'armor', defense: 4 },
   ironArmor:    { name: '강철 갑옷', cost: { wood: 3, iron: 5 }, work: 65, equip: 'armor', defense: 9, iron: true },
 };
 // 대장간 제작 대기열이 무기·방어구를 동일하게 다룰 수 있도록 합친 조회 테이블(SSOT).
@@ -397,11 +406,11 @@ export const COOK = { work: 15, foodPerMeal: 2, mealEatAmount: 95 };
 // ── 사냥 (동물) ── 종류별 식량 산출
 export const HUNT = { work: 14 };
 export const ANIMALS = {
-  sheep:    { label: '양',     food: 4,  sheet: 'Sheep_Idle', big: true },
-  pig:      { label: '돼지',   food: 6,  sheet: 'Pig',        big: false },
-  cow:      { label: '소',     food: 9,  sheet: 'Cow',        big: false },
-  chicken:  { label: '닭',     food: 2,  sheet: 'Chicken',    big: false },
-  raredeer: { label: '희귀 영양', food: 16, sheet: 'Cow', big: false, rareGold: 12 }, // 비경의 섬 전용. 처치 시 금도 획득
+  sheep:    { label: '양',     food: 4,  leather: 2, sheet: 'Sheep_Idle', big: true },
+  pig:      { label: '돼지',   food: 6,  leather: 3, sheet: 'Pig',        big: false },
+  cow:      { label: '소',     food: 9,  leather: 4, sheet: 'Cow',        big: false },
+  chicken:  { label: '닭',     food: 2,  leather: 1, sheet: 'Chicken',    big: false },
+  raredeer: { label: '희귀 영양', food: 16, leather: 5, sheet: 'Cow', big: false, rareGold: 12 }, // 비경의 섬 전용. 처치 시 금도 획득
 };
 export const ANIMAL_TYPES = ['sheep', 'pig', 'cow', 'chicken']; // 야생 배회(pickAnimalType) 대상 — raredeer 는 섬 전용, 제외
 
@@ -456,7 +465,7 @@ export const GODDESS = { day: 7, spawnHour: 20, name: '아보랑카도', relicId
 // rates: 자원 1개당 지급하는 금(내림). 잉여 자원 처리 + 탈출선 등 금 소요 프로젝트로 이어지는 순환 고리.
 export const TRADER = {
   firstDay: 6, intervalDays: 4, spawnHour: 10, stayDays: 2,
-  rates: { wood: 0.15, iron: 0.5, food: 0.2, meal: 0.6 },
+  rates: { wood: 0.15, iron: 0.5, food: 0.2, meal: 0.6, leather: 0.25 },
 };
 
 // ── 낚시 ──
