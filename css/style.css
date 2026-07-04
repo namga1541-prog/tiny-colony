@@ -40,6 +40,20 @@ body.touch .touch-only { display: inline-block; }
 #clockBox { font-weight: 600; font-size: 14px; }
 #dayLabel { color: #ffd76e; }
 #timeLabel { font-variant-numeric: tabular-nums; }
+#invasionWarn {
+  font-weight: 700; font-size: 13px; font-variant-numeric: tabular-nums;
+  color: #ffe08a; background: rgba(180, 40, 20, 0.55);
+  border: 1px solid #ff8a4a; border-radius: 8px;
+  padding: 3px 10px;
+  animation: invasionPulse 1.4s ease-in-out infinite;
+}
+@keyframes invasionPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #invasionWarn { animation: none; }
+}
 
 .res { display: inline-flex; align-items: center; gap: 3px; font-size: 13px; cursor: default; }
 .res img { width: 18px; height: 18px; image-rendering: pixelated; }

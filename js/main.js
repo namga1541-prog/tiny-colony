@@ -1256,6 +1256,7 @@ R.app.ticker.add(function () {
   if (hudTimer > 0.25) {
     hudTimer = 0;
     UI.updateClock(world.day, world.timeMin);
+    UI.updateInvasionWarning(world);
     var alive = pawns.filter(function (p) { return p.state !== 'dead'; }).length;
     var res = totalRes(world);
     UI.updateRes(res, alive);

@@ -1,6 +1,6 @@
 // DOM HUD: 도구·시계·자원·정착민 패널·토스트·커스터마이징 모달·연구/제작 모달
 import { taskLabel } from './pawns.js';
-import { HUMANS, RESEARCH, WEAPONS, ARMOR, SKILL_LABEL, skillLevel, BUILDS, STORAGE, RODS, WAREHOUSE_TIERS, ROLES, RANKS, BUILD_MIN_RANK, DEFENSE_TIERS, OUTPOST_BRANCHES, RELICS, INVASION, TRADER } from './config.js';
+import { HUMANS, RESEARCH, WEAPONS, ARMOR, SKILL_LABEL, skillLevel, BUILDS, STORAGE, RODS, WAREHOUSE_TIERS, ROLES, RANKS, BUILD_MIN_RANK, DEFENSE_TIERS, OUTPOST_BRANCHES, RELICS, INVASION, TRADER, DAY_MIN } from './config.js';
 import { totalRes, warehouseTier, warehouseCap, maxPop, rankReqStatus, defenseStats } from './world.js';
 
 export function createUI(handlers) {
@@ -130,6 +130,20 @@ export function createUI(handlers) {
     var mm = String(m % 60).padStart(2, '0');
     dayLabel.textContent = day + '일차';
     timeLabel.textContent = hh + ':' + mm;
+  }
+
+  // ── 대침공 예고 카운트다운 — 발동 8시간 전부터 상단에 지속 표시(습격처럼 매번 뜨는 1회성 토스트와 별개) ──
+  var invasionWarn = document.getElementById('invasionWarn');
+  var INVASION_WARN_LEAD_MIN = 480;
+  function updateInvasionWarning(world) {
+    if (!invasionWarn) return;
+    if (!world.invasion || world.invasion.phase !== 'countdown') { invasionWarn.classList.add('hidden'); return; }
+    var triggerAt = (world.invasion.triggerDay - 1) * DAY_MIN + INVASION.spawnHour * 60;
+    var remain = triggerAt - world.timeMin;
+    if (remain <= 0 || remain > INVASION_WARN_LEAD_MIN) { invasionWarn.classList.add('hidden'); return; }
+    var hh = (remain / 60) | 0, mm = (remain % 60) | 0;
+    invasionWarn.textContent = '⚠️ 대침공 임박 — ' + hh + '시간 ' + String(mm).padStart(2, '0') + '분 후';
+    invasionWarn.classList.remove('hidden');
   }
 
   var resStorage = document.getElementById('resStorage');
@@ -885,6 +899,7 @@ export function createUI(handlers) {
     setHireInfo: setHireInfo,
     setSpeedUI: setSpeedUI,
     updateClock: updateClock,
+    updateInvasionWarning: updateInvasionWarning,
     updateRes: updateRes,
     updateStorage: updateStorage,
     updateRoster: updateRoster,
