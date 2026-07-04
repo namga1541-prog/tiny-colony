@@ -2,7 +2,7 @@
 import {
   MAP_W, MAP_H, NATURE, STACK_MAX, BUILDS, BUILDING_HP_DEFAULT, GOLDMINE, IRONMINE, BRIDGE,
   RESEARCH_RATE_PER_PAWN, ENEMY, RAID, GIANT, GIANT_FAST_MULT, GIANT_JUMP, SEASON_DAYS, SEASONS, STORAGE, RANCH, REGROW,
-  ANIMAL_TYPES, ANIMALS, WILD_ANIMAL_TYPES, BARN, WAREHOUSE_TIERS, UPGRADES, RANKS, HOUSE_POP_BONUS, HOUSE_POP_CAP_COUNT, DEFENSE_TIERS, OUTPOST_BRANCHES, CANNON, RELICS, ISLANDS, CANNIBAL, WARLORD, RAIDER, INVWARRIOR, ZOMBIE, SKELETON, DEMON,
+  ANIMAL_TYPES, ANIMALS, WILD_ANIMAL_TYPES, BARN, EGG_HATCH, WAREHOUSE_TIERS, UPGRADES, RANKS, HOUSE_POP_BONUS, HOUSE_POP_CAP_COUNT, DEFENSE_TIERS, OUTPOST_BRANCHES, CANNON, RELICS, ISLANDS, CANNIBAL, WARLORD, RAIDER, INVWARRIOR, ZOMBIE, SKELETON, DEMON,
   ARMOR, FISH_PLATFORM, LODGE_FARM_RADIUS, RARE_FISH_SPOT, FORTIFY_KINDS, INJURY,
   T_WATER, T_GRASS, T_SAND,
 } from './config.js';
@@ -673,21 +673,38 @@ export function hasBarn(world) {
 }
 
 // ── 축사: 번식은 안 하고, 길들인 야생동물 수에 비례해 주기적으로 식량 산출 ──
-export function tickBarns(world, dtMin) {
+export function tickBarns(world, dtMin, rng) {
   var events = [];
   var tamedCount = 0;
   for (var s = 0; s < world.sheep.length; s++) if (world.sheep[s].tamed) tamedCount++;
-  if (tamedCount === 0) return events;
+  var poultryOn = !!(world.research && world.research.unlocked && world.research.unlocked.poultry);
+  if (tamedCount === 0 && !poultryOn) return events;
   for (var id in world.buildings) {
     var b = world.buildings[id];
     if (b.kind !== 'barn' || b.stage !== 'built') continue;
-    b.barnT = (b.barnT || 0) + dtMin;
-    if (b.barnT >= BARN.interval) {
-      b.barnT = 0;
-      if (!storageFull(world)) {
-        var fr = buildingFront(world, b) || { x: b.x, y: b.y + 2 };
-        addItem(world, idx(fr.x, fr.y), 'food', BARN.foodPerAnimal * tamedCount);
-        events.push({ type: 'food', idx: idx(fr.x, fr.y) });
+    if (tamedCount > 0) {
+      b.barnT = (b.barnT || 0) + dtMin;
+      if (b.barnT >= BARN.interval) {
+        b.barnT = 0;
+        if (!storageFull(world)) {
+          var fr = buildingFront(world, b) || { x: b.x, y: b.y + 2 };
+          addItem(world, idx(fr.x, fr.y), 'food', BARN.foodPerAnimal * tamedCount);
+          events.push({ type: 'food', idx: idx(fr.x, fr.y) });
+        }
+      }
+    }
+    // 가금 사육 연구 해금 시 — 알을 품어 주기적으로 병아리(닭) 한 마리 부화(길들인 동물 유무와 무관)
+    if (poultryOn) {
+      b.eggT = (b.eggT || 0) + dtMin;
+      if (b.eggT >= EGG_HATCH.interval) {
+        b.eggT = 0;
+        if (tamedCount < RANCH.maxSheep) { // 상한은 길들인(가축) 개체 수 기준 — 맵을 배회하는 야생동물은 무관
+          var ex = b.x + ((rng() * 4) | 0) - 1, ey = b.y + 2 + ((rng() * 2) | 0);
+          if (isWalkable(world, ex, ey)) {
+            world.sheep.push({ id: world.nextSid++, type: 'chicken', x: ex, y: ey, px: ex, py: ey, tamed: true, dir: 1, cd: rng() * 30, phase: (rng() * 8) | 0 });
+            events.push({ type: 'sheep' });
+          }
+        }
       }
     }
   }

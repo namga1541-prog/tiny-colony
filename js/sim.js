@@ -73,7 +73,7 @@ export function stepWorld(world, pawns, dtMin, rng, ctx, enemyCbs) {
     for (var ci = 0; ci < ready.length; ci++) ctx.onCropChange(ready[ci]);
     var rev = tickRanches(world, dt, rng);
     for (var re = 0; re < rev.length; re++) { if (rev[re].idx !== undefined) ctx.onItemChange(rev[re].idx); }
-    var bev = tickBarns(world, dt);
+    var bev = tickBarns(world, dt, rng);
     for (var be = 0; be < bev.length; be++) { if (bev[be].idx !== undefined) ctx.onItemChange(bev[be].idx); }
   }
 

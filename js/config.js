@@ -323,6 +323,7 @@ export const RESEARCH = {
   irrigation:    { name: '관개', cost: 140, desc: '밀·과일 수확량이 30% 늘어납니다' },
   veterinary:    { name: '수의학', cost: 130, desc: '사냥·목축 산출량이 25% 늘어납니다' },
   fortification: { name: '요새화', cost: 200, desc: '방어 계열 건물(초소·성)의 내구도가 40% 늘어납니다' },
+  poultry: { name: '가금 사육', cost: 170, desc: '축사가 알을 품어 병아리를 부화시켜 닭을 늘립니다' },
 };
 // fortification 연구로 내구도가 보정되는 방어 계열 건물 kind 목록
 export const FORTIFY_KINDS = ['outpost', 'tower', 'castle'];
@@ -487,6 +488,8 @@ export const WILD_ANIMAL_TYPES = ['horse', 'deer', 'wolf', 'bear', 'lion', 'tige
 export const TAME = { work: 25 };
 // ── 축사: 길들인 야생동물 사육 — 목장과 달리 번식은 안 하고, 길들인 개체 수에 비례해 주기적으로 식량 산출 ──
 export const BARN = { interval: 200, foodPerAnimal: 3 };
+// 가금 사육(연구 해금 시) — 축사가 알을 품어 주기적으로 병아리(닭) 한 마리를 부화시킴. 목장 양 상한(RANCH.maxSheep)을 공유.
+export const EGG_HATCH = { interval: 500 };
 
 // ── 고용: 식량을 지불하고 새 정착민 영입 (인원 늘수록 비용↑) ──
 export const HIRE = { base: 25, perPawn: 15, maxPop: 12 };

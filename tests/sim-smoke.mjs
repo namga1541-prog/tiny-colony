@@ -1,7 +1,7 @@
 // L1 시나리오 스모크 — 시드 고정, 헤드리스. stepWorld 추출이 올바른지 + 결정론 확인.
 import { bootSim, run, runDays, designateChop, give, snapshot, DAY_MIN, MAP_W, MAP_H } from './harness.mjs';
-import { addBuilding, storageCap, upgradeMult, upgradeAdd, maxPop, rankReqStatus, canAdvanceRank, advanceRank, defenseStats, tickTowers, enemyStats, spawnRaid, mulberry32, grantRelic, dailyIslandRespawn, checkIslandDiscovery, updateEnemies, idx, shipComplete, fishSpotTier, footprintTouchesWater, canPlaceBridge, isWalkable, autoDesignateLodges, footprintAdjacentMine, ensureBossIsland } from '../js/world.js';
-import { GIANT, ENEMY, CANNIBAL, ISLANDS, INVASION, OUTPOST_BRANCHES, RAIDER, INVWARRIOR, ZOMBIE, SKELETON, GIANT_JUMP, ARMOR, FRUITTREE, FISH, catchFish, catchRareFish, GODDESS, TRADER, BUILDS, BUILD_MIN_RANK, FISH_PLATFORM, DEMON, GLORIOUS_FOOD, RARE_FISH_SPOT, INJURY, WALK_MIN_PER_TILE, RESEARCH } from '../js/config.js';
+import { addBuilding, storageCap, upgradeMult, upgradeAdd, maxPop, rankReqStatus, canAdvanceRank, advanceRank, defenseStats, tickTowers, enemyStats, spawnRaid, mulberry32, grantRelic, dailyIslandRespawn, checkIslandDiscovery, updateEnemies, idx, shipComplete, fishSpotTier, footprintTouchesWater, canPlaceBridge, isWalkable, autoDesignateLodges, footprintAdjacentMine, ensureBossIsland, tickBarns } from '../js/world.js';
+import { GIANT, ENEMY, CANNIBAL, ISLANDS, INVASION, OUTPOST_BRANCHES, RAIDER, INVWARRIOR, ZOMBIE, SKELETON, GIANT_JUMP, ARMOR, FRUITTREE, FISH, catchFish, catchRareFish, GODDESS, TRADER, BUILDS, BUILD_MIN_RANK, FISH_PLATFORM, DEMON, GLORIOUS_FOOD, RARE_FISH_SPOT, INJURY, WALK_MIN_PER_TILE, RESEARCH, EGG_HATCH, RANCH } from '../js/config.js';
 import { findWorkJob, releaseAllOf, bpMissing, reserve } from '../js/jobs.js';
 import { findPath } from '../js/path.js';
 import { createPawn, updatePawn } from '../js/pawns.js';
@@ -1511,6 +1511,39 @@ console.log('[sim-smoke] 49) 적이 건물 바로 앞에서 더 못 다가가 �
     if (tower.hp <= 0) destroyed = true;
   }
   ok(destroyed, '건물 바로 앞까지 접근한 적이 멈추지 않고 결국 건물을 파괴함(직선 접근 시 좌표 반올림으로 영원히 막히던 버그)');
+})();
+
+console.log('[sim-smoke] 50) 가금 사육 연구 — 축사가 알을 품어 주기적으로 병아리(닭)를 부화 (신규)');
+(function () {
+  var w = bootSim(3101).world;
+  for (var yy = 10; yy <= 20; yy++) for (var xx = 10; xx <= 20; xx++) {
+    var i = yy * 128 + xx;
+    w.terrain[i] = 1; delete w.objects[i]; delete w.occupancy[i];
+  }
+  var barn = addBuilding(w, 'barn', 12, 12, { stage: 'built' });
+  var rng = mulberry32(42);
+
+  // (a) 연구 해금 전에는 아무리 시간이 지나도 부화하지 않음
+  var sheepBefore = w.sheep.length;
+  tickBarns(w, EGG_HATCH.interval * 2, rng);
+  ok(w.sheep.length === sheepBefore, '가금 사육 연구 전에는 알을 부화시키지 않음');
+  ok(barn.eggT === undefined || barn.eggT === 0, '연구 전에는 부화 타이머 자체가 진행되지 않음');
+
+  // (b) 연구 해금 후 — 시간이 지나면 닭 한 마리가 부화(길들인 동물 하나 없어도 동작)
+  w.research.unlocked.poultry = true;
+  tickBarns(w, EGG_HATCH.interval - 1, rng);
+  ok(w.sheep.length === sheepBefore, '부화 주기가 되기 전에는 아직 부화하지 않음');
+  tickBarns(w, 2, rng);
+  ok(w.sheep.length === sheepBefore + 1, '부화 주기가 차면 닭 한 마리가 부화함');
+  var hatched = w.sheep[w.sheep.length - 1];
+  ok(hatched.type === 'chicken' && hatched.tamed === true, '부화한 개체는 이미 길들여진 닭(고정)');
+
+  // (c) 상한(RANCH.maxSheep)은 "길들인" 개체 수 기준 — 맵을 배회하는 야생동물과 무관하게, 이미 상한이면 더 부화하지 않음
+  function tamedCountOf(world) { var n = 0; for (var s = 0; s < world.sheep.length; s++) if (world.sheep[s].tamed) n++; return n; }
+  while (tamedCountOf(w) < RANCH.maxSheep) w.sheep.push({ id: w.nextSid++, type: 'chicken', x: 12, y: 12, px: 12, py: 12, tamed: true, dir: 1, cd: 0, phase: 0 });
+  var atCap = w.sheep.length;
+  tickBarns(w, EGG_HATCH.interval + 1, rng);
+  ok(w.sheep.length === atCap, '길들인 개체 상한(RANCH.maxSheep)에 도달하면 더 이상 부화하지 않음');
 })();
 
 console.log('');
