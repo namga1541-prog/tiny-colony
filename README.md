@@ -72,7 +72,8 @@ npx serve -p 5800 .
 
 ## 크레딧
 
-- 정착민·가축 캐릭터: [Daniel Diggle — Sunnyside World](https://danieldiggle.itch.io/sunnyside) — 무료·상업 사용 가능, 재판매·재배포 금지 (이 저장소의 `assets/sunnyside/`는 게임 구동용이며 에셋팩 재배포가 아닙니다. 에셋이 필요하면 원본 페이지에서 받아 주세요)
+- 마을 건물(집·창고·대장간·치료소·목장·축사·정자·오두막·상점·도서관·여관·선착장·망루): [Shade — MiniWorld Sprites](https://merchant-shade.itch.io/16x16-mini-world-sprites) (CC0). `assets/mw/`.
+- 정착민·가축·자연물·적(고블린·스켈레톤) 캐릭터: [Daniel Diggle — Sunnyside World](https://danieldiggle.itch.io/sunnyside) — 무료·상업 사용 가능, 재판매·재배포 금지 (이 저장소의 `assets/sunnyside/`는 게임 구동용이며 에셋팩 재배포가 아닙니다. 에셋이 필요하면 원본 페이지에서 받아 주세요)
 - 아트(v0.3 메인): [Pixel Frog — Tiny Swords](https://pixelfrog-assets.itch.io/tiny-swords) — 무료·상업 사용 가능, 에셋 단독 재배포 금지 (이 저장소의 `assets/ts/`는 게임 구동용이며 에셋팩 재배포가 아닙니다. 에셋이 필요하면 원본 페이지에서 받아 주세요)
 - 아트(구버전): [Kenney](https://kenney.nl) Roguelike/RPG·Tiny Town·Tiny Dungeon (CC0), [pixel-boy — Ninja Adventure](https://pixel-boy.itch.io/ninja-adventure-asset-pack) (CC0)
 - 건물(집·창고·대장간·치료소·목장·망루·가시벽): [Kenney — Medieval RTS](https://kenney.nl/assets/medieval-rts) (CC0). `assets/mrts/`.

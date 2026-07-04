@@ -24,7 +24,7 @@ export function createRenderer(world) {
     'House', 'House_C', 'Tower', 'Tower_C', 'Castle', 'Castle_C',
     'GoldMine_Active', 'GoldMine_Destroyed',
     'W_Idle', 'G_Idle', 'M_Idle',
-    'Goblin', 'Bridge_All', 'Food_Grain',
+    'Bridge_All', 'Food_Grain',
     'Pawn_Red', 'Warrior_Red', 'Warrior_Purple']; // 침략 세력(약탈자·전사·정복자) 적 스프라이트
   var base = {};
   SHEETS.forEach(function (n) {
@@ -34,12 +34,6 @@ export function createRenderer(world) {
   // 건물 전용: Kenney Tiny Town 타일맵(16px, 12x11) — 건물별 고유 스프라이트 크롭용
   base.TinyTown = PIXI.BaseTexture.from('assets/town/Tilemap/tilemap_packed.png');
   base.TinyTown.scaleMode = PIXI.SCALE_MODES.NEAREST;
-  // 언데드 몬스터(좀비, CC0 Reemax/artisticdude): 24x64 셀, 4방향 행×프레임 열
-  base.ZombieSkeleton = PIXI.BaseTexture.from('assets/monsters/zombie_skeleton.png');
-  base.ZombieSkeleton.scaleMode = PIXI.SCALE_MODES.NEAREST;
-  // 스켈레톤 전용 스프라이트(CC0 r0ar, OpenGameArt "Skeleton Sprite"): 50x50 셀 4x2 걷기 사이클
-  base.SkeletonBone = PIXI.BaseTexture.from('assets/monsters/skeleton_bone.png');
-  base.SkeletonBone.scaleMode = PIXI.SCALE_MODES.NEAREST;
   // 최종 보스 「악마후배」(CC0 Red Demons — Umz, OpenGameArt): 32x34 셀 2프레임(정면 idle)
   base.Demon = PIXI.BaseTexture.from('assets/monsters/demon.png');
   base.Demon.scaleMode = PIXI.SCALE_MODES.NEAREST;
@@ -64,18 +58,21 @@ export function createRenderer(world) {
   };
   // 건물 스프라이트(Kenney Medieval RTS, CC0) — 건물별 고유 그림(64x64). 종류로 매핑.
   function mrts(name) { var t = PIXI.Texture.from('assets/mrts/' + name + '.png'); t.baseTexture.scaleMode = PIXI.SCALE_MODES.NEAREST; return t; }
-  var MRTS_KIND = { // 완공 건물 → Medieval RTS 텍스처
-    house: mrts('house'), warehouse: mrts('warehouse'), smithy: mrts('smithy'),
-    clinic: mrts('clinic'), ranch: mrts('ranch'), tower: mrts('tower'),
+  // 마을 건물(MiniWorld Sprites, CC0) — 시트에서 4배 베이크한 조각(폭 64px 기준). 종류로 매핑.
+  function mwb(name) {
+    var t = PIXI.Texture.from('assets/mw/buildings/' + name + '.png');
+    t.baseTexture.scaleMode = PIXI.SCALE_MODES.NEAREST;
+    return t;
+  }
+  var MW_KIND = {};
+  ['house', 'warehouse', 'smithy', 'clinic', 'ranch', 'barn', 'pavilion', 'minerLodge', 'farmLodge',
+    'outfitter', 'library', 'tavern', 'dock', 'tower'].forEach(function (mk) { MW_KIND[mk] = mwb(mk); });
+  var MW_SCALE = { tower: 1.35, dock: 1.25 }; // 세로 2칸(64x128) 조각은 폭 기준 공식 대신 절제된 배율
+  var MRTS_KIND = { // 남은 Medieval RTS 사용처: 울타리(목책)·성문
     fence: mrts('palisade'), // 목책 스프라이트를 그대로 울타리로 재사용
     fenceGate: PIXI.Texture.from(FANTASY + 'CityWall_Gate_1.png'), // 성문(The Fan-tasy Tileset, 이미 프로젝트에 있는 성문 그림 재사용)
   };
   var MRTS_PALISADE = mrts('palisade'); // 가시벽(근접 특화 초소)
-  // 괴민(거인 적) 전용 — 구 Ninja Adventure 들남 시트(pawnTex 가 거인 렌더에만 사용)
-  base['nj_caveman_idle'] = PIXI.BaseTexture.from('assets/ninja/Caveman/Idle.png');
-  base['nj_caveman_walk'] = PIXI.BaseTexture.from('assets/ninja/Caveman/Walk.png');
-  base['nj_caveman_idle'].scaleMode = PIXI.SCALE_MODES.NEAREST;
-  base['nj_caveman_walk'].scaleMode = PIXI.SCALE_MODES.NEAREST;
 
   // 정착민 — Sunnyside World 치비 캐릭터. 레이어(base/tools/헤어6종)별 가로 스트립(프레임 96x64).
   // hit = 타격 파티클을 쏘는 프레임 인덱스. hamering 은 팩 원본 파일명 오타 그대로.
@@ -202,13 +199,19 @@ export function createRenderer(world) {
     leatherArmor: 0xc79a5c, ironArmor: 0x8d97a8,
   };
 
-  // 고블린(적) 프레임: 7열 시트, row0 idle / row1 walk / row2 attack
-  var goblinIdle = [], goblinWalk = [], goblinAtk = [];
-  for (var gf = 0; gf < 6; gf++) {
-    goblinIdle.push(tx('Goblin', gf * 192, 0, 192, 192));
-    goblinWalk.push(tx('Goblin', gf * 192, 192, 192, 192));
-    goblinAtk.push(tx('Goblin', gf * 192, 384, 192, 192));
+  // 적 프레임(Sunnyside 고블린·스켈레톤) — 96x64 가로 스트립, 파일명 숫자는 실측 프레임 수
+  ['goblin_idle8', 'goblin_walk8', 'goblin_attack9', 'skeleton_idle6', 'skeleton_walk8'].forEach(function (esn) {
+    base['ssE_' + esn] = PIXI.BaseTexture.from('assets/sunnyside/enemies/' + esn + '.png');
+    base['ssE_' + esn].scaleMode = PIXI.SCALE_MODES.NEAREST;
+  });
+  function ssEnemyFrames(name, n) {
+    var arr = [];
+    for (var i = 0; i < n; i++) arr.push(tx('ssE_' + name, i * 96, 0, 96, 64));
+    return arr;
   }
+  var goblinIdle = ssEnemyFrames('goblin_idle8', 8);
+  var goblinWalk = ssEnemyFrames('goblin_walk8', 8);
+  var goblinAtk = ssEnemyFrames('goblin_attack9', 9);
   // 침략 세력 적 프레임 (Tiny Swords 진영 유닛, 192px 6프레임 · row0 대기 / row1 이동)
   function enemyFrames(sheet) {
     var idle = [], walk = [];
@@ -218,37 +221,22 @@ export function createRenderer(world) {
   var fxRaider = enemyFrames('Pawn_Red');        // 약탈자(빨강 도끼병)
   var fxWarrior = enemyFrames('Warrior_Red');    // 침략 전사(빨강 기사)
   var fxWarlord = enemyFrames('Warrior_Purple'); // 정복자(보라 기사·미니보스)
-  // 좀비(CC0): 24x64 셀 row1(왼쪽 프로필), 열 0~2(3프레임). 좌우는 스케일 부호로 반전.
-  function undeadFrames(colStart, colCount) {
-    var frames = [];
-    for (var i = 0; i < colCount; i++) frames.push(tx('ZombieSkeleton', (colStart + i) * 24, 1 * 64, 24, 64));
-    return frames;
-  }
-  var fxZombie = undeadFrames(0, 3);
-  // 스켈레톤 전용(CC0 r0ar): 50x50 셀 4x2 걷기 사이클(8프레임, 좌측 상단부터 행 우선).
-  var fxSkeleton = [];
-  for (var skf = 0; skf < 8; skf++) fxSkeleton.push(tx('SkeletonBone', (skf % 4) * 50, ((skf / 4) | 0) * 50, 50, 50));
+  // 스켈레톤(Sunnyside) — 좀비는 같은 백골에 초록 색조로 구분(느린 살덩이 표현은 이동 속도가 담당)
+  var fxSkelIdle = ssEnemyFrames('skeleton_idle6', 6);
+  var fxSkelWalk = ssEnemyFrames('skeleton_walk8', 8);
   var demonFrames = [tx('Demon', 0, 0, 32, 34), tx('Demon', 32, 0, 32, 34)]; // 붉은 뿔 악마(정면 2프레임)
   // 적 종류별 외형: idle/walk 프레임 + 선택적 tint·scale·anchorY(발 위치, 기본 0.72)
   var ENEMY_LOOK = {
-    goblin:   { idle: goblinIdle, walk: goblinWalk },
-    cannibal: { idle: goblinIdle, walk: goblinWalk, tint: 0x8a2020 }, // 식인종=붉은 고블린
+    goblin:   { idle: goblinIdle, walk: goblinWalk, scale: 3.8, anchorY: 0.6 },
+    cannibal: { idle: goblinIdle, walk: goblinWalk, scale: 3.8, anchorY: 0.6, tint: 0xffab8a }, // 식인종=불그스름한 고블린
     raider:   { idle: fxRaider.idle, walk: fxRaider.walk },
     warrior:  { idle: fxWarrior.idle, walk: fxWarrior.walk },
     warlord:  { idle: fxWarlord.idle, walk: fxWarlord.walk, scale: 1.4 }, // 정복자=보라 기사(크게)
-    zombie:   { idle: fxZombie, walk: fxZombie, scale: 2.1, anchorY: 0.94 },     // 좀비(느린 살덩이) — 고블린과 비슷한 시각 크기
-    skeleton: { idle: fxSkeleton, walk: fxSkeleton, scale: 2.2, anchorY: 0.85 }, // 스켈레톤 전용 백골 스프라이트 — 고블린과 비슷한 시각 크기
+    zombie:   { idle: fxSkelWalk, walk: fxSkelWalk, tint: 0x9fe08a, scale: 3.6, anchorY: 0.6 }, // 좀비=초록빛 언데드
+    skeleton: { idle: fxSkelIdle, walk: fxSkelWalk, scale: 3.8, anchorY: 0.6 }, // 스켈레톤(Sunnyside 백골)
     demon:    { idle: demonFrames, walk: demonFrames, scale: 15.75, anchorY: 0.97 }, // 최종 보스=붉은 뿔 악마(괴민의 1.5배 — 압도적 거대)
     minidemon: { idle: demonFrames, walk: demonFrames, scale: 5.25, anchorY: 0.95, tint: 0xe0703a }, // 미니 악마=보스의 1/3 크기 + 주황빛(하수인 구분)
   };
-
-  // 괴민(거인 적) 전용 — 구 닌자 들남 시트 크롭. dir: 0정면 1뒤 2좌 3우.
-  // idle: 방향=열(64x16). walk: 방향=행, 프레임=열(64x64). 각 16px. (정착민은 ssTex 사용)
-  function pawnTex(look, pose, frame, dir) {
-    dir = dir || 0;
-    if (pose === 'walk') return tx('nj_caveman_walk', (frame % 4) * 16, dir * 16, 16, 16);
-    return tx('nj_caveman_idle', dir * 16, 0, 16, 16);
-  }
 
   // ── 레이어 ──
   var camera = new PIXI.Container();
@@ -506,7 +494,9 @@ export function createRenderer(world) {
     }
     // 가시벽(근접 특화 초소)은 Medieval RTS 목책으로 표시
     if (b.kind === 'outpost' && b.stage === 'built' && b.branch === 'spike') return MRTS_PALISADE;
-    // 건물별 Medieval RTS 고유 스프라이트 (집·창고·대장간·치료소·목장·망루)
+    // 마을 건물(MiniWorld) 고유 스프라이트 (집·창고·대장간·치료소·목장·망루·여관 등)
+    if (MW_KIND[b.kind]) return MW_KIND[b.kind];
+    // 울타리·성문 (Medieval RTS·Fan-tasy)
     if (MRTS_KIND[b.kind]) return MRTS_KIND[b.kind];
     var def = BUILDS[b.kind];
     if (def.town) { // Tiny Town 고유 건물 스프라이트 (타일맵에서 크롭)
@@ -602,12 +592,13 @@ export function createRenderer(world) {
     // 완공된 특화 초소 = LPC 병기 스프라이트, 건물류 = Medieval RTS 스프라이트 (둘 다 원본 색 그대로)
     var siege = (b.kind === 'outpost' && b.stage === 'built' && b.branch && BRANCH_SIEGE[b.branch]);
     var mrtsBld = !!MRTS_KIND[b.kind] || (b.kind === 'outpost' && b.stage === 'built' && b.branch === 'spike');
+    var mwBld = !!MW_KIND[b.kind];
     var decorBld = !!DECOR_BUILD_TEX[b.kind];
     if (b.stage === 'bp') {
       var ready = bpMissing(b) === null;
       e.alpha = ready ? 0.95 : 0.45;
       e.tint = ready ? 0xffffff : 0x9ec7ff;
-    } else if (siege || mrtsBld) {
+    } else if (siege || mrtsBld || mwBld) {
       e.alpha = 1;
       e.tint = 0xffffff;
     } else {
@@ -619,6 +610,11 @@ export function createRenderer(world) {
     // 병기 스프라이트: 원본 폭을 풋프린트(약 2타일)에 맞춰 스케일
     if (siege) {
       e.scale.set((def.fw * TILE * 0.94) / BRANCH_SIEGE[b.branch].w);
+    } else if (mwBld) {
+      // MiniWorld 건물(폭 64px 베이크)을 풋프린트에 맞춰 확대. 세로 2칸 조각은 절제 배율.
+      var mwScale = MW_SCALE[b.kind] || ((def.fw * TILE * 1.15) / 64);
+      if (b.kind === 'warehouse') mwScale *= 1 + ((b.tier || 1) - 1) * 0.08; // 창고 단계 확대 유지
+      e.scale.set(mwScale);
     } else if (mrtsBld) {
       // Medieval RTS 건물(64x64)을 풋프린트에 맞춰 확대(약간 오버행). 창고는 단계별 확대 유지.
       var mScale = (def.fw * TILE * 1.15) / 64;
@@ -1079,13 +1075,14 @@ export function createRenderer(world) {
       sp.tint = 0xffffff;
       var GS = 22; // 거인 스케일(정착민의 ~7배 키 — 더 거대하게)
       if (isG) {
-        // 거대 원시인(caveman) — 나체에 가죽 팬티, 주먹으로 부수는 바보 거인
-        sp.anchor.set(0.5, 0.9);
+        // 거대 고블린(Sunnyside) — 프레임 96x64, 몸높이 ~16px → scale 20이면 시각 ~320px 거인
+        sp.anchor.set(0.5, 0.6);
         sp.y = (en.py + 0.5) * TILE + 4;
-        sp.scale.set(GS * (en.dir < 0 ? -1 : 1), GS);
-        var d4 = en.dir < 0 ? 2 : 3;
-        var gf = ((animTime / 0.18) | 0) + en.anim; // 느릿한 걸음
-        sp.texture = pawnTex({ human: 'caveman' }, en.moving ? 'walk' : 'idle', gf, d4);
+        sp.scale.set(20 * (en.dir < 0 ? -1 : 1), 20);
+        var gfr = en.moving ? goblinWalk : goblinIdle;
+        var gf = (((animTime / 0.18) | 0) + en.anim) % gfr.length; // 느릿한 걸음
+        sp.texture = gfr[gf];
+        sp.tint = 0xd9b06a; // 황토빛 — 일반 고블린과 구분되는 괴수 색
       } else {
         // 종류별 외형(고블린·식인종·약탈자·전사·정복자·언데드). 없으면 고블린으로 폴백.
         var look = ENEMY_LOOK[en.kind] || ENEMY_LOOK.goblin;
