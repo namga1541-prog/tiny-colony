@@ -229,7 +229,7 @@
 | `spawnWorkFx` | js/render.js:1371 |
 | `stackRoom` | js/world.js:548 |
 | `startBgm` | js/audio.js:22 |
-| `stepWorld` | js/sim.js:54 |
+| `stepWorld` | js/sim.js:55 |
 | `stop` | js/main.js:361 |
 | `storageCap` | js/world.js:615 |
 | `storageFull` | js/world.js:628 |

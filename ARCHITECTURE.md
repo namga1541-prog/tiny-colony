@@ -25,7 +25,8 @@
 **ctx (정착민·월드 상태 콜백)**: `rng`, `onWorldChange(i)`, `onItemChange(i)`, `onCropChange(i)`,
 `onBuildingChange(b)`, `onBuildingBuilt(b)`, `onEvent(msg)`, `onStorageFull()`, `onDeath(pawn)`,
 `onStarving(pawn)`, `onSheepChange()`
-**ctx (오케스트레이션 효과 콜백)**: `onTileChange(i)`, `onToast(msg,warn)`, `onSfx(name)`, `onRecruit()`, `onSeasonTint(tint,alpha)`
+**ctx (오케스트레이션 효과 콜백)**: `onTileChange(i)`, `onToast(msg,warn)`, `onSfx(name)`, `onRecruit()`, `onSeasonTint(tint,alpha)`,
+`onGoddessDescend(x,y)`(여신 강림 연출), `onBoatLanding(x,y)`(습격 상륙 배 연출), `onZonesChanged()`(구역 오버레이 갱신)
 **enemyCbs (전투)**: `onHit(pawn,dmg)`, `onPawnDeath(pawn)`, `onEnemyDown(enemy)`, `onTowerFire(tower,enemy)`, `onCannonFire(castle,enemy)`(성 대포 tier 광역)
 
 - main.js 는 ctx 에 실제 R.*/UI.*/Audio2.*/recruitWanderer 를 연결. 헤드리스 하네스는 기록용 stub 연결.

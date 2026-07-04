@@ -50,7 +50,8 @@ function landingCentroidTail(world, n) {
 // ctx 계약: (상태) rng, onWorldChange, onItemChange, onCropChange, onBuildingChange,
 //   onBuildingBuilt, onEvent, onStorageFull, onDeath, onStarving, onSheepChange
 //   (효과) onTileChange, onToast(msg,warn), onSfx(name), onRecruit(), onSeasonTint(tint,alpha),
-//   onGoddessDescend(x,y) — 「아보랑카도」 강림 위치(타일 좌표)
+//   onGoddessDescend(x,y) — 「아보랑카도」 강림 위치(타일 좌표),
+//   onBoatLanding(x,y) — 습격 상륙 지점(배 연출), onZonesChanged() — 구역 오버레이 갱신
 export function stepWorld(world, pawns, dtMin, rng, ctx, enemyCbs) {
   var prevDay = world.day;
   var gameMin = dtMin;
