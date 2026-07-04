@@ -115,6 +115,42 @@ body.touch .touch-only { display: inline-block; }
 .tool-group.hidden { display: none; }
 .tool-section, .tool-cap, .tool-sep { display: none; } /* 구버전 마크업 대비 */
 
+/* 건설 탭: 소분류 칩(위) + 해당 분류 버튼 한 줄(아래) */
+.tool-group.grouped { flex-direction: column; align-items: stretch; gap: 6px; }
+.sub-chips { display: flex; flex-wrap: wrap; gap: 5px; justify-content: center; }
+.sub-chip {
+  background: linear-gradient(180deg, #2c333f, #20262f);
+  border: 1px solid #10131a; color: #aab2c2;
+  border-radius: 999px; padding: 5px 13px;
+  font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit;
+  white-space: nowrap;
+  transition: background 0.12s, color 0.12s;
+}
+.sub-chip:hover { color: #fff; }
+.sub-chip.active {
+  background: linear-gradient(180deg, #3c3117, #2a2210);
+  border-color: #d8a24a; color: #ffd98a;
+}
+.sub-chip.dim { opacity: 0.55; } /* 해금 건물이 아직 없는 분류 */
+.sub-row { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; justify-content: center; min-height: 34px; }
+.sub-spacer { flex: 1; min-width: 14px; }
+.tool.hidden { display: none; } /* 다른 분류·잠긴 건물 버튼 숨김 */
+.lock-pill {
+  font-size: 12px; color: #98a1b3;
+  border: 1px dashed #414a5c; border-radius: 8px; padding: 6px 10px;
+  white-space: nowrap;
+}
+.lock-pill.hidden { display: none; }
+.tool.demolish { border-color: #52242a; color: #ff9d8d; } /* 파괴 동작 — 우측 고정·색 분리 */
+
+/* 꾸미기 탭: 아이콘 그리드(이름·비용은 툴팁으로) */
+.tool-group.iconic { max-width: 700px; }
+.tool-group.iconic .tool { font-size: 17px; padding: 6px 10px; line-height: 1; }
+.tool-group.iconic .tool.demolish { font-size: 13px; line-height: inherit; }
+
+/* 도구 탭: 지시 | 구역 | 취소 구분선 */
+.t-sep { width: 1px; align-self: stretch; background: rgba(255, 255, 255, 0.12); margin: 3px 4px; }
+
 .tool, .tool-action { /* 돌출된 버튼: 상단 하이라이트 + 하단 그림자 */
   background: linear-gradient(180deg, #333b49, #262c37);
   border: 1px solid #10131a;
@@ -504,6 +540,13 @@ body.touch #toolbar .tool-group { /* 선택된 그룹만: 한 줄 가로 스크�
   flex-wrap: nowrap; justify-content: flex-start; gap: 6px;
   overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch;
 }
+body.touch #toolbar .tool-group.grouped { overflow: visible; } /* 칩 행·버튼 행이 각자 스크롤 */
+body.touch #toolbar .sub-chips,
+body.touch #toolbar .sub-row {
+  flex-wrap: nowrap; justify-content: flex-start;
+  overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch;
+}
+body.touch #toolbar .sub-chip { flex: 0 0 auto; }
 body.touch #toolbar .tool,
 body.touch #toolbar .tool-action {
   flex: 0 0 auto; padding: 9px 12px; font-size: 13px; white-space: nowrap;

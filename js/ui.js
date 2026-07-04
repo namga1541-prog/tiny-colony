@@ -33,6 +33,58 @@ export function createUI(handlers) {
     });
   });
 
+  // 건설 소분류 칩 — 선택한 분류의 해금 건물만 표시, 잠긴 건물은 요약 알약으로 접기
+  var buildSub = 'life';
+  var subChips = document.querySelectorAll('#toolbar .sub-chip');
+  subChips.forEach(function (chip) {
+    chip.addEventListener('click', function () {
+      buildSub = chip.dataset.sub;
+      renderBuildSub();
+    });
+  });
+  function renderBuildSub() {
+    if (!subChips.length) return;
+    var rank = world.rank || 0;
+    var btns = document.querySelectorAll('#toolbar .tool-group[data-cat="build"] .tool[data-sub]');
+    var info = {}; // 분류별 { open: 해금 수, locked: 잠금 수, nextName/nextRank: 다음 해금, escape: 탈출선 게이트 }
+    for (var i = 0; i < btns.length; i++) {
+      var b = btns[i];
+      var k = b.dataset.tool;
+      var def = BUILDS[k];
+      var needRank = BUILD_MIN_RANK[k] || 0;
+      var isEscape = !!(def && def.escapePart);
+      var locked = needRank > rank || (isEscape && !world.invasionWon);
+      var sub = b.dataset.sub;
+      var s = info[sub] || (info[sub] = { open: 0, locked: 0, nextName: null, nextRank: 99, escape: false });
+      if (locked) {
+        s.locked++;
+        if (isEscape) { s.escape = true; if (!s.nextName) s.nextName = def.name; }
+        else if (needRank < s.nextRank) { s.nextRank = needRank; s.nextName = (def && def.name) || k; }
+      } else { s.open++; }
+      b.classList.toggle('hidden', sub !== buildSub || locked);
+    }
+    subChips.forEach(function (c) {
+      c.classList.toggle('active', c.dataset.sub === buildSub);
+      var ci = info[c.dataset.sub];
+      c.classList.toggle('dim', !!(ci && ci.open === 0)); // 해금 건물이 하나도 없는 분류는 흐리게
+    });
+    var pill = document.getElementById('lockPill');
+    if (!pill) return;
+    var cur = info[buildSub];
+    if (!cur || !cur.locked) {
+      pill.classList.add('hidden');
+      pill.textContent = '';
+      return;
+    }
+    pill.classList.remove('hidden');
+    if (cur.escape) {
+      pill.textContent = '🔒 ' + cur.locked + '종 — 나라 단계 승급 + 대침공 격퇴 후 해금';
+    } else {
+      var rankName = RANKS[cur.nextRank] ? RANKS[cur.nextRank].name : '';
+      pill.textContent = '🔒 ' + cur.locked + '종 잠김 · 다음: ' + cur.nextName + ' (' + rankName + ' 단계)';
+    }
+  }
+
   // 속도 버튼
   var spdBtns = document.querySelectorAll('.spd');
   spdBtns.forEach(function (btn) {
@@ -95,7 +147,7 @@ export function createUI(handlers) {
   });
   refreshLocks(); // 초기 건물 잠금 표시
 
-  // 발전 단계 미달 건물 버튼 흐리게 표시
+  // 발전 단계 미달 건물 잠금 갱신 — 건설 탭은 숨김+요약 알약(renderBuildSub), 그 외 버튼은 흐리게
   function refreshLocks() {
     var rank = world.rank || 0;
     var btns = document.querySelectorAll('#toolbar .tool[data-tool]');
@@ -107,6 +159,7 @@ export function createUI(handlers) {
     }
     var btnTrader = document.getElementById('btnTrader');
     if (btnTrader) btnTrader.classList.toggle('locked', !world.traderActive);
+    renderBuildSub();
   }
   var btnHire = document.getElementById('btnHire');
   btnHire.addEventListener('click', function () {
