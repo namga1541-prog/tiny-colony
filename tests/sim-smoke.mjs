@@ -152,7 +152,7 @@ console.log('[sim-smoke] 9) 발전 단계 — 요건 판정·승급·인구상�
   var sim = bootSim(1);
   var w = sim.world;
   ok(w.rank === 0, '시작은 무리(0) 단계');
-  ok(maxPop(w) === 8, '무리 인구 상한 8');
+  ok(maxPop(w) === 6, '무리 인구 상한 6');
   var s0 = rankReqStatus(w, 3);
   ok(s0 && s0.next.id === 'group' && !s0.allOk, '다음=집단, 시작 시 요건 미달');
   ok(!canAdvanceRank(w, 3), '인구3·집0 → 승급 불가');
@@ -276,7 +276,7 @@ console.log('[sim-smoke] 15) 원정 섬 — 생성·테마 콘텐츠·발견·�
 
   // 섬 중심이 실제로 육지(잔디/모래)인지 — 바다 한복판에 생성되지 않았는지 확인
   var allLand = w.islands.every(function (isl) {
-    return w.terrain[Math.round(isl.cy) * 96 + Math.round(isl.cx)] !== 0; // T_WATER=0
+    return w.terrain[Math.round(isl.cy) * MAP_W + Math.round(isl.cx)] !== 0; // T_WATER=0
   });
   ok(allLand, '모든 섬 중심이 육지(물 아님)로 생성됨');
 
@@ -285,7 +285,7 @@ console.log('[sim-smoke] 15) 원정 섬 — 생성·테마 콘텐츠·발견·�
   var chestCount = 0;
   for (var i in w.objects) {
     if (w.objects[i].kind === 'chest') {
-      var x = i % 96, y = (i / 96) | 0;
+      var x = i % MAP_W, y = (i / MAP_W) | 0;
       if (Math.hypot(x - tIsl.cx, y - tIsl.cy) <= tIsl.r * 1.1) chestCount++;
     }
   }

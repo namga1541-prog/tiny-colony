@@ -52,10 +52,11 @@ function ok(cond, msg) { if (cond) console.log('  ✓ ' + msg); else { console.l
   var run = await page.evaluate(async function () {
     var g = window.game, w = g.world;
     // 중심 근처 나무 벌목 지정
-    var cx = 48, cy = 48, trees = [];
+    var mapW = Math.sqrt(w.terrain.length) | 0;
+    var cx = mapW / 2, cy = mapW / 2, trees = [];
     for (var i in w.objects) {
       if (w.objects[i].kind === 'tree') {
-        var x = i % 96, y = (i / 96) | 0;
+        var x = i % mapW, y = (i / mapW) | 0;
         trees.push({ x: x, y: y, d: Math.abs(x - cx) + Math.abs(y - cy) });
       }
     }

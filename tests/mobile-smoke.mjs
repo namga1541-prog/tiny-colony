@@ -139,11 +139,12 @@ function ok(cond, msg) { if (cond) console.log('  ✓ ' + msg); else { console.l
   var desigResult = await page.evaluate(async function () {
     var g = window.game, w = g.world;
     // 정착촌에서 가장 가까운 나무를 찾아 카메라를 그쪽으로
+    var mapW = Math.sqrt(w.terrain.length) | 0;
     var best = null, bestD = 1e9;
     for (var i in w.objects) {
       if (w.objects[i].kind !== 'tree') continue;
-      var x = i % 96, y = (i / 96) | 0;
-      var d = Math.abs(x - 48) + Math.abs(y - 48);
+      var x = i % mapW, y = (i / mapW) | 0;
+      var d = Math.abs(x - mapW / 2) + Math.abs(y - mapW / 2);
       if (d < bestD) { bestD = d; best = { x: x, y: y, i: +i }; }
     }
     if (!best) return null;

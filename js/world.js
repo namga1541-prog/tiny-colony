@@ -2,7 +2,7 @@
 import {
   MAP_W, MAP_H, NATURE, STACK_MAX, BUILDS, BUILDING_HP_DEFAULT, GOLDMINE, IRONMINE, BRIDGE,
   RESEARCH_RATE_PER_PAWN, ENEMY, RAID, GIANT, GIANT_FAST_MULT, GIANT_JUMP, SEASON_DAYS, SEASONS, STORAGE, RANCH, REGROW,
-  ANIMAL_TYPES, WAREHOUSE_TIERS, UPGRADES, RANKS, DEFENSE_TIERS, OUTPOST_BRANCHES, CANNON, RELICS, ISLANDS, CANNIBAL, WARLORD, RAIDER, INVWARRIOR, ZOMBIE, SKELETON, DEMON,
+  ANIMAL_TYPES, WAREHOUSE_TIERS, UPGRADES, RANKS, HOUSE_POP_BONUS, HOUSE_POP_CAP_COUNT, DEFENSE_TIERS, OUTPOST_BRANCHES, CANNON, RELICS, ISLANDS, CANNIBAL, WARLORD, RAIDER, INVWARRIOR, ZOMBIE, SKELETON, DEMON,
   ARMOR, FISH_PLATFORM, LODGE_FARM_RADIUS,
   T_WATER, T_GRASS, T_SAND,
 } from './config.js';
@@ -515,7 +515,8 @@ export function countBuilt(world, kind) {
 }
 export function maxPop(world) {
   var base = (RANKS[world.rank || 0] || RANKS[0]).popCap;
-  return base + upgradeAdd(world, 'maxpop');
+  var houses = Math.min(countBuilt(world, 'house'), HOUSE_POP_CAP_COUNT);
+  return base + houses * HOUSE_POP_BONUS + upgradeAdd(world, 'maxpop');
 }
 // 다음 단계 승급 요건 상태 (없으면 null = 최고 단계). items: [{label, ok}]
 export function rankReqStatus(world, alive) {
