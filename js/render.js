@@ -20,12 +20,11 @@ export function createRenderer(world) {
   PIXI.settings.SCALE_MODE = PIXI.SCALE_MODES.NEAREST;
 
   // ── 베이스 텍스처 ──
-  var SHEETS = ['Tilemap_Flat', 'Water', 'Foam', 'Tree', 'Fire', 'Sheep_Idle', 'Dead',
+  var SHEETS = ['Tilemap_Flat', 'Water', 'Foam', 'Tree', 'Fire', 'Dead',
     'House', 'House_C', 'Tower', 'Tower_C', 'Castle', 'Castle_C',
     'GoldMine_Active', 'GoldMine_Destroyed',
     'W_Idle', 'G_Idle', 'M_Idle',
     'Goblin', 'Bridge_All', 'Food_Grain',
-    'Pig', 'Cow', 'Chicken',
     'Pawn_Red', 'Warrior_Red', 'Warrior_Purple', // 침략 세력(약탈자·전사·정복자) 적 스프라이트
     'deco03'];
   var base = {};
@@ -73,12 +72,48 @@ export function createRenderer(world) {
     fenceGate: PIXI.Texture.from(FANTASY + 'CityWall_Gate_1.png'), // 성문(The Fan-tasy Tileset, 이미 프로젝트에 있는 성문 그림 재사용)
   };
   var MRTS_PALISADE = mrts('palisade'); // 가시벽(근접 특화 초소)
-  // 사람 캐릭터 시트 (Ninja Adventure, 16px 4방향) — 사람별 Idle/Walk
-  for (var hk in HUMANS) {
-    base['nj_' + hk + '_idle'] = PIXI.BaseTexture.from('assets/ninja/' + HUMANS[hk].dir + '/Idle.png');
-    base['nj_' + hk + '_walk'] = PIXI.BaseTexture.from('assets/ninja/' + HUMANS[hk].dir + '/Walk.png');
-    base['nj_' + hk + '_idle'].scaleMode = PIXI.SCALE_MODES.NEAREST;
-    base['nj_' + hk + '_walk'].scaleMode = PIXI.SCALE_MODES.NEAREST;
+  // 괴민(거인 적) 전용 — 구 Ninja Adventure 들남 시트(pawnTex 가 거인 렌더에만 사용)
+  base['nj_caveman_idle'] = PIXI.BaseTexture.from('assets/ninja/Caveman/Idle.png');
+  base['nj_caveman_walk'] = PIXI.BaseTexture.from('assets/ninja/Caveman/Walk.png');
+  base['nj_caveman_idle'].scaleMode = PIXI.SCALE_MODES.NEAREST;
+  base['nj_caveman_walk'].scaleMode = PIXI.SCALE_MODES.NEAREST;
+
+  // 정착민 — Sunnyside World 치비 캐릭터. 레이어(base/tools/헤어6종)별 가로 스트립(프레임 96x64).
+  // hit = 타격 파티클을 쏘는 프레임 인덱스. hamering 은 팩 원본 파일명 오타 그대로.
+  var SS_ANIMS = {
+    idle:      { file: 'idle_strip9',      n: 9,  fps: 8 },
+    walk:      { file: 'walk_strip8',      n: 8,  fps: 12 },
+    carry:     { file: 'carry_strip8',     n: 8,  fps: 12 },
+    waiting:   { file: 'waiting_strip9',   n: 9,  fps: 8 },
+    axe:       { file: 'axe_strip10',      n: 10, fps: 12, fx: 'chips',  hit: 6 },
+    mining:    { file: 'mining_strip10',   n: 10, fps: 12, fx: 'sparks', hit: 6 },
+    hammering: { file: 'hamering_strip23', n: 23, fps: 14, fx: 'dust',   hit: 13 },
+    casting:   { file: 'casting_strip15',  n: 15, fps: 10, fx: 'splash', hit: 9 },
+    dig:       { file: 'dig_strip13',      n: 13, fps: 12 },
+    doing:     { file: 'doing_strip8',     n: 8,  fps: 10 },
+    attack:    { file: 'attack_strip10',   n: 10, fps: 14 },
+    death:     { file: 'death_strip13',    n: 13, fps: 10 },
+  };
+  var SS_LAYERS = ['base', 'tools', 'bowlhair', 'curlyhair', 'longhair', 'mophair', 'shorthair', 'spikeyhair'];
+  for (var ssa in SS_ANIMS) {
+    for (var ssl = 0; ssl < SS_LAYERS.length; ssl++) {
+      var ssKey = 'ss_' + SS_LAYERS[ssl] + '_' + ssa;
+      base[ssKey] = PIXI.BaseTexture.from('assets/sunnyside/human/' + SS_LAYERS[ssl] + '_' + SS_ANIMS[ssa].file + '.png');
+      base[ssKey].scaleMode = PIXI.SCALE_MODES.NEAREST;
+    }
+  }
+  function ssTex(layer, animKey, frame) {
+    var sa = SS_ANIMS[animKey];
+    return tx('ss_' + layer + '_' + animKey, (frame % sa.n) * 96, 0, 96, 64);
+  }
+  // 외형(look) → 헤어 스트립 이름·색조
+  function hairOf(look) {
+    var hk = (look && look.human && HUMANS[look.human]) ? look.human : 'villager';
+    return HUMANS[hk].hair;
+  }
+  function hairTintOf(look) {
+    var hk = (look && look.human && HUMANS[look.human]) ? look.human : 'villager';
+    return HUMANS[hk].tint || 0xffffff;
   }
 
   var texCache = {};
@@ -100,18 +135,25 @@ export function createRenderer(world) {
     return tx('Tilemap_Flat', ox + col * 64, row * 64, 64, 64);
   }
 
-  var foamFrames = [], treeFrames = [], fireFrames = [], sheepFrames = [];
+  var foamFrames = [], treeFrames = [], fireFrames = [];
   for (var ff = 0; ff < 8; ff++) foamFrames.push(tx('Foam', ff * 192, 0, 192, 192));
   for (var tf = 0; tf < 4; tf++) treeFrames.push(tx('Tree', tf * 192, 0, 192, 192));
   var stumpTex = tx('Tree', 0, 384, 192, 192);
   for (var fi = 0; fi < 7; fi++) fireFrames.push(tx('Fire', fi * 128, 0, 128, 128));
-  for (var sf = 0; sf < 8; sf++) sheepFrames.push(tx('Sheep_Idle', sf * 128, 0, 128, 128));
-  // 소형 동물(돼지·소·닭): 16px, 2프레임
-  var animalFrames = {
-    pig: [tx('Pig', 0, 0, 16, 16), tx('Pig', 16, 0, 16, 16)],
-    cow: [tx('Cow', 0, 0, 16, 16), tx('Cow', 16, 0, 16, 16)],
-    chicken: [tx('Chicken', 0, 0, 16, 16), tx('Chicken', 16, 0, 16, 16)],
+  // 가축(양·돼지·소·닭): Sunnyside World 32x32 4프레임 스트립 — 정착민과 같은 팩으로 통일
+  var SS_ANIMAL_FILES = {
+    sheep: 'spr_deco_sheep_01_strip4', pig: 'spr_deco_pig_01_strip4',
+    cow: 'spr_deco_cow_strip4', chicken: 'spr_deco_chicken_01_strip4',
   };
+  var ANIMAL_VIEW_SCALE = { sheep: 1.9, cow: 1.8, pig: 1.7, chicken: 1.4 };
+  var animalFrames = {};
+  for (var ak in SS_ANIMAL_FILES) {
+    base['ss_an_' + ak] = PIXI.BaseTexture.from('assets/sunnyside/animals/' + SS_ANIMAL_FILES[ak] + '.png');
+    base['ss_an_' + ak].scaleMode = PIXI.SCALE_MODES.NEAREST;
+    var ssAf = [];
+    for (var afi = 0; afi < 4; afi++) ssAf.push(tx('ss_an_' + ak, afi * 32, 0, 32, 32));
+    animalFrames[ak] = ssAf;
+  }
   // 야생동물 전용 스프라이트(좌측 보행 2프레임씩 크롭) — 호랑이는 전용 그림이 없어 사자 그림 재사용(색조로 구분)
   var wildAnimalFrames = {
     bear:  [tx('WildBear', 0, 64, 64, 64), tx('WildBear', 128, 64, 64, 64)],
@@ -196,13 +238,12 @@ export function createRenderer(world) {
     minidemon: { idle: demonFrames, walk: demonFrames, scale: 5.25, anchorY: 0.95, tint: 0xe0703a }, // 미니 악마=보스의 1/3 크기 + 주황빛(하수인 구분)
   };
 
-  // 사람 스프라이트 크롭. dir: 0정면 1뒤 2좌 3우.
-  // idle: 방향=열(64x16). walk: 방향=행, 프레임=열(64x64). 각 16px.
+  // 괴민(거인 적) 전용 — 구 닌자 들남 시트 크롭. dir: 0정면 1뒤 2좌 3우.
+  // idle: 방향=열(64x16). walk: 방향=행, 프레임=열(64x64). 각 16px. (정착민은 ssTex 사용)
   function pawnTex(look, pose, frame, dir) {
-    var hk = (look && look.human && HUMANS[look.human]) ? look.human : 'villager';
     dir = dir || 0;
-    if (pose === 'walk') return tx('nj_' + hk + '_walk', (frame % 4) * 16, dir * 16, 16, 16);
-    return tx('nj_' + hk + '_idle', dir * 16, 0, 16, 16);
+    if (pose === 'walk') return tx('nj_caveman_walk', (frame % 4) * 16, dir * 16, 16, 16);
+    return tx('nj_caveman_idle', dir * 16, 0, 16, 16);
   }
 
   // ── 레이어 ──
@@ -712,9 +753,19 @@ export function createRenderer(world) {
   // ── 정착민 ──
   var pawnSprites = {};
   function addPawn(pawn) {
-    var s = new PIXI.Sprite(pawnTex(pawn.look, 'idle', 0, 0));
-    s.anchor.set(0.5, 0.85);
-    s.scale.set(3.2); // 16px → ~51px (사람 ~0.8타일)
+    // 베이스(몸) 스프라이트 + 자식으로 헤어·도구 레이어(같은 96x64 프레임이라 앵커만 맞추면 정확히 겹침.
+    // 자식은 부모의 스케일·반전을 자동 상속하지만 tint 는 상속되지 않아 매 프레임 따로 지정)
+    var s = new PIXI.Sprite(ssTex('base', 'idle', 0));
+    s.anchor.set(0.5, 0.6); // 캐릭터 발끝(y≈38/64)
+    s.scale.set(3.2);       // 신장 16px → ~51px (사람 ~0.8타일)
+    var hairSpr = new PIXI.Sprite(ssTex(hairOf(pawn.look), 'idle', 0));
+    hairSpr.anchor.set(0.5, 0.6);
+    hairSpr.tint = hairTintOf(pawn.look);
+    s.addChild(hairSpr);
+    var stool = new PIXI.Sprite(ssTex('tools', 'idle', 0));
+    stool.anchor.set(0.5, 0.6);
+    stool.visible = false;
+    s.addChild(stool);
     var name = new PIXI.Text(pawn.name, {
       fontFamily: 'Malgun Gothic', fontSize: 22, fill: 0xffffff, fontWeight: '600',
       stroke: 0x14161c, strokeThickness: 5,
@@ -725,7 +776,7 @@ export function createRenderer(world) {
     carry.visible = false;
     var tool = new PIXI.Sprite(); // 코드로 그린 픽셀 도구(도끼·곡괭이·낚싯대 등)
     tool.visible = false;
-    pawnSprites[pawn.id] = { spr: s, name: name, carry: carry, tool: tool, animOff: pawn.id * 2 };
+    pawnSprites[pawn.id] = { spr: s, hair: hairSpr, stool: stool, name: name, carry: carry, tool: tool, animOff: pawn.id * 2 };
     objLayer.addChild(s); objLayer.addChild(name); objLayer.addChild(carry); objLayer.addChild(tool);
     updatePawnSprite(pawn);
   }
@@ -741,26 +792,30 @@ export function createRenderer(world) {
 
   var animTime = 0;
   var TAU = Math.PI * 2;
-  // 작업별 도구 동작: m=모션(swing 휘두르기/cast 낚시/shake 흔들기/bob 굽히기), p=파티클, rate=주기(회/초)
-  var WORK_MOTION = {
-    mine:        { m: 'swing', p: 'sparks', rate: 2.6 },
-    build:       { m: 'swing', p: 'dust',   rate: 3.0 },
-    craft:       { m: 'swing', p: 'forge',  rate: 3.0 },
-    hunt:        { m: 'swing', p: null,     rate: 3.2 },
-    fish:        { m: 'cast',  p: 'splash', rate: 1.1 },
-    cook:        { m: 'shake', p: 'steam',  rate: 3.6 },
-    plant:       { m: 'bob',   p: null,     rate: 1.6 },
-    harvestCrop: { m: 'bob',   p: 'grain',  rate: 2.0 },
-  };
-  function motionFor(pawn) { // gather 는 대상(나무 vs 버섯)에 따라 도끼질/줍기 구분
+  // 작업 종류 → Sunnyside 동작 애니메이션 키 (gather 는 대상(나무 vs 채집물)에 따라 도끼질/줍기 구분)
+  function workAnimOf(pawn) {
     var j = pawn.job;
-    if (!j) return null;
+    if (!j) return 'doing';
     if (j.type === 'gather') {
       var o = world.objects[j.idx];
-      if (o && (o.kind === 'mushroom' || o.kind === 'carrotPatch')) return { m: 'bob', p: null, rate: 1.6 };
-      return { m: 'swing', p: 'chips', rate: 2.4 };
+      return (o && (o.kind === 'mushroom' || o.kind === 'carrotPatch' || o.kind === 'chest' || o.kind === 'rareplant')) ? 'doing' : 'axe';
     }
-    return WORK_MOTION[j.type] || null;
+    if (j.type === 'mine') return 'mining';
+    if (j.type === 'build' || j.type === 'craft') return 'hammering';
+    if (j.type === 'fish') return 'casting';
+    if (j.type === 'plant') return 'dig';
+    if (j.type === 'hunt') return 'attack';
+    return 'doing'; // cook·harvestCrop·tame·deliver 등 — 범용 작업 동작
+  }
+  // 작업 종류 → 타격 파티클(작업 고유 연출 우선, 없으면 동작 기본값)
+  function workFxOf(pawn) {
+    var j = pawn.job;
+    if (!j) return null;
+    if (j.type === 'craft') return 'forge';
+    if (j.type === 'cook') return 'steam';
+    if (j.type === 'harvestCrop') return 'grain';
+    var wa = SS_ANIMS[workAnimOf(pawn)];
+    return (wa && wa.fx) || null;
   }
 
   // ── 코드로 그린 픽셀 도구 (이모지 대체 — 오른손잡이 기준으로 그리고 좌향 시 좌우반전) ──
@@ -818,23 +873,6 @@ export function createRenderer(world) {
     toolTexCache[kind] = tex;
     return tex;
   }
-  function toolKindFor(pawn) { // 작업/상태 → 도구 종류
-    if (pawn.state === 'resting') return 'heart';
-    if (pawn.state !== 'working' || !pawn.job) return null;
-    switch (pawn.job.type) {
-      case 'gather': var o = world.objects[pawn.job.idx];
-        return (o && (o.kind === 'mushroom' || o.kind === 'carrotPatch' || o.kind === 'chest' || o.kind === 'rareplant')) ? 'basket' : 'axe';
-      case 'mine': return 'pickaxe';
-      case 'build': case 'craft': return 'hammer';
-      case 'hunt': return 'bow';
-      case 'fish': return 'rod';
-      case 'cook': return 'pan';
-      case 'plant': return 'trowel';
-      case 'harvestCrop': return 'sickle';
-      default: return null;
-    }
-  }
-
   // ── 원정 섬 오브젝트(보물상자·희귀식물) — 코드로 그린 픽셀 스프라이트 ──
   var worldObjTexCache = {};
   function worldObjTex(kind) {
@@ -869,29 +907,55 @@ export function createRenderer(world) {
     var e = pawnSprites[pawn.id];
     if (!e) return;
     var wx = (pawn.px + 0.5) * TILE, wy = (pawn.py + 0.5) * TILE;
-    e.spr.x = wx; e.spr.y = wy + 10;
+    e.spr.x = wx; e.spr.y = wy + 12;
     e.spr.zIndex = wy + TILE * 0.5;
-    e.spr.scale.set(3.2); e.spr.angle = 0; // 매 프레임 기본값(작업 시 아래에서 스쿼시·젖힘으로 override)
 
-    // 이동 방향(0정면 1뒤 2좌 3우) — px/py 델타로 추정
+    // 좌우 방향 — 이동 델타 우선, 작업 중엔 pawn.face(대상 방향). 측면형 시트라 반전만으로 충분
     var dpx = pawn.px - (e.lastPx === undefined ? pawn.px : e.lastPx);
-    var dpy = pawn.py - (e.lastPy === undefined ? pawn.py : e.lastPy);
     e.lastPx = pawn.px; e.lastPy = pawn.py;
-    if (Math.abs(dpx) + Math.abs(dpy) > 0.002) {
-      e.dir = Math.abs(dpx) > Math.abs(dpy) ? (dpx > 0 ? 3 : 2) : (dpy > 0 ? 0 : 1);
-    } else if (e.dir === undefined) { e.dir = 0; }
+    if (Math.abs(dpx) > 0.002) e.face = dpx > 0 ? 1 : -1;
+    else if (pawn.state === 'working' && pawn.face) e.face = pawn.face < 0 ? -1 : 1;
+    if (e.face === undefined) e.face = 1;
+    e.spr.scale.set(3.2 * e.face, 3.2);
 
+    // 상태 → Sunnyside 동작 애니메이션 선택
     var pose = poseOf(pawn);
-    if (pose === 'dead') {
-      e.spr.texture = pawnTex(pawn.look, 'idle', 0, 0);
-      e.spr.alpha = 0.5; e.spr.tint = 0x888888; e.spr.angle = 90; // 회색·쓰러짐
+    var animKey, fxKind = null;
+    if (pose === 'dead') animKey = 'death';
+    else if (pose === 'walk') animKey = pawn.carry ? 'carry' : 'walk';
+    else if (pawn.state === 'working' && pawn.job) { animKey = workAnimOf(pawn); fxKind = workFxOf(pawn); }
+    else if (pawn.state === 'resting') animKey = 'waiting';
+    else animKey = 'idle';
+
+    var sa = SS_ANIMS[animKey];
+    var frame;
+    if (animKey === 'death') {
+      if (e.deathT === undefined) e.deathT = animTime;
+      frame = Math.min(((animTime - e.deathT) * sa.fps) | 0, sa.n - 1); // 쓰러짐 1회 재생 후 마지막 프레임 유지
+      e.spr.alpha = 0.9; e.spr.tint = 0xbbbbbb;
     } else {
+      e.deathT = undefined;
       var flashing = e.flashUntil !== undefined && animTime < e.flashUntil;
-      e.spr.alpha = 1; e.spr.tint = flashing ? 0xff5a5a : 0xffffff; e.spr.angle = 0; // 피격 시 빨간 플래시
-      var frame = ((animTime / 0.15) | 0) + e.animOff;
-      e.spr.texture = pawnTex(pawn.look, pose === 'walk' ? 'walk' : 'idle', frame, e.dir);
+      e.spr.alpha = 1; e.spr.tint = flashing ? 0xff5a5a : 0xffffff; // 피격 시 빨간 플래시
+      frame = (((animTime * sa.fps) | 0) + e.animOff) % sa.n;
       if (flashing) { e.spr.x += (Math.random() - 0.5) * 4; } // 짧은 흔들림(움찔)
     }
+    e.spr.texture = ssTex('base', animKey, frame);
+    e.hair.texture = ssTex(hairOf(pawn.look), animKey, frame);
+    e.hair.tint = e.spr.tint === 0xffffff ? hairTintOf(pawn.look) : e.spr.tint; // 플래시·사망 시 함께 물듦
+    // 도구 레이어 — 작업·운반 동작에서만 표시(시트가 동작에 맞는 도구·짐을 그려줌)
+    var showTools = animKey === 'axe' || animKey === 'mining' || animKey === 'hammering' || animKey === 'casting' ||
+      animKey === 'dig' || animKey === 'doing' || animKey === 'attack' || animKey === 'carry';
+    e.stool.visible = showTools;
+    if (showTools) { e.stool.texture = ssTex('tools', animKey, frame); e.stool.tint = e.spr.tint; }
+    // 타격 순간 파티클(나뭇조각·불똥·물보라 등) — 타격 프레임 진입 시 1회
+    if (fxKind) {
+      var hitF = sa.hit || ((sa.n * 0.6) | 0);
+      if (e.fxPrev !== undefined && e.fxPrev !== frame && frame === hitF) {
+        spawnWorkFx(fxKind, wx + e.face * 14, wy + 2, e.face);
+      }
+      e.fxPrev = frame;
+    } else { e.fxPrev = undefined; }
 
     if (e.name.text !== pawn.name) e.name.text = pawn.name;
     e.name.x = wx; e.name.y = wy - 44;
@@ -907,71 +971,21 @@ export function createRenderer(world) {
       e.carry.visible = false;
     }
 
-    // ── 작업 동작: 본체 물리 애니메이션(스쿼시·젖힘·반동) + 픽셀 도구 ──
-    var tk = toolKindFor(pawn);
-    if (tk) {
-      if (e.toolKind !== tk) { // 도구가 바뀔 때만 텍스처·앵커 갱신
-        e.tool.texture = toolTex(tk);
-        var an = TOOL_ANCHOR[tk] || [0.5, 0.5];
+    // ── 휴식 하트 — 치료소·휴식 중임을 명확히(작업 도구는 Sunnyside 도구 레이어가 대체) ──
+    if (pawn.state === 'resting') {
+      if (e.toolKind !== 'heart') {
+        e.tool.texture = toolTex('heart');
+        var an = TOOL_ANCHOR.heart || [0.5, 0.5];
         e.tool.anchor.set(an[0], an[1]);
-        e.toolKind = tk;
+        e.toolKind = 'heart';
       }
       e.tool.visible = true;
       e.tool.zIndex = 1000000;
-      var side = pawn.face < 0 ? -1 : 1;
-      var TS = 1.3;
-      var mo = motionFor(pawn);
-      var hx = wx + side * 11, hy = wy - 15, rot = 0;
-      if (mo) {
-        var ph = (animTime + e.animOff * 0.13) * mo.rate;
-        var frac = ph - Math.floor(ph);
-        var sx = 1, sy = 1, ang = 0, bdx = 0, bdy = 0;
-        if (mo.m === 'swing') {                 // 도끼·곡괭이·망치·활: 들었다 내려치며 몸 눌림
-          var sw = Math.sin(frac * Math.PI);    // 0→1→0
-          var squash = sw * sw * sw * sw;       // 타격 순간 급격
-          ang = side * 8 * sw; bdx = side * 3 * sw; bdy = -2 * sw;
-          sy = 1 - 0.15 * squash; sx = 1 + 0.13 * squash;
-          rot = -0.65 + 1.4 * sw;               // 오른손 기준(좌향은 좌우반전으로 처리)
-          hx = wx + side * (11 + 4 * sw); hy = wy - 15;
-        } else if (mo.m === 'cast') {           // 낚시: 잔잔히 대기하다 비트마다 챔질
-          var swy = Math.sin(ph * TAU);
-          var jerk = Math.max(0, 1 - frac * 3);
-          ang = side * (2.5 * swy - 12 * jerk); bdx = -side * 5 * jerk;
-          rot = -0.5 + 0.12 * swy - 0.5 * jerk;
-          hx = wx + side * 9; hy = wy - 17;
-        } else if (mo.m === 'shake') {          // 요리: 팬 흔들기
-          var shk = Math.sin(ph * TAU * 2);
-          ang = 2 * shk; bdx = side * 2 * shk; sy = 1 - 0.03 * Math.abs(shk);
-          rot = 0.18 * shk; hx = wx + side * 13; hy = wy - 13;
-        } else if (mo.m === 'bob') {            // 심기·수확·줍기: 굽혔다 폄
-          var dn = Math.sin(frac * Math.PI);
-          bdy = 6 * dn; sy = 1 - 0.13 * dn; sx = 1 + 0.08 * dn; ang = side * 3 * dn;
-          rot = 0.3 * dn; hx = wx + side * 10; hy = wy - 12 + 6 * dn;
-        }
-        e.spr.scale.set(3.2 * sx, 3.2 * sy);    // 본체 스쿼시·스트레치
-        e.spr.angle = ang;                      // 젖힘/기울임
-        e.spr.x = wx + bdx; e.spr.y = wy + 10 + bdy; // 반동/굽힘
-        if (mo.p) {                             // 타격/작용 순간 파티클
-          var fire = (mo.m === 'swing' || mo.m === 'bob')
-            ? (e.workPrev !== undefined && e.workPrev < 0.5 && frac >= 0.5)
-            : (e.workBeat !== undefined && Math.floor(ph) !== e.workBeat);
-          if (fire) {
-            var fxx = wx + side * (mo.m === 'cast' ? 22 : 14);
-            var fxy = wy + (mo.m === 'cast' ? 4 : (mo.m === 'shake' ? -20 : 2));
-            spawnWorkFx(mo.p, fxx, fxy, side);
-          }
-        }
-        e.workPrev = frac; e.workBeat = Math.floor(ph);
-      } else {                                  // 정적(치료 하트 등)
-        hx = wx + side * 13; hy = wy - 22; rot = 0;
-        e.workPrev = undefined; e.workBeat = undefined;
-      }
-      e.tool.scale.set(TS * side, TS);          // 좌향 시 좌우반전
-      e.tool.rotation = rot;
-      e.tool.x = hx; e.tool.y = hy;
+      e.tool.scale.set(1.3, 1.3);
+      e.tool.rotation = 0;
+      e.tool.x = wx + 13; e.tool.y = wy - 22;
     } else {
       e.tool.visible = false;
-      e.workPrev = undefined; e.workBeat = undefined;
     }
   }
 
@@ -979,7 +993,7 @@ export function createRenderer(world) {
   var sheepSprites = [];
   function syncSheep() {
     while (sheepSprites.length < world.sheep.length) {
-      var s = new PIXI.Sprite(sheepFrames[0]);
+      var s = new PIXI.Sprite(animalFrames.sheep[0]);
       s.anchor.set(0.5, 0.7);
       objLayer.addChild(s);
       sheepSprites.push(s);
@@ -990,10 +1004,7 @@ export function createRenderer(world) {
       sp.y = (sh.py + 0.5) * TILE + 10;
       sp.zIndex = sp.y;
       var type = sh.type || 'sheep';
-      if (type === 'sheep') {
-        sp.texture = sheepFrames[(((animTime / 0.18) | 0) + sh.phase) % 8];
-        sp.scale.set(sh.dir < 0 ? -1 : 1, 1);
-      } else if (wildAnimalFrames[type]) {
+      if (wildAnimalFrames[type]) {
         // 야생동물 전용 스프라이트(말·사슴·늑대·곰·사자, 호랑이는 사자 재사용)
         var wf = wildAnimalFrames[type];
         sp.texture = wf[(((animTime / 0.25) | 0) + sh.phase) % 2];
@@ -1003,9 +1014,9 @@ export function createRenderer(world) {
         var adef3 = ANIMALS[type];
         var shapeKey = (adef3 && adef3.shape) || (type === 'raredeer' ? 'cow' : type);
         var af = animalFrames[shapeKey] || animalFrames.pig;
-        sp.texture = af[(((animTime / 0.25) | 0) + sh.phase) % 2];
-        // 16px 원본 → 약 3배로 표시 (좌우 반전 유지)
-        var sc = 3;
+        sp.texture = af[(((animTime / 0.18) | 0) + sh.phase) % af.length];
+        // 32px 원본 → 종별 배율 (좌우 반전 유지)
+        var sc = ANIMAL_VIEW_SCALE[shapeKey] || 1.7;
         sp.scale.set(sh.dir < 0 ? -sc : sc, sc);
       }
       var wildTint = (ANIMALS[type] && ANIMALS[type].tint) || 0xffffff;

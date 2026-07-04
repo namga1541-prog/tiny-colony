@@ -511,12 +511,18 @@ export function createUI(handlers) {
         var btn = document.createElement('button');
         btn.className = 'cm-look';
         btn.title = HUMANS[hid].label;
-        // Idle.png(64x16, 4방향) 의 정면(0열)만 보이게 확대 표시
-        var scale = 58 / 16;
-        btn.style.backgroundImage = 'url(assets/ninja/' + HUMANS[hid].dir + '/Idle.png)';
-        btn.style.backgroundSize = (64 * scale) + 'px auto';
-        btn.style.backgroundPosition = '0 0';
+        // Sunnyside 대기 스트립(96x64 프레임)의 0프레임에서 캐릭터 주변 32px 창을 확대 표시
+        // 베이스(몸)+헤어 2겹 배경. 색조(노인 백발·공주 금발 등)는 CSS 필터로 근사
+        var scale = 58 / 32;
+        var hairUrl = 'assets/sunnyside/human/' + HUMANS[hid].hair + '_idle_strip9.png';
+        btn.style.backgroundImage = 'url(' + hairUrl + '), url(assets/sunnyside/human/base_idle_strip9.png)';
+        var bgSize = (864 * scale) + 'px ' + (64 * scale) + 'px';
+        btn.style.backgroundSize = bgSize + ', ' + bgSize;
+        var bgPos = (-32 * scale) + 'px ' + (-14 * scale) + 'px';
+        btn.style.backgroundPosition = bgPos + ', ' + bgPos;
+        btn.style.backgroundRepeat = 'no-repeat, no-repeat';
         btn.style.imageRendering = 'pixelated';
+        if (HUMANS[hid].css) btn.style.filter = HUMANS[hid].css;
         if (hid === pick.human) btn.classList.add('sel');
         btn.addEventListener('click', function () {
           pick.human = hid;
