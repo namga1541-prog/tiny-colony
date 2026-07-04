@@ -9,9 +9,9 @@
 ## 티어 0 — 바로 처리(가벼움, 세션 워밍업용)
 
 - [x] **최근 콘텐츠 도전과제(GOALS) 반영**(dc6ce2b) — `js/goals.js`(19번째 줄 `GOALS` 배열). 성문·찬란한 음식·초특급 희귀 낚시 스팟이 추가됐는데 도전과제엔 없음. 예: "출입 통제"(성문 1개 완공) · "기적의 만찬"(찬란한 음식 1회 섭취) · "심해의 전설"(spotOnly 어종 1회 포획). `test` 함수는 `world`/`pawns` 상태만 보므로 플래그가 없으면 `world.stock`/`world.buildings` 직접 검사로 판정(예: `countBuilt(w,'fenceGate')>=1`). 완료 시 sim-smoke 시나리오 1개 추가(레시피 5-A).
-- [ ] **hook-style.mjs 활성화** — `tools/hook-style.mjs` 는 만들어져 있지만 `.claude/settings.json` 자동 등록이 권한 문제로 막혀 있음(수동 등록 대기 상태, 메모리 `project-capability-kit` 참고). 대장님께 등록 JSON 안내 후 승인받아 PostToolUse 훅으로 연결하면, `js/*.js` 수정 시마다 `check:style` 이 자동 실행되어 이후 세션(특히 하위 모델)의 스타일·결정론 위반을 즉시 차단할 수 있음.
-- [ ] **ARCHITECTURE.md 정기 드리프트 점검** — 이번에 `MAP_W/H`(96→128 반영 누락)·원정 섬 개수(3→4)·`isWalkable(forEnemy)` 시그니처 등 stale 사실 일부를 고쳤음. 기능 추가할 때마다 관련 섹션이 실제 코드와 맞는지 한 줄이라도 확인하는 습관화.
-- [ ] **test:invariants 소크에 건설(blueprint) 배치 커버리지 추가** — 운반→건설 확장(d31f071) 작업 중 발견: `tests/invariants.mjs` 30일 소크가 실제로는 `addBuilding`으로 `bp` 단계 건물을 한 번도 만들지 않음(벌목·채굴·전투만 오래 돌림). 즉 배달(deliver)→건설 파이프라인이 장기 실행에서 락 누수 없이 잘 도는지는 sim-smoke 단발 시나리오(47번)로만 검증됨. 소크 시나리오에 "정기적으로 건물 배치" 루틴을 섞으면 더 튼튼해짐.
+- [x] **hook-style.mjs 활성화**(87d1c60) — `.claude/settings.json` 에 PostToolUse(Edit|Write) 훅으로 등록 완료(대장님 승인). `js/*.js` 편집 시 `check-style` 자동 실행 + 위반 시 exit 2 로 모델에 피드백. 라이브 발동까지 확인.
+- [x] **ARCHITECTURE.md 정기 드리프트 점검**(abbd865) — 이번 세션 변경(미니악마·가금부화·deliver·부상·장식 직접건설) 반영: 재고 키·enemyCbs·예약락 네임스페이스(`item:` 제거·`tame:` 추가)·적 kind(`'invwarrior'`→`'warrior'`, warlord/minidemon 추가) 정정. **앞으로도 기능 추가마다 관련 섹션 한 줄이라도 대조하는 습관 유지.**
+- [x] **test:invariants 소크에 건설(blueprint) 배치 커버리지 추가**(8734f11) — 소크가 하루 한 번 decoLog 설계도를 배치해 deliver→build 파이프라인을 30일 내내 반복(시드당 11~19채 완공). 완공 0채면 실패 처리하는 회귀 가드 포함.
 
 ## 티어 1 — 레시피 그대로 적용 가능(1세션 완결, 설계 불필요)
 
