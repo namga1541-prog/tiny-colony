@@ -5,7 +5,7 @@
 
 | 함수 | 위치 |
 |------|------|
-| `abandonJob` | js/pawns.js:167 |
+| `abandonJob` | js/pawns.js:174 |
 | `addBuilding` | js/world.js:412 |
 | `addEvent` | js/ui.js:262 |
 | `addItem` | js/world.js:618 |
@@ -15,12 +15,12 @@
 | `advanceRank` | js/world.js:682 |
 | `affordCost` | js/ui.js:900 |
 | `alivePawns` | js/goals.js:11 |
-| `altarFaithMood` | js/pawns.js:689 |
+| `altarFaithMood` | js/pawns.js:696 |
 | `applyCamera` | js/render.js:1341 |
 | `applyTool` | js/main.js:544 |
 | `armorDefense` | js/world.js:1217 |
 | `at` | js/world.js:115 |
-| `autoAttackTick` | js/pawns.js:842 |
+| `autoAttackTick` | js/pawns.js:849 |
 | `autoDesignateLodges` | js/world.js:1022 |
 | `boardBoat` | js/world.js:539 |
 | `boatAt` | js/world.js:528 |
@@ -31,7 +31,7 @@
 | `buildingDef` | js/world.js:385 |
 | `buildingFront` | js/world.js:453 |
 | `buildingTexture` | js/render.js:494 |
-| `buildWorkAvailable` | js/pawns.js:143 |
+| `buildWorkAvailable` | js/pawns.js:150 |
 | `buyRow` | js/ui.js:918 |
 | `canAdvanceRank` | js/world.js:678 |
 | `canAfford` | js/world.js:1058 |
@@ -43,7 +43,7 @@
 | `checkGoals` | js/goals.js:58 |
 | `checkIslandDiscovery` | js/world.js:916 |
 | `clearSave` | js/save.js:91 |
-| `clinicExists` | js/pawns.js:672 |
+| `clinicExists` | js/pawns.js:679 |
 | `closestPointOnBuilding` | js/world.js:1182 |
 | `collectBuild` | js/jobs.js:77 |
 | `collectCook` | js/jobs.js:178 |
@@ -57,9 +57,9 @@
 | `collectMine` | js/jobs.js:136 |
 | `collectTame` | js/jobs.js:212 |
 | `colonyCenter` | js/sim.js:57 |
-| `consider` | js/pawns.js:1058 |
+| `consider` | js/pawns.js:1068 |
 | `consumeGlobal` | js/world.js:1054 |
-| `cookTierDef` | js/pawns.js:715 |
+| `cookTierDef` | js/pawns.js:722 |
 | `costStr` | js/ui.js:798 |
 | `countBuilt` | js/goals.js:17 |
 | `countBuilt` | js/world.js:645 |
@@ -93,7 +93,7 @@
 | `findRoleWork` | js/jobs.js:308 |
 | `findStockpileFor` | js/jobs.js:372 |
 | `findWorkJob` | js/jobs.js:343 |
-| `finishWork` | js/pawns.js:422 |
+| `finishWork` | js/pawns.js:429 |
 | `fishSpotTier` | js/world.js:584 |
 | `flashPawn` | js/render.js:918 |
 | `footprintAdjacentMine` | js/world.js:1008 |
@@ -101,25 +101,25 @@
 | `footprintTouchesWater` | js/world.js:605 |
 | `forRect` | js/main.js:536 |
 | `freeGrass` | js/world.js:823 |
-| `gainSkill` | js/pawns.js:666 |
+| `gainSkill` | js/pawns.js:673 |
 | `glowTexture` | js/render.js:1201 |
 | `goddessTex` | js/render.js:1544 |
-| `goTo` | js/pawns.js:180 |
+| `goTo` | js/pawns.js:187 |
 | `grantCommonRelic` | js/world.js:1071 |
 | `grantLegendaryRelic` | js/world.js:51 |
 | `grantRelic` | js/world.js:42 |
-| `greedyStep` | js/pawns.js:738 |
+| `greedyStep` | js/pawns.js:745 |
 | `greedyStepEnemy` | js/world.js:1284 |
 | `groundTex` | js/render.js:128 |
 | `hairOf` | js/render.js:109 |
 | `hairTintOf` | js/render.js:113 |
-| `handleCombat` | js/pawns.js:776 |
+| `handleCombat` | js/pawns.js:783 |
 | `hasBarn` | js/world.js:741 |
 | `hasOutfitter` | js/ui.js:911 |
 | `hasSave` | js/save.js:87 |
 | `hasStarvedWork` | js/jobs.js:282 |
 | `hasStockpileSpace` | js/jobs.js:362 |
-| `hasStockWeapon` | js/pawns.js:754 |
+| `hasStockWeapon` | js/pawns.js:761 |
 | `hasUpgrade` | js/world.js:12 |
 | `hasWorkerOfType` | js/jobs.js:262 |
 | `heapPop` | js/path.js:23 |
@@ -136,20 +136,21 @@
 | `isWalkable` | js/world.js:480 |
 | `ix` | js/world.js:129 |
 | `iy` | js/world.js:130 |
-| `jobSkill` | js/pawns.js:655 |
-| `jobTarget` | js/pawns.js:188 |
+| `jobInRole` | js/pawns.js:143 |
+| `jobSkill` | js/pawns.js:662 |
+| `jobTarget` | js/pawns.js:195 |
 | `landAt` | js/render.js:369 |
 | `landingCentroidTail` | js/sim.js:35 |
 | `loadSaveData` | js/save.js:75 |
 | `makeNoise` | js/world.js:112 |
-| `manualInteract` | js/pawns.js:1022 |
+| `manualInteract` | js/pawns.js:1032 |
 | `manualMove` | js/main.js:1182 |
 | `maxPop` | js/world.js:653 |
 | `maybeInjure` | js/world.js:1302 |
 | `mineDrops` | js/world.js:396 |
 | `mineResource` | js/world.js:394 |
 | `mineWork` | js/world.js:395 |
-| `moveStep` | js/pawns.js:216 |
+| `moveStep` | js/pawns.js:223 |
 | `mrts` | js/render.js:64 |
 | `mulberry32` | js/world.js:102 |
 | `mwb` | js/render.js:66 |
@@ -159,16 +160,16 @@
 | `nearest` | js/jobs.js:38 |
 | `nearestAttackable` | js/world.js:1190 |
 | `nearestEnemy` | js/world.js:1171 |
-| `nearWarmth` | js/pawns.js:700 |
-| `onArrive` | js/pawns.js:249 |
+| `nearWarmth` | js/pawns.js:707 |
+| `onArrive` | js/pawns.js:256 |
 | `openModal` | js/ui.js:608 |
 | `panelPawn` | js/main.js:125 |
-| `pavilionExists` | js/pawns.js:680 |
-| `pawnPower` | js/pawns.js:729 |
-| `pawnRange` | js/pawns.js:733 |
-| `pawnStrikeFx` | js/pawns.js:832 |
+| `pavilionExists` | js/pawns.js:687 |
+| `pawnPower` | js/pawns.js:736 |
+| `pawnRange` | js/pawns.js:740 |
+| `pawnStrikeFx` | js/pawns.js:839 |
 | `pickAnimalType` | js/world.js:79 |
-| `pickEatSource` | js/pawns.js:720 |
+| `pickEatSource` | js/pawns.js:727 |
 | `pickWildAnimalType` | js/world.js:89 |
 | `play` | js/audio.js:28 |
 | `pointerDown` | js/main.js:867 |
@@ -262,7 +263,7 @@
 | `syncEnemies` | js/render.js:1083 |
 | `syncSheep` | js/render.js:1018 |
 | `taskLabel` | js/pawns.js:73 |
-| `think` | js/pawns.js:1124 |
+| `think` | js/pawns.js:1134 |
 | `tick` | js/render.js:1612 |
 | `tickAttackFx` | js/render.js:1416 |
 | `tickBarns` | js/world.js:749 |
@@ -286,8 +287,8 @@
 | `totalRes` | js/world.js:631 |
 | `totalStored` | js/world.js:705 |
 | `touchXY` | js/main.js:1015 |
-| `tryAutoArm` | js/pawns.js:759 |
-| `tryAutoArmor` | js/pawns.js:767 |
+| `tryAutoArm` | js/pawns.js:766 |
+| `tryAutoArmor` | js/pawns.js:774 |
 | `tx` | js/render.js:119 |
 | `updateAutoEquipBtn` | js/ui.js:138 |
 | `updateBuildingBadge` | js/render.js:521 |
@@ -295,7 +296,7 @@
 | `updateClock` | js/ui.js:189 |
 | `updateEnemies` | js/world.js:1311 |
 | `updateInvasionWarning` | js/ui.js:200 |
-| `updatePawn` | js/pawns.js:858 |
+| `updatePawn` | js/pawns.js:865 |
 | `updatePawnPanel` | js/ui.js:295 |
 | `updatePawnSprite` | js/render.js:919 |
 | `updateRes` | js/ui.js:212 |
@@ -310,6 +311,6 @@
 | `workAnimOf` | js/render.js:809 |
 | `workFxOf` | js/render.js:824 |
 | `worldObjTex` | js/render.js:891 |
-| `yieldJob` | js/pawns.js:155 |
+| `yieldJob` | js/pawns.js:162 |
 
-_총 306개 함수 · 12개 파일_
+_총 307개 함수 · 12개 파일_

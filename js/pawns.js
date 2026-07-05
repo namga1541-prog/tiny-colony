@@ -138,6 +138,13 @@ export function toolIconOf(world, pawn) {
 // 건설(우선순위 높음)에 밀려 중단 가능한 저순위 작업들
 var INTERRUPTIBLE = { gather: 1, mine: 1, haul: 1, cook: 1, hunt: 1, tame: 1 };
 
+// 이 작업 종류가 정착민 역할의 전문 작업인지.
+// (양보 판단용 — 역할 작업을 양보해봤자 findWorkJob 이 같은 역할 작업을 다시 잡아 무한 루프가 되므로 양보 금지)
+function jobInRole(pawn, jobType) {
+  var role = pawn.role && ROLES[pawn.role];
+  return !!(role && role.jobs && role.jobs.indexOf(jobType) >= 0);
+}
+
 // "지금 실제로 할 수 있는" 건설/자재운반 작업이 있으면 true.
 // (설계도가 존재만 해서는 안 됨 — 지을 준비가 됐거나, 재고에서 나를 수 있는 자재가 있어야 양보)
 function buildWorkAvailable(world) {
@@ -917,7 +924,10 @@ export function updatePawn(world, pawn, dtMin, ctx) {
   // (haul 은 건설용 자재 운반과 경쟁하므로 제외 대상이 아님 — 단, 실제 건설 작업이 가능할 때만)
   // + 방치된 작업 종류(아무도 안 하는 새 지정, 예: 낚시)가 있으면 그것도 양보 사유가 됨 —
   //   그래야 벌목 지정이 잔뜩 남아 있어도 새로 지정한 낚시가 영원히 밀리지 않는다.
-  if (!pawn.manual && pawn.job && INTERRUPTIBLE[pawn.job.type] && (buildWorkAvailable(world) || hasStarvedWork(world, pawn))) {
+  // ※ 단, 지금 하는 작업이 이 정착민의 역할 전문 작업이면 양보하지 않는다. 양보해도 findWorkJob 이
+  //   같은 역할 작업을 다시 잡아(건설·역할밖 방치작업은 안 맡음) 매 틱 양보↔재선택 무한 루프(제자리 진동)가 되기 때문.
+  if (!pawn.manual && pawn.job && INTERRUPTIBLE[pawn.job.type] && !jobInRole(pawn, pawn.job.type) &&
+      (buildWorkAvailable(world) || hasStarvedWork(world, pawn))) {
     return yieldJob(world, pawn);
   }
 
