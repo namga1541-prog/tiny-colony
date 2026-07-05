@@ -272,8 +272,8 @@ export function createWorld(seed) {
     sheepN--;
   }
 
-  // 야생동물(말·사슴·늑대·곰·사자·호랑이) — 사냥하거나 축사에서 길들일 수 있음
-  var wildN = 5 + ((rng() * 4) | 0);
+  // 야생동물(말·사슴·늑대·곰·사자·호랑이) — 사냥하거나 축사에서 길들일 수 있음 (시작 섬 체감을 위해 증량)
+  var wildN = 11 + ((rng() * 6) | 0);
   tries = 0;
   while (wildN > 0 && tries++ < 200) {
     var wx = (rng() * MAP_W) | 0, wy = (rng() * MAP_H) | 0;

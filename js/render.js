@@ -243,7 +243,7 @@ export function createRenderer(world) {
     warlord:  { idle: fxWarlord.idle, walk: fxWarlord.walk, scale: 5.3, anchorY: 0.65 }, // 정복자=미노타우로스(미니보스, 가장 거대)
     zombie:   { idle: fxSkelWalk, walk: fxSkelWalk, tint: 0x9fe08a, scale: 3.6, anchorY: 0.6 }, // 좀비=초록빛 언데드
     skeleton: { idle: fxSkelIdle, walk: fxSkelWalk, scale: 3.8, anchorY: 0.6 }, // 스켈레톤(Sunnyside 백골)
-    demon:    { idle: demonFrames, walk: demonFrames, scale: 31.5, anchorY: 0.9 }, // 최종 보스=MiniWorld 무장 붉은 악마(압도적 거대)
+    demon:    { idle: demonFrames, walk: demonFrames, scale: 15.75, anchorY: 0.9 }, // 최종 보스=MiniWorld 무장 붉은 악마(기존 31.5의 절반 — 화면 가림 방지)
     minidemon: { idle: minidemonFrames, walk: minidemonFrames, scale: 10.5, anchorY: 0.9 }, // 미니 악마=MiniWorld 보라 악마(보스의 1/3 크기)
   };
 
