@@ -154,7 +154,9 @@ export function createUI(handlers) {
     for (var i = 0; i < btns.length; i++) {
       var k = btns[i].dataset.tool;
       var def = BUILDS[k];
-      var locked = (BUILD_MIN_RANK[k] || 0) > rank || (def && def.escapePart && !world.invasionWon);
+      // !!로 boolean 강제 — 아니면 escapePart 없는 건물은 우변이 undefined 로 떨어져
+      // toggle(name, undefined) 가 "설정"이 아니라 "뒤집기"로 동작해 호출될 때마다 잠금이 반전됨.
+      var locked = !!((BUILD_MIN_RANK[k] || 0) > rank || (def && def.escapePart && !world.invasionWon));
       btns[i].classList.toggle('locked', locked);
     }
     var btnTrader = document.getElementById('btnTrader');
