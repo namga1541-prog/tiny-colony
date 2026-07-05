@@ -29,6 +29,8 @@ export function saveGame(world, pawns) {
     orchardZone: world.orchardZone,
     crops: world.crops,
     goddessVisited: world.goddessVisited,
+    faith: world.faith,
+    faithBlessings: world.faithBlessings,
     traderActive: world.traderActive,
     traderDepartDay: world.traderDepartDay,
     nextTraderDay: world.nextTraderDay,

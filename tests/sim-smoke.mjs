@@ -1,7 +1,7 @@
 // L1 시나리오 스모크 — 시드 고정, 헤드리스. stepWorld 추출이 올바른지 + 결정론 확인.
 import { bootSim, run, runDays, designateChop, give, snapshot, DAY_MIN, MAP_W, MAP_H } from './harness.mjs';
-import { addBuilding, storageCap, upgradeMult, upgradeAdd, maxPop, rankReqStatus, canAdvanceRank, advanceRank, defenseStats, tickTowers, enemyStats, spawnRaid, mulberry32, grantRelic, dailyIslandRespawn, checkIslandDiscovery, updateEnemies, idx, shipComplete, fishSpotTier, footprintTouchesWater, canPlaceBridge, isWalkable, autoDesignateLodges, footprintAdjacentMine, ensureBossIsland, tickBarns, tickHeaters, seasonDef, boatCanEnter, spawnBoat, boardBoat, disembarkBoat, syncBoats, tickResearch } from '../js/world.js';
-import { GIANT, ENEMY, CANNIBAL, ISLANDS, INVASION, OUTPOST_BRANCHES, RAIDER, INVWARRIOR, ZOMBIE, SKELETON, GIANT_JUMP, ARMOR, FRUITTREE, FISH, catchFish, catchRareFish, GODDESS, TRADER, BUILDS, BUILD_MIN_RANK, FISH_PLATFORM, DEMON, MINIDEMON, GLORIOUS_FOOD, RARE_FISH_SPOT, INJURY, WALK_MIN_PER_TILE, RESEARCH, EGG_HATCH, RANCH, WINTER, ITEMS } from '../js/config.js';
+import { addBuilding, storageCap, upgradeMult, upgradeAdd, maxPop, rankReqStatus, canAdvanceRank, advanceRank, defenseStats, tickTowers, enemyStats, spawnRaid, mulberry32, grantRelic, dailyIslandRespawn, checkIslandDiscovery, updateEnemies, idx, shipComplete, fishSpotTier, footprintTouchesWater, canPlaceBridge, isWalkable, autoDesignateLodges, footprintAdjacentMine, ensureBossIsland, tickBarns, tickHeaters, seasonDef, boatCanEnter, spawnBoat, boardBoat, disembarkBoat, syncBoats, tickResearch, tickFaith } from '../js/world.js';
+import { GIANT, ENEMY, CANNIBAL, ISLANDS, INVASION, OUTPOST_BRANCHES, RAIDER, INVWARRIOR, ZOMBIE, SKELETON, GIANT_JUMP, ARMOR, FRUITTREE, FISH, catchFish, catchRareFish, GODDESS, TRADER, BUILDS, BUILD_MIN_RANK, FISH_PLATFORM, DEMON, MINIDEMON, GLORIOUS_FOOD, RARE_FISH_SPOT, INJURY, WALK_MIN_PER_TILE, RESEARCH, EGG_HATCH, RANCH, WINTER, ITEMS, FAITH } from '../js/config.js';
 import { findWorkJob, releaseAllOf, bpMissing, reserve } from '../js/jobs.js';
 import { findPath } from '../js/path.js';
 import { createPawn, updatePawn } from '../js/pawns.js';
@@ -1760,6 +1760,75 @@ console.log('[sim-smoke] 55) 장비 상점·여관 — 신규 건물 정의·구
   ['leatherArmor', 'ironArmor'].forEach(function (t) {
     ok(typeof ITEMS[t].shopCost === 'number' && ITEMS[t].shopCost > 0, t + ' 상점 가격(shopCost) 존재');
   });
+})();
+
+console.log('[sim-smoke] 56) 신앙(아보랑카도 심화) — 제단 신앙도 축적 + 임계 축복 + 사기 (신규)');
+(function () {
+  // (a) 건물 정의·해금 단계
+  ok(!!BUILDS.altar && BUILDS.altar.faithHere === true, '제단(altar)이 faithHere 플래그로 정의됨');
+  ok(BUILD_MIN_RANK.altar === 2, '제단 해금 단계 = 마을(2)');
+
+  // (b) 제단이 없으면 신앙도 축적·축복 없음
+  var w0 = bootSim(3101).world;
+  w0.faith = 0;
+  var ev0 = tickFaith(w0, 3, 100, mulberry32(1));
+  ok(w0.faith === 0 && ev0.length === 0, '제단 없으면 신앙도 축적·축복 없음');
+
+  // (c) 제단 완공 시 정착민 수·제단 채수 비례로 축적
+  var w = bootSim(3101).world;
+  w.faith = 0;
+  addBuilding(w, 'altar', 5, 5, { stage: 'built' });
+  tickFaith(w, 3, 100, mulberry32(1));
+  var expect1 = FAITH.ratePerPawn * 3 * 1 * 100;
+  ok(Math.abs(w.faith - expect1) < 1e-9, '제단 1채 신앙도 축적 (정착민 3 × 100분)');
+  addBuilding(w, 'altar', 7, 5, { stage: 'built' });
+  w.faith = 0;
+  tickFaith(w, 3, 100, mulberry32(1));
+  ok(Math.abs(w.faith - expect1 * 2) < 1e-9, '제단 2채면 축적 2배(채수 비례)');
+
+  // (d) 미완공(설계도) 제단은 축적 안 함
+  var wBp = bootSim(3101).world;
+  wBp.faith = 0;
+  addBuilding(wBp, 'altar', 5, 5); // 기본 stage='bp'(미완공)
+  tickFaith(wBp, 3, 100, mulberry32(1));
+  ok(wBp.faith === 0, '미완공 제단은 신앙도 축적 안 함');
+
+  // (e) 임계값 도달 시 축복(유물) 자동 하사 + 소비 + 카운트 증가 + 전설·여신전용 제외
+  var w2 = bootSim(3102).world;
+  addBuilding(w2, 'altar', 5, 5, { stage: 'built' });
+  w2.faith = FAITH.blessingThreshold - 1;
+  w2.faithBlessings = 0;
+  var relicsBefore = 0; for (var k in w2.relics) relicsBefore += w2.relics[k];
+  var ev = tickFaith(w2, 3, 1000, mulberry32(5)); // 1000분치 → 임계 초과
+  ok(ev.length >= 1 && ev[0].type === 'blessing', '임계값 도달 시 축복 이벤트 발생');
+  var relicsAfter = 0; for (var k2 in w2.relics) relicsAfter += w2.relics[k2];
+  ok(relicsAfter === relicsBefore + ev.length, '축복 수만큼 유물 획득 (' + ev.length + ')');
+  ok(w2.faithBlessings === ev.length, '축복 카운트 증가');
+  ok(w2.faith < FAITH.blessingThreshold, '축복 후 신앙도가 임계값 미만으로 소비됨');
+  ok(ev.every(function (e) { return e.relic.def.rarity !== 'legendary' && !e.relic.def.goddessOnly; }), '축복 유물은 전설·여신전용 제외');
+
+  // (f) 풀 시뮬 방출: 제단 + 임계 근처 신앙도 → 축복 시 강림 연출 콜백
+  var sim = bootSim(3103);
+  addBuilding(sim.world, 'altar', 40, 40, { stage: 'built' });
+  sim.world.faith = FAITH.blessingThreshold - 1;
+  var descends = [];
+  sim.ctx.onGoddessDescend = function (x, y) { descends.push({ x: x, y: y }); };
+  run(sim, 200);
+  ok(descends.length >= 1, '축복 시 강림 연출 콜백(onGoddessDescend) 방출');
+
+  // (g) 7일차 여신 강림이 초기 신앙도(descentSeed) 부여
+  var simG = bootSim(3105);
+  runDays(simG, 8); // 7일차 밤 강림 통과
+  ok(simG.world.goddessVisited === true, '7일차 여신 강림 발생');
+  ok(simG.world.faith >= FAITH.descentSeed - 1e-6 || simG.world.faithBlessings > 0, '강림이 초기 신앙도(descentSeed) 부여(축복으로 소비됐을 수 있음)');
+
+  // (h) 제단 사기 보너스: 같은 상태에서 제단(+축복)이 있으면 사기가 더 높게 수렴
+  give(sim, { food: 200 });
+  var wm = bootSim(3104); addBuilding(wm.world, 'altar', 40, 40, { stage: 'built' }); wm.world.faithBlessings = 3; give(wm, { food: 200 });
+  var wn = bootSim(3104); give(wn, { food: 200 });
+  wm.pawns[0].mood = 50; wn.pawns[0].mood = 50;
+  run(wm, 300); run(wn, 300);
+  ok(wm.pawns[0].mood > wn.pawns[0].mood, '제단(+축복3)이 있으면 사기가 더 높게 수렴 (' + wm.pawns[0].mood.toFixed(1) + ' > ' + wn.pawns[0].mood.toFixed(1) + ')');
 })();
 
 console.log('');

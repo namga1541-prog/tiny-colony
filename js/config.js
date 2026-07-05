@@ -153,6 +153,14 @@ export const BUILDS = {
     town: { sx: 64, sy: 64, sw: 64, sh: 64 }, tint: 0xffd9ec, // 빨강집 + 분홍조(정자=휴식·사기)
     desc: '정착민들이 쉬며 사기를 북돋우는 휴식 공간입니다. 마을에 지으면 전체 사기가 소폭 오릅니다.',
   },
+  altar: {
+    name: '제단', cost: { wood: 20, gold: 6 }, work: 60, hp: 80,
+    fw: 2, fh: 2, solid: true, light: true,
+    img: 'House', imgC: 'House_C', pw: 128, ph: 192,
+    town: { sx: 64, sy: 64, sw: 64, sh: 64 }, tint: 0xf3e2a0, // 정자 크롭 + 금빛(신성) — 🌺 명패로 구분
+    faithHere: true, // 신앙 계열 표식(Phase 2 기도 job 대상 예약용) — 현재는 의미 표식만
+    desc: '섬의 수호신 「아보랑카도」를 기리는 제단. 있으면 신앙도가 서서히 쌓여 주기적으로 축복(유물)을 내리고, 콜로니 사기가 오릅니다.',
+  },
   barn: {
     name: '축사', cost: { wood: 20, gold: 5 }, work: 80, hp: 100,
     fw: 2, fh: 2, solid: true,
@@ -552,6 +560,7 @@ export const BUILD_MIN_RANK = {
   minerLodge: 1, farmLodge: 1, // 일꾼 오두막(집단 단계부터)
   outfitter: 1, // 대장간과 같은 단계 — 초반부터 골드 sink 선택지 제공
   library: 2, tavern: 2, // 마을 단계 유틸리티(초소·망루·치료소와 동급)
+  altar: 2, // 제단(신앙) — 마을 단계 유틸리티
   shipHull: 4, shipEngine: 4, shipReactor: 4, // 나라 단계 전용(main.js 에서 대침공 완전 격퇴도 추가로 요구)
 };
 // 도서관: 완공된 채수당 연구 속도 가산 배율(1개=+25%, 2개=+50%...) — tickResearch(world.js)에서 사용.
@@ -580,6 +589,17 @@ export const RELICS = {
 
 // ── 섬의 수호신 「아보랑카도」: GODDESS.day 일 밤, 전투 없이 마을에 강림해 축복(RELICS.avorlancado)을 내리고 떠난다 ──
 export const GODDESS = { day: 7, spawnHour: 20, name: '아보랑카도', relicId: 'avorlancado' };
+
+// ── 신앙(아보랑카도 심화): 제단(altar)이 있으면 신앙도(world.faith)가 정착민 수·제단 채수 비례로 축적.
+// 임계값마다 자동으로 축복(유물, 전설·여신전용 제외)을 하사하고, 제단은 받은 축복 누적에 비례해 콜로니 사기를 올린다.
+export const FAITH = {
+  ratePerPawn: 100 / (10 * 60), // 정착민 1명·제단 1채당 10시간에 100점 (연구 6시간보다 느림)
+  blessingThreshold: 300,       // 신앙도가 이만큼 차면 축복 1회 자동 발동(그만큼 소비, 반복)
+  descentSeed: 150,             // 7일차 여신 강림 시 부여하는 초기 신앙도(제단 건설 유도)
+  moodBase: 6,                  // 제단이 하나라도 있으면 콜로니 사기 목표치 가산(정자 10과 별개로 합산)
+  moodPerBlessing: 2,           // 받은 축복 1회당 추가 사기(신앙이 두터워질수록)
+  moodCap: 12,                  // 축복 누적 사기 보너스 상한
+};
 
 // ── 떠돌이 상인: 주기적으로 며칠간 머무르며 잉여 자원(목재·철·식량·요리)을 금으로 사들임 ──
 // rates: 자원 1개당 지급하는 금(내림). 잉여 자원 처리 + 탈출선 등 금 소요 프로젝트로 이어지는 순환 고리.

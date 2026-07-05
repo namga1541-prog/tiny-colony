@@ -3,7 +3,7 @@ import {
   MAP_W, MAP_H, NATURE, STACK_MAX, BUILDS, BUILDING_HP_DEFAULT, GOLDMINE, IRONMINE, BRIDGE,
   RESEARCH_RATE_PER_PAWN, ENEMY, RAID, GIANT, GIANT_FAST_MULT, GIANT_JUMP, SEASON_DAYS, SEASONS, WINTER, STORAGE, RANCH, REGROW,
   ANIMAL_TYPES, ANIMALS, WILD_ANIMAL_TYPES, BARN, EGG_HATCH, WAREHOUSE_TIERS, UPGRADES, RANKS, HOUSE_POP_BONUS, HOUSE_POP_CAP_COUNT, DEFENSE_TIERS, OUTPOST_BRANCHES, CANNON, RELICS, ISLANDS, CANNIBAL, WARLORD, RAIDER, INVWARRIOR, ZOMBIE, SKELETON, DEMON, MINIDEMON,
-  ARMOR, FISH_PLATFORM, LODGE_FARM_RADIUS, RARE_FISH_SPOT, FORTIFY_KINDS, INJURY, LIBRARY,
+  ARMOR, FISH_PLATFORM, LODGE_FARM_RADIUS, RARE_FISH_SPOT, FORTIFY_KINDS, INJURY, LIBRARY, FAITH,
   T_WATER, T_GRASS, T_SAND,
 } from './config.js';
 import { findPath } from './path.js';
@@ -168,6 +168,8 @@ export function createWorld(seed) {
     invasionsCompleted: 0, // 완료한 예정 침공 수(INVASION.schedule 인덱스 진행도)
     relics: {},         // 유물 id -> 보유 개수 (스택). 습격 격퇴·괴민 처치로 획득
     goddessVisited: false, // 섬의 수호신 「아보랑카도」 강림(1회성) 여부
+    faith: 0,           // 신앙도(favor) — 제단이 있으면 축적, 임계값마다 축복으로 소비(tickFaith)
+    faithBlessings: 0,  // 받은 신앙 축복 누적 횟수 — 제단 사기 보너스 스케일링 + 세이브
     traderActive: false, // 떠돌이 상인 방문 중 여부
     traderDepartDay: 0,  // 상인이 떠나는 날짜(traderActive 일 때만 의미 있음)
     nextTraderDay: 0,    // 다음 상인 방문 예정일(0 이면 TRADER.firstDay 로 폴백)
@@ -1063,6 +1065,31 @@ export function canAfford(world, cost) {
 export function tickResearch(world, aliveCount, dtMin) {
   var libMult = 1 + countBuilt(world, 'library') * LIBRARY.bonusPerBuilding;
   world.research.points += RESEARCH_RATE_PER_PAWN * aliveCount * dtMin * libMult;
+}
+
+// 신앙 축복 전용 유물 추첨: 전설·여신전용을 제외한 일반 유물 중 rng 로 1개(임계 축복은 흔한 보상).
+export function grantCommonRelic(world, rng) {
+  var ids = Object.keys(RELICS).filter(function (id) { return RELICS[id].rarity !== 'legendary' && !RELICS[id].goddessOnly; });
+  if (ids.length === 0) return grantRelic(world, rng); // 안전망(일반 유물 미정의 시)
+  var id = ids[(rng() * ids.length) | 0];
+  world.relics = world.relics || {};
+  world.relics[id] = (world.relics[id] || 0) + 1;
+  return { id: id, def: RELICS[id], count: world.relics[id] };
+}
+
+// 신앙도 자동 누적 (제단 채수 × 정착민 수 비례) + 임계값마다 축복(유물) 자동 하사. 이벤트 배열 반환(sim.js 가 방출).
+export function tickFaith(world, aliveCount, dtMin, rng) {
+  var events = [];
+  var altars = countBuilt(world, 'altar');
+  if (altars === 0) return events; // 제단이 없으면 축적 자체가 없음(descentSeed 만 남아 대기)
+  world.faith = (world.faith || 0) + FAITH.ratePerPawn * aliveCount * altars * dtMin;
+  var guard = 0;
+  while (world.faith >= FAITH.blessingThreshold && guard++ < 8) { // guard: 거대 dtMin 폭주 방지
+    world.faith -= FAITH.blessingThreshold;
+    world.faithBlessings = (world.faithBlessings || 0) + 1;
+    events.push({ type: 'blessing', relic: grantCommonRelic(world, rng) });
+  }
+  return events;
 }
 
 export function researchProgress(world, key, def) {

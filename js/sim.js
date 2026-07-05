@@ -5,10 +5,10 @@
 //
 // 모든 렌더·UI·오디오 효과는 ctx 콜백으로만 방출한다(상태 변경과 효과 분리).
 // main.js 는 ctx 에 실제 R.*/UI.*/Audio2.* 를, 하네스는 기록용 stub 을 연결한다.
-import { DAY_MIN, RAID, GIANT_RAID, INVASION, GODDESS, TRADER, MAP_W, MAP_H, SEASON_DAYS, SEASONS, WINTER } from './config.js';
+import { DAY_MIN, RAID, GIANT_RAID, INVASION, GODDESS, FAITH, TRADER, MAP_W, MAP_H, SEASON_DAYS, SEASONS, WINTER } from './config.js';
 import {
   idx, addItem, mulberry32,
-  updateSheep, tickTowers, updateEnemies, tickResearch, tickCrops, tickRanches, tickBarns, tickHeaters, autoDesignateLodges,
+  updateSheep, tickTowers, updateEnemies, tickResearch, tickFaith, tickCrops, tickRanches, tickBarns, tickHeaters, autoDesignateLodges,
   dailyRegrowth, dailyMineRegen, spawnRaid, seasonDef, seasonIndex, maxPop, grantRelic,
   dailyIslandRespawn, checkIslandDiscovery,
   grantLegendaryRelic, warlordsAliveInWave, shipComplete,
@@ -52,6 +52,15 @@ function landingCentroidTail(world, n) {
 //   (효과) onTileChange, onToast(msg,warn), onSfx(name), onRecruit(), onSeasonTint(tint,alpha),
 //   onGoddessDescend(x,y) — 「아보랑카도」 강림 위치(타일 좌표),
 //   onBoatLanding(x,y) — 습격 상륙 지점(배 연출), onZonesChanged() — 구역 오버레이 갱신
+// 생존 정착민들의 중심 타일(콜로니가 실제로 자리잡은 곳) — 없으면 맵 중앙. 여신 강림·신앙 축복 연출 위치.
+function colonyCenter(pawns) {
+  var alive = pawns.filter(function (p) { return p.state !== 'dead'; });
+  if (!alive.length) return { x: MAP_W / 2 | 0, y: MAP_H / 2 | 0 };
+  var sx = 0, sy = 0;
+  for (var i = 0; i < alive.length; i++) { sx += alive[i].px; sy += alive[i].py; }
+  return { x: Math.round(sx / alive.length), y: Math.round(sy / alive.length) };
+}
+
 export function stepWorld(world, pawns, dtMin, rng, ctx, enemyCbs) {
   var prevDay = world.day;
   var gameMin = dtMin;
@@ -70,6 +79,18 @@ export function stepWorld(world, pawns, dtMin, rng, ctx, enemyCbs) {
     tickTowers(world, dt, enemyCbs);
     updateEnemies(world, pawns, dt, enemyCbs, rng);
     tickResearch(world, aliveNow, dt);
+    // 신앙: 제단이 있으면 신앙도 축적 → 임계값마다 축복(유물) 자동 하사(여신 강림 연출 재사용)
+    var faithEv = tickFaith(world, aliveNow, dt, rng);
+    for (var fi = 0; fi < faithEv.length; fi++) {
+      var fb = faithEv[fi];
+      if (fb.type === 'blessing') {
+        var cen = colonyCenter(pawns);
+        if (ctx.onGoddessDescend) ctx.onGoddessDescend(cen.x, cen.y);
+        ctx.onToast('🌺 신앙이 무르익어 「' + fb.relic.def.name + '」의 축복을 받았습니다!', true);
+        ctx.onEvent('🌺 신앙 축복 — ' + fb.relic.def.name);
+        if (ctx.onSfx) ctx.onSfx('success');
+      }
+    }
     var ready = tickCrops(world, dt);
     for (var ci = 0; ci < ready.length; ci++) ctx.onCropChange(ready[ci]);
     var rev = tickRanches(world, dt, rng);
@@ -215,6 +236,7 @@ export function stepWorld(world, pawns, dtMin, rng, ctx, enemyCbs) {
     world.goddessVisited = true;
     world.relics = world.relics || {};
     world.relics[GODDESS.relicId] = (world.relics[GODDESS.relicId] || 0) + 1;
+    world.faith = (world.faith || 0) + FAITH.descentSeed; // 초기 신앙도 부여 — 제단 건설 시 즉시 이어짐
     // 강림 위치: 생존 정착민들의 중심(콜로니가 실제로 자리잡은 곳) — 없으면 맵 중앙
     var aliveG = pawns.filter(function (p) { return p.state !== 'dead'; });
     var gx, gy;
@@ -223,7 +245,7 @@ export function stepWorld(world, pawns, dtMin, rng, ctx, enemyCbs) {
       gy = Math.round(aliveG.reduce(function (s, p) { return s + p.py; }, 0) / aliveG.length);
     } else { gx = MAP_W / 2 | 0; gy = MAP_H / 2 | 0; }
     ctx.onGoddessDescend(gx, gy);
-    ctx.onToast('🌺 섬의 수호신 「' + GODDESS.name + '」가 마을에 강림했습니다! 축복을 내리고 조용히 떠났습니다.', true);
+    ctx.onToast('🌺 섬의 수호신 「' + GODDESS.name + '」가 마을에 강림했습니다! 축복을 내렸습니다 — 제단을 지으면 신앙이 이어집니다.', true);
     ctx.onEvent('🌺 여신 ' + GODDESS.name + ' 강림 — 축복 하사');
     ctx.onSfx('success');
   }

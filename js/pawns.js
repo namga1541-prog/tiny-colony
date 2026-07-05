@@ -2,7 +2,7 @@
 import {
   NEEDS, NATURE, BUILDS, WALK_MIN_PER_TILE, TRAITS, CROP, FRUITTREE, WEAPONS, ARMOR, ITEMS,
   COMBAT, COOK_TIERS, GLORIOUS_FOOD, HUNT, TAME, CLINIC, INJURY, WINTER, ANIMALS, FISHING, FISH, catchFish, catchRareFish, skillMult,
-  ROLES, ROLE_SPEED_BONUS,
+  ROLES, ROLE_SPEED_BONUS, FAITH,
 } from './config.js';
 import {
   idx, ix, iy, isWalkable, addItem, removeItem, natureDef, stackRoom,
@@ -685,6 +685,17 @@ function pavilionExists(world) {
   return false;
 }
 
+// 제단(신앙) 사기 보너스 — 제단이 하나라도 있으면 기본 보너스 + 받은 축복 누적에 비례한 추가분(상한).
+function altarFaithMood(world) {
+  var has = false;
+  for (var id in world.buildings) {
+    var b = world.buildings[id];
+    if (b.kind === 'altar' && b.stage === 'built') { has = true; break; }
+  }
+  if (!has) return 0;
+  return FAITH.moodBase + Math.min(FAITH.moodCap, (world.faithBlessings || 0) * FAITH.moodPerBlessing);
+}
+
 // 겨울 온기: 완공된 모닥불·난로(warmth 반경) 안에 있으면 true. 난로는 장작이 떨어져 꺼지면(b.lit===false) 온기 없음.
 function nearWarmth(world, pawn) {
   for (var id in world.buildings) {
@@ -870,7 +881,7 @@ export function updatePawn(world, pawn, dtMin, ctx) {
   if (pawn.stuckCd > 0) pawn.stuckCd -= dtMin;
 
   // 기분: 포만감·체력의 가중 평균으로 서서히 수렴 + 정자가 있으면 보정
-  var moodTarget = pawn.hunger * 0.6 + pawn.hp * 0.4 + (pavilionExists(world) ? 10 : 0);
+  var moodTarget = pawn.hunger * 0.6 + pawn.hp * 0.4 + (pavilionExists(world) ? 10 : 0) + altarFaithMood(world);
   var moodRate = 0.006 * (trait.moodMult || 1);
   pawn.mood += (moodTarget - pawn.mood) * Math.min(1, moodRate * dtMin);
   pawn.mood = Math.max(0, Math.min(100, pawn.mood));

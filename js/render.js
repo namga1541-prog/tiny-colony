@@ -415,6 +415,7 @@ export function createRenderer(world) {
     shipReactor: { icon: '⚡', color: 0x2a8a64 },
     fishPlatform: { icon: '🎣', color: 0x8a6a3a },
     dock:         { icon: '⚓', color: 0x2a6a8a },
+    altar:        { icon: '🌺', color: 0xb9862e }, // 제단(신앙) — 정자와 같은 크롭이라 명패로 구분
   };
 
   function refreshTile(i) {

@@ -43,6 +43,8 @@ if (saved) {
   world.rank = saved.rank || 0;
   world.relics = saved.relics || {};
   world.goddessVisited = saved.goddessVisited || false;
+  world.faith = saved.faith || 0;
+  world.faithBlessings = saved.faithBlessings || 0;
   world.traderActive = saved.traderActive || false;
   world.traderDepartDay = saved.traderDepartDay || 0;
   world.nextTraderDay = saved.nextTraderDay || 0;
