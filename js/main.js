@@ -863,10 +863,14 @@ canvas.addEventListener('contextmenu', function (e) { e.preventDefault(); });
 // 마우스·터치(단일 손가락) 공용 입력 처리
 function pointerDown(x, y, button) {
   if (button === 2 || button === 1) {
+    // 왼쪽 버튼으로 이미 드래그(박스 선택·도구 지정) 중이면 패닝을 시작하지 않음 —
+    // 드래그 시작 좌표(패닝 전 카메라)와 종료 좌표(패닝 후 카메라)가 어긋나 엉뚱한 영역이 잡히는 것을 방지.
+    if (selDrag || dragStart) return;
     panning = true;
     panStart = { mx: x, my: y, cx: R.cam.x, cy: R.cam.y, moved: false };
     return;
   }
+  if (panning) return; // 반대로 패닝 중엔 새 드래그 시작 안 함(같은 이유)
   var t = R.screenToTile(x, y);
   var tool = UI.getTool();
   if (tool === 'select') {
