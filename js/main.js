@@ -1338,8 +1338,8 @@ R.app.ticker.add(function () {
       manualMove(controlled[c], manualBudget);
       sumX += controlled[c].px; sumY += controlled[c].py;
     }
-    if (moveKey) {
-      // 무리 중심을 화면 중앙으로 따라감 (이동 중일 때만)
+    if (moveKey && !panning) {
+      // 무리 중심을 화면 중앙으로 따라감 (이동 중일 때만 · 우클릭 드래그로 화면을 보는 중엔 추적을 멈춰 카메라 떨림 방지)
       var cxg = sumX / controlled.length, cyg = sumY / controlled.length;
       var targetX = R.app.screen.width / 2 - (cxg + 0.5) * 64 * R.cam.zoom;
       var targetY = R.app.screen.height / 2 - (cyg + 0.5) * 64 * R.cam.zoom;
