@@ -1831,6 +1831,33 @@ console.log('[sim-smoke] 56) 신앙(아보랑카도 심화) — 제단 신앙도
   ok(wm.pawns[0].mood > wn.pawns[0].mood, '제단(+축복3)이 있으면 사기가 더 높게 수렴 (' + wm.pawns[0].mood.toFixed(1) + ' > ' + wn.pawns[0].mood.toFixed(1) + ')');
 })();
 
+console.log('[sim-smoke] 57) 전투 애니메이션 훅 — 강타 시 잽 모션(atkT) + 타격 이펙트(onPawnStrike) (신규)');
+(function () {
+  var sim = bootSim(4201); var w = sim.world;
+  var p = sim.pawns[0];
+  p.manual = false; p.equipped = 'sword'; p.x = 50; p.y = 50; p.px = 50; p.py = 50;
+  p.state = 'idle'; p.job = null; p.path = null; p.atkCd = 0; p.atkT = 0;
+  w.enemies = [{ id: w.nextEid++, x: 51, y: 50, px: 51, py: 50, hp: 100, maxHp: 100, cd: 999, dir: -1, anim: 0, kind: 'goblin' }];
+  var strikes = [];
+  sim.ctx.onPawnStrike = function (e, dmg) { strikes.push({ dmg: dmg }); };
+  var hpBefore = w.enemies[0].hp;
+  run(sim, 2); // atkCd=0 이라 즉시 첫 강타
+  ok(w.enemies[0].hp < hpBefore, '무장 정착민이 인접 적을 공격해 적 HP 감소');
+  ok(strikes.length >= 1, '강타 시 onPawnStrike 방출 (' + strikes.length + ')');
+  ok(strikes[0].dmg > 0, '강타 데미지 전달 (' + strikes[0].dmg + ')');
+  ok(p.atkT > 0, '강타 후 잽 모션 타이머(atkT) 세팅');
+  ok(p.atkDX === 1, '잽 방향(atkDX)이 적 쪽(우측)을 가리킴');
+  var atkTPeak = p.atkT;
+  run(sim, 3); // 강타 사이 — atkT 는 시간이 지나며 감소(렌더 전용)
+  ok(p.atkT < atkTPeak, '잽 모션 타이머가 시간이 지나며 감소 (' + atkTPeak + '→' + p.atkT + ')');
+
+  // 적이 없으면 강타 훅이 발동하지 않음
+  var sim2 = bootSim(4202);
+  var strikes2 = 0; sim2.ctx.onPawnStrike = function () { strikes2++; };
+  run(sim2, 20);
+  ok(strikes2 === 0, '적이 없으면 강타 훅 미발동');
+})();
+
 console.log('');
 if (fails) { console.log('❌ sim-smoke 실패 ' + fails + '건'); process.exit(1); }
 console.log('✅ sim-smoke 전체 통과');

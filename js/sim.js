@@ -51,7 +51,8 @@ function landingCentroidTail(world, n) {
 //   onBuildingBuilt, onEvent, onStorageFull, onDeath, onStarving, onSheepChange
 //   (효과) onTileChange, onToast(msg,warn), onSfx(name), onRecruit(), onSeasonTint(tint,alpha),
 //   onGoddessDescend(x,y) — 「아보랑카도」 강림 위치(타일 좌표),
-//   onBoatLanding(x,y) — 습격 상륙 지점(배 연출), onZonesChanged() — 구역 오버레이 갱신
+//   onBoatLanding(x,y) — 습격 상륙 지점(배 연출), onZonesChanged() — 구역 오버레이 갱신,
+//   onPawnStrike(enemy,dmg) — 정착민이 적을 강타한 순간(타격 이펙트·데미지 숫자)
 // 생존 정착민들의 중심 타일(콜로니가 실제로 자리잡은 곳) — 없으면 맵 중앙. 여신 강림·신앙 축복 연출 위치.
 function colonyCenter(pawns) {
   var alive = pawns.filter(function (p) { return p.state !== 'dead'; });

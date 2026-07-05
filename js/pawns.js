@@ -809,8 +809,10 @@ function handleCombat(world, pawn, dtMin, ctx) {
       pawn.atkCd = (pawn.atkCd || 0) - dtMin;
       if (pawn.atkCd <= 0) {
         pawn.atkCd = COMBAT.attackCd;
-        e.hp -= pawnPower(pawn);
+        var dmgHc = pawnPower(pawn);
+        e.hp -= dmgHc;
         gainSkill(pawn, 'combat', 4);
+        pawnStrikeFx(pawn, e, dmgHc, ctx);
       }
     } else {
       pawn.state = 'moving';
@@ -825,6 +827,16 @@ function handleCombat(world, pawn, dtMin, ctx) {
   return true;
 }
 
+// 정착민 강타 순간: 잽(찌르기) 모션 타이머(atkT) 세팅 + 임팩트(ctx.onPawnStrike) 방출.
+// 적의 e.atkT 패턴과 대칭 — 렌더가 이걸 보고 공격 스윙·잽·타격 이펙트를 그린다(전투 로직엔 무영향).
+function pawnStrikeFx(pawn, e, dmg, ctx) {
+  pawn.atkT = 9;
+  pawn.atkDX = Math.sign(e.px - pawn.px);
+  pawn.atkDY = Math.sign(e.py - pawn.py);
+  if (pawn.atkDX !== 0) pawn.face = pawn.atkDX;
+  if (ctx && ctx.onPawnStrike) ctx.onPawnStrike(e, dmg);
+}
+
 // 직접 조종 중 자동공격 토글(⚔️ 버튼): 이동은 플레이어가 계속 담당, 사거리 내 적은 쿨다운마다 자동 공격.
 // handleCombat 과 달리 상태·이동을 가로채지 않음 — 조종성을 유지한 채 배경에서 공격만 발동.
 function autoAttackTick(world, pawn, dtMin, ctx) {
@@ -835,8 +847,10 @@ function autoAttackTick(world, pawn, dtMin, ctx) {
   pawn.atkCd = (pawn.atkCd || 0) - dtMin;
   if (pawn.atkCd <= 0) {
     pawn.atkCd = COMBAT.attackCd;
-    e.hp -= pawnPower(pawn);
+    var dmgAa = pawnPower(pawn);
+    e.hp -= dmgAa;
     gainSkill(pawn, 'combat', 4);
+    pawnStrikeFx(pawn, e, dmgAa, ctx);
   }
 }
 
@@ -844,6 +858,7 @@ function autoAttackTick(world, pawn, dtMin, ctx) {
 export function updatePawn(world, pawn, dtMin, ctx) {
   if (pawn.state === 'dead') return;
   pawn.ctxItemChange = ctx.onItemChange;
+  if (pawn.atkT) pawn.atkT = Math.max(0, pawn.atkT - dtMin); // 강타 잽 모션 타이머 감소(렌더 전용, 적 e.atkT 와 동일)
 
   var trait = pawn.trait;
   pawn.hunger = Math.max(0, pawn.hunger - NEEDS.hungerDecay * (trait.hungerMult || 1) * dtMin);
@@ -1010,7 +1025,9 @@ export function manualInteract(world, pawn, ctx) {
   if (near) {
     var e = near.enemy;
     pawn.face = e.px > pawn.px ? 1 : -1;
-    e.hp -= pawnPower(pawn);
+    var dmgMi = pawnPower(pawn);
+    e.hp -= dmgMi;
+    pawnStrikeFx(pawn, e, dmgMi, ctx);
     // 조종성 유지: 공격은 즉발, 상태는 idle 로 되돌려 계속 이동/공격 가능
     if (pawn.job) { releaseAllOf(world, pawn.id); pawn.job = null; }
     pawn.state = 'idle';

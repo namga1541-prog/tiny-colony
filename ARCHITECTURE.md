@@ -26,7 +26,7 @@
 `onBuildingChange(b)`, `onBuildingBuilt(b)`, `onEvent(msg)`, `onStorageFull()`, `onDeath(pawn)`,
 `onStarving(pawn)`, `onSheepChange()`
 **ctx (오케스트레이션 효과 콜백)**: `onTileChange(i)`, `onToast(msg,warn)`, `onSfx(name)`, `onRecruit()`, `onSeasonTint(tint,alpha)`,
-`onGoddessDescend(x,y)`(여신 강림 연출), `onBoatLanding(x,y)`(습격 상륙 배 연출), `onZonesChanged()`(구역 오버레이 갱신)
+`onGoddessDescend(x,y)`(여신 강림 연출·신앙 축복), `onBoatLanding(x,y)`(습격 상륙 배 연출), `onZonesChanged()`(구역 오버레이 갱신), `onPawnStrike(enemy,dmg)`(정착민 강타 타격 이펙트)
 **enemyCbs (전투)**: `onHit(pawn,dmg)`, `onPawnDeath(pawn)`, `onEnemyDown(enemy)`, `onTowerFire(tower,enemy)`, `onCannonFire(castle,enemy)`(성 대포 tier 광역), `onGiantJump(e,x,y)`, `onGiantSmash(e,pawn)`(괴민 주먹질 충격), `onDemonLaser(e,tx,ty)`, `onDemonSummon(e,n)`(악마후배 미니 악마 소환), `onBuildingHit(b,dmg)`, `onBuildingDestroyed(b)`, `onObstacleBreak(x,y)`(적이 막은 나무 파괴), `onCropDestroyed(idx)`
 
 - main.js 는 ctx 에 실제 R.*/UI.*/Audio2.*/recruitWanderer 를 연결. 헤드리스 하네스는 기록용 stub 연결.

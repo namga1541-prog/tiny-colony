@@ -20,7 +20,7 @@ export function bootSim(seed) {
   var ambient = mulberry32(world.seed ^ 0x5eed);
 
   var events = [];
-  var counters = { toast: 0, sfx: 0, recruit: 0, death: 0, pawnKill: 0, enemyDown: 0, towerFire: 0 };
+  var counters = { toast: 0, sfx: 0, recruit: 0, death: 0, pawnKill: 0, enemyDown: 0, towerFire: 0, pawnStrike: 0 };
 
   // 효과 콜백 = 기록용 stub (DOM/렌더 없음)
   var ctx = {
@@ -42,6 +42,7 @@ export function bootSim(seed) {
     onSeasonTint: function () {},
     onGoddessDescend: function () {},
     onZonesChanged: function () {},
+    onPawnStrike: function () { counters.pawnStrike++; },
   };
   var enemyCbs = {
     onHit: function () {},

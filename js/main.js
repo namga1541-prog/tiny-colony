@@ -529,6 +529,7 @@ var ctx = {
   onGoddessDescend: function (x, y) { R.spawnGoddessFx(x, y); },
   onZonesChanged: function () { R.refreshZones(); }, // 오두막 자동 지정 등으로 구역이 바뀜
   onBoatLanding: function (x, y) { R.spawnBoatFx(x, y); }, // 습격·대침공 상륙 시 뗏목이 해안까지 오는 연출
+  onPawnStrike: function (e, dmg) { R.spawnHitFx(e.x, e.y, dmg); hitSfx(); }, // 정착민 강타: 적에 타격 링·데미지 숫자 + (스로틀) 효과음
 };
 
 // ── 도구 적용 ──

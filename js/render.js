@@ -938,6 +938,7 @@ export function createRenderer(world) {
     else if (pose === 'walk') animKey = pawn.carry ? 'carry' : 'walk';
     else if (pawn.state === 'working' && pawn.job) { animKey = workAnimOf(pawn); fxKind = workFxOf(pawn); }
     else if (pawn.state === 'resting') animKey = 'waiting';
+    else if (pawn.atkT > 0) animKey = 'attack'; // 강타 스윙(잽 창) — 지속 전투·수동 공격 공통. 사이엔 idle(대기)
     else animKey = 'idle';
 
     var sa = SS_ANIMS[animKey];
@@ -952,6 +953,16 @@ export function createRenderer(world) {
       e.spr.alpha = 1; e.spr.tint = flashing ? 0xff5a5a : 0xffffff; // 피격 시 빨간 플래시
       frame = (((animTime * sa.fps) | 0) + e.animOff) % sa.n;
       if (flashing) { e.spr.x += (Math.random() - 0.5) * 4; } // 짧은 흔들림(움찔)
+    }
+    // 강타 스윙: 잽 창(atkT 9→0)에 공격 프레임을 정확히 1회 재생(연속 루프 대신 한 번 내려침)
+    if (animKey === 'attack' && pawn.atkT > 0) {
+      frame = Math.min(sa.n - 1, (((9 - pawn.atkT) / 9) * sa.n) | 0);
+    }
+    // 강타 잽: 목표 방향으로 쭉 뻗었다 되돌아오는 찌르기(적 e.atkT 잽과 대칭). 헤어·도구는 자식이라 함께 이동.
+    if (pawn.atkT > 0) {
+      var lap = Math.sin((1 - pawn.atkT / 9) * Math.PI); // 0→1→0
+      e.spr.x += (pawn.atkDX || e.face || 1) * lap * 14;
+      e.spr.y += (pawn.atkDY || 0) * lap * 14;
     }
     e.spr.texture = ssTex('base', animKey, frame);
     e.hair.texture = ssTex(hairOf(pawn.look), animKey, frame);
