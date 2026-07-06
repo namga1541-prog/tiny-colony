@@ -1916,6 +1916,37 @@ console.log('[sim-smoke] 58) 무작위 사건 파일럿 — 추첨·유랑 행�
   ok(victim.hp === hpAfter, '사건이 없으면 맹수가 공격하지 않음');
 })();
 
+console.log('[sim-smoke] 59) 습격 상륙 본섬 제한 — 다른 섬 스폰으로 콜로니 도달 불가하던 회귀 방지 (신규)');
+(function () {
+  // 판정 기준: 스폰 지점이 콜로니와 "같은 대륙"(landmass)인가 — 나무·건물은 적이 부수고 돌파(breakThrough)
+  // 하므로 findPath 실패는 오탐이 될 수 있고, 물로 단절된 다른 대륙만이 진짜 도달 불가다.
+  var seeds = [12345, 777, 999999, 42, 2024];
+  var offIsland = 0, checked = 0, pathOk = 0;
+  for (var si = 0; si < seeds.length; si++) {
+    var sim = bootSim(seeds[si]); var w = sim.world;
+    var home = sim.pawns[0]; // 콜로니(맵 중앙 스폰 정착민) 위치
+    var preexisting = w.enemies.length; // 원정 섬 상주 적(식인종·데몬 등)은 의도적으로 섬에 있음 — 검사 제외
+    spawnRaid(w, 8, sim.ambient, 'goblin');
+    spawnRaid(w, 2, sim.ambient, 'giant');
+    spawnRaid(w, 3, sim.ambient, 'raider', 1);
+    var lm = w._landmass; // spawnRaid 가 계산·캐시
+    var homeLabel = lm.labels[idx(home.x, home.y)];
+    for (var i = preexisting; i < w.enemies.length; i++) {
+      var e = w.enemies[i];
+      checked++;
+      if (lm.labels[idx(e.x, e.y)] !== homeLabel) {
+        offIsland++;
+        console.log('    ✗ 시드 ' + seeds[si] + ' ' + e.kind + '(' + e.x + ',' + e.y + ') → 콜로니와 다른 대륙!');
+      }
+      if (findPath(w, e.x, e.y, home.x, home.y, true, true) !== null) pathOk++;
+    }
+  }
+  ok(checked >= 60, '5시드 × 습격 13마리 스폰 (' + checked + '마리 검사)');
+  ok(offIsland === 0, '스폰된 적 전원이 콜로니와 같은 대륙 (이탈 ' + offIsland + '마리)');
+  // 참고 통계: 즉시 경로 존재 비율(나무에 막힌 소수는 부수고 진입하므로 100% 미만이어도 정상)
+  ok(pathOk >= checked * 0.9, '90% 이상은 장애물 파괴 없이도 즉시 경로 존재 (' + pathOk + '/' + checked + ')');
+})();
+
 console.log('');
 if (fails) { console.log('❌ sim-smoke 실패 ' + fails + '건'); process.exit(1); }
 console.log('✅ sim-smoke 전체 통과');

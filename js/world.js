@@ -1164,22 +1164,76 @@ export function enemyStats(e) {
   return ENEMY;
 }
 
+// ── 대륙 라벨링: 육지 연결 성분(4방향 flood fill)에 id 부여. terrain 은 플레이 중 불변이라 1회 계산 후 캐시.
+// 습격 상륙 지점을 "본섬(맵 중앙 콜로니가 있는 대륙)" 해안으로 제한하는 데 사용 —
+// 원정 섬·2번대륙 해안에 스폰되면 적이 물을 못 건너 영영 콜로니에 도달하지 못하기 때문.
+function landmassVisit(world, labels, i, label, stack) {
+  if (labels[i] !== 0 || world.terrain[i] === T_WATER) return;
+  labels[i] = label;
+  stack.push(i);
+}
+function computeLandmass(world) {
+  var labels = new Int16Array(MAP_W * MAP_H); // 0=물/미방문, 1부터 대륙 id
+  var next = 1;
+  var stack = [];
+  for (var i = 0; i < labels.length; i++) {
+    if (labels[i] !== 0 || world.terrain[i] === T_WATER) continue;
+    labels[i] = next;
+    stack.length = 0;
+    stack.push(i);
+    while (stack.length) {
+      var cur = stack.pop();
+      var cx = cur % MAP_W, cy = (cur / MAP_W) | 0;
+      if (cx > 0) landmassVisit(world, labels, cur - 1, next, stack);
+      if (cx < MAP_W - 1) landmassVisit(world, labels, cur + 1, next, stack);
+      if (cy > 0) landmassVisit(world, labels, cur - MAP_W, next, stack);
+      if (cy < MAP_H - 1) landmassVisit(world, labels, cur + MAP_W, next, stack);
+    }
+    next++;
+  }
+  // 본섬 = 맵 중앙(시작 콜로니 스폰 지점)에서 가장 가까운 육지의 대륙 — 링을 넓혀가며 첫 육지 탐색
+  var home = 0;
+  var cx0 = MAP_W / 2 | 0, cy0 = MAP_H / 2 | 0;
+  for (var r = 0; r < MAP_W && !home; r++) {
+    for (var dy = -r; dy <= r && !home; dy++) {
+      for (var dx = -r; dx <= r && !home; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue; // 링 테두리만
+        var x = cx0 + dx, y = cy0 + dy;
+        if (!inMap(x, y)) continue;
+        var li = labels[idx(x, y)];
+        if (li > 0) home = li;
+      }
+    }
+  }
+  return { labels: labels, home: home };
+}
+
 // waveNo: 대침공(INVASION) 웨이브 번호 태그(1~3). 일반 습격은 생략 → 0으로 저장.
 export function spawnRaid(world, count, rng, kind, waveNo) {
   var isGiant = kind === 'giant';
   var isWarlord = kind === 'warlord';
   var fixedHp = { warlord: WARLORD.hp, raider: RAIDER.hp, warrior: INVWARRIOR.hp, zombie: ZOMBIE.hp, skeleton: SKELETON.hp }[kind]; // 고정 체력 종족
+  // 본섬(콜로니가 있는 대륙) 해안만 상륙 후보 — 다른 섬·대륙에 스폰되면 적이 물을 못 건너 영영 못 옴
+  if (!world._landmass) world._landmass = computeLandmass(world); // 세이브 미포함(_prefix) — 로드 후 첫 스폰 때 재계산
+  var lm = world._landmass;
   var edges = [];
+  var inland = []; // 폴백: 본섬 해안이 전부 막혔을 때(해안 봉쇄 익스플로잇 방지)
   for (var y = 1; y < MAP_H - 1; y++) {
     for (var x = 1; x < MAP_W - 1; x++) {
-      if (world.terrain[idx(x, y)] === T_WATER) continue;
+      var ti = idx(x, y);
+      if (world.terrain[ti] === T_WATER) continue;
+      if (lm.labels[ti] !== lm.home) continue; // 본섬이 아닌 섬·대륙 제외
+      if (!isWalkable(world, x, y)) continue;
       // 육지지만 물과 접한 가장자리
       if (world.terrain[idx(x + 1, y)] === T_WATER || world.terrain[idx(x - 1, y)] === T_WATER ||
           world.terrain[idx(x, y + 1)] === T_WATER || world.terrain[idx(x, y - 1)] === T_WATER) {
-        if (isWalkable(world, x, y)) edges.push({ x: x, y: y });
+        edges.push({ x: x, y: y });
+      } else {
+        inland.push({ x: x, y: y });
       }
     }
   }
+  if (edges.length === 0) edges = inland; // 해안이 전부 봉쇄돼도 본섬 안쪽에 상륙(습격 완전 회피 방지)
   if (edges.length === 0) return 0;
   var spawned = 0;
   // 체력: 침략 세력(정복자·약탈자·전사)은 고정, 거인은 훨씬 튼튼, 고블린은 일수 비례 강화
@@ -1193,7 +1247,8 @@ export function spawnRaid(world, count, rng, kind, waveNo) {
   for (var n = 0; n < count; n++) {
     var sx = base.x + ((rng() * 5) | 0) - 2;
     var sy = base.y + ((rng() * 5) | 0) - 2;
-    if (!isWalkable(world, sx, sy)) { sx = base.x; sy = base.y; }
+    // 산개 지점도 본섬이어야 함(좁은 수로 건너 옆 섬 타일로 흩어지는 것 방지)
+    if (!isWalkable(world, sx, sy) || lm.labels[idx(sx, sy)] !== lm.home) { sx = base.x; sy = base.y; }
     world.enemies.push({
       id: world.nextEid++, x: sx, y: sy, px: sx, py: sy,
       hp: ehp, maxHp: ehp, cd: 0, dir: 1, anim: (rng() * 6) | 0,
