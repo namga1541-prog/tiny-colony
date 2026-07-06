@@ -1,7 +1,7 @@
 // L1 시나리오 스모크 — 시드 고정, 헤드리스. stepWorld 추출이 올바른지 + 결정론 확인.
 import { bootSim, run, runDays, designateChop, give, snapshot, DAY_MIN, MAP_W, MAP_H } from './harness.mjs';
-import { addBuilding, storageCap, upgradeMult, upgradeAdd, maxPop, rankReqStatus, canAdvanceRank, advanceRank, defenseStats, tickTowers, enemyStats, spawnRaid, mulberry32, grantRelic, dailyIslandRespawn, checkIslandDiscovery, updateEnemies, idx, shipComplete, fishSpotTier, footprintTouchesWater, canPlaceBridge, isWalkable, autoDesignateLodges, footprintAdjacentMine, ensureBossIsland, tickBarns, tickHeaters, seasonDef, boatCanEnter, spawnBoat, boardBoat, disembarkBoat, syncBoats, tickResearch, tickFaith } from '../js/world.js';
-import { GIANT, ENEMY, CANNIBAL, ISLANDS, INVASION, OUTPOST_BRANCHES, RAIDER, INVWARRIOR, ZOMBIE, SKELETON, GIANT_JUMP, ARMOR, FRUITTREE, FISH, catchFish, catchRareFish, GODDESS, TRADER, BUILDS, BUILD_MIN_RANK, FISH_PLATFORM, DEMON, MINIDEMON, GLORIOUS_FOOD, RARE_FISH_SPOT, INJURY, WALK_MIN_PER_TILE, RESEARCH, EGG_HATCH, RANCH, WINTER, ITEMS, FAITH } from '../js/config.js';
+import { addBuilding, storageCap, upgradeMult, upgradeAdd, maxPop, rankReqStatus, canAdvanceRank, advanceRank, defenseStats, tickTowers, enemyStats, spawnRaid, mulberry32, grantRelic, dailyIslandRespawn, checkIslandDiscovery, updateEnemies, idx, shipComplete, fishSpotTier, footprintTouchesWater, canPlaceBridge, isWalkable, autoDesignateLodges, footprintAdjacentMine, ensureBossIsland, tickBarns, tickHeaters, seasonDef, boatCanEnter, spawnBoat, boardBoat, disembarkBoat, syncBoats, tickResearch, tickFaith, rollDailyEvent, tradeRate, tickCrops, updateSheep } from '../js/world.js';
+import { GIANT, ENEMY, CANNIBAL, ISLANDS, INVASION, OUTPOST_BRANCHES, RAIDER, INVWARRIOR, ZOMBIE, SKELETON, GIANT_JUMP, ARMOR, FRUITTREE, FISH, catchFish, catchRareFish, GODDESS, TRADER, BUILDS, BUILD_MIN_RANK, FISH_PLATFORM, DEMON, MINIDEMON, GLORIOUS_FOOD, RARE_FISH_SPOT, INJURY, WALK_MIN_PER_TILE, RESEARCH, EGG_HATCH, RANCH, WINTER, ITEMS, FAITH, EVENTS } from '../js/config.js';
 import { findWorkJob, releaseAllOf, bpMissing, reserve } from '../js/jobs.js';
 import { findPath } from '../js/path.js';
 import { createPawn, updatePawn } from '../js/pawns.js';
@@ -1856,6 +1856,64 @@ console.log('[sim-smoke] 57) 전투 애니메이션 훅 — 강타 시 잽 모�
   var strikes2 = 0; sim2.ctx.onPawnStrike = function () { strikes2++; };
   run(sim2, 20);
   ok(strikes2 === 0, '적이 없으면 강타 훅 미발동');
+})();
+
+console.log('[sim-smoke] 58) 무작위 사건 파일럿 — 추첨·유랑 행상·늑대 이동철·풍요의 바람 (신규)');
+(function () {
+  // (a) rollDailyEvent: 상수 rng 로 발생 강제 → 시작·동시1개·만료
+  var sim = bootSim(5801); var w = sim.world;
+  w.day = 5;
+  var r0 = rollDailyEvent(w, function () { return 0.0; }); // 주사위 성공 + 첫 종류 선택
+  ok(!!w.activeEvent && !!r0.started, '주사위 성공 시 사건 시작');
+  ok(w.activeEvent.endDay === w.day + EVENTS.defs[w.activeEvent.id].days, '종료일 = 시작일 + 지속일');
+  var r1 = rollDailyEvent(w, function () { return 0.0; });
+  ok(!r1.started && !!w.activeEvent, '활성 중엔 새 추첨 없음(동시 1개)');
+  w.day = w.activeEvent.endDay;
+  var r2 = rollDailyEvent(w, function () { return 0.99; }); // 만료 + 새 주사위 실패
+  ok(!!r2.expired && !w.activeEvent, '지속일 경과 후 만료');
+  // minDay 전엔 발생 안 함
+  var wEarly = bootSim(5805).world;
+  wEarly.day = EVENTS.minDay - 1;
+  rollDailyEvent(wEarly, function () { return 0.0; });
+  ok(!wEarly.activeEvent, 'minDay 전엔 발생하지 않음');
+
+  // (b) 풍요의 바람: 작물 성장 2배
+  var w2 = bootSim(5802).world;
+  w2.crops[100] = { stage: 'growing', timer: 100, kind: 'wheat' };
+  w2.activeEvent = { id: 'tailwind', endDay: 999 };
+  tickCrops(w2, 10);
+  ok(Math.abs(w2.crops[100].timer - 80) < 0.001, '풍요의 바람 중 작물 타이머 2배 감소 (100→80)');
+
+  // (c) 유랑 행상: 매입가 1.5배 (tradeRate — main.js onTradeSell 이 사용하는 헬퍼)
+  var w3 = bootSim(5803).world;
+  var baseRate = tradeRate(w3, 'iron');
+  w3.activeEvent = { id: 'peddler', endDay: 999 };
+  ok(Math.abs(tradeRate(w3, 'iron') - baseRate * EVENTS.defs.peddler.sellMult) < 1e-9, '행상 중 철 매입가 1.5배');
+
+  // (d) 늑대 이동철: 인접 맹수가 정착민을 물어뜯음 + hp 하한 클램프(즉사 금지) + 피격이 onHit 로 방출
+  var sim4 = bootSim(5804); var w4 = sim4.world;
+  var victim = sim4.pawns[0];
+  w4.activeEvent = { id: 'wolfseason', endDay: 999 };
+  w4.sheep.push({ id: 9999, type: 'wolf', x: victim.x, y: victim.y, px: victim.px, py: victim.py, dir: 1, cd: 999, phase: 0 });
+  var hpBefore4 = victim.hp;
+  var bites = updateSheep(w4, 1, sim4.ambient, sim4.pawns);
+  ok(bites.length >= 1 && bites[0].type === 'predatorBite', '늑대가 인접 정착민을 물어 predatorBite 이벤트 반환');
+  ok(victim.hp < hpBefore4, '물린 정착민 hp 감소 (' + hpBefore4 + '→' + victim.hp + ')');
+  victim.hp = EVENTS.defs.wolfseason.predator.minHp + 1; // 하한 바로 위
+  var wolf4 = w4.sheep[w4.sheep.length - 1];
+  wolf4.atkCd = 0;
+  updateSheep(w4, 1, sim4.ambient, sim4.pawns);
+  ok(victim.hp >= EVENTS.defs.wolfseason.predator.minHp, '맹수는 hp 하한(' + EVENTS.defs.wolfseason.predator.minHp + ') 미만으로 내리지 않음(즉사 금지)');
+  // stepWorld 경유 시 피격이 enemyCbs.onHit 로 방출되는지
+  var hits4 = 0; sim4.enemyCbs.onHit = function () { hits4++; };
+  wolf4.atkCd = 0; victim.hp = 100;
+  run(sim4, 1);
+  ok(hits4 >= 1, '맹수 피격이 enemyCbs.onHit 로 방출(피격 연출 재사용)');
+  // (e) 사건 비활성 시 무해
+  w4.activeEvent = null;
+  var hpAfter = victim.hp;
+  updateSheep(w4, 60, sim4.ambient, sim4.pawns);
+  ok(victim.hp === hpAfter, '사건이 없으면 맹수가 공격하지 않음');
 })();
 
 console.log('');

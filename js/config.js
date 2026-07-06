@@ -608,6 +608,29 @@ export const TRADER = {
   rates: { wood: 0.15, iron: 0.5, food: 0.2, meal: 0.6, leather: 0.25, meat: 0.3, delicacy: 1.2, mealGood: 0.9, mealFeast: 1.5, wool: 0.35, carrot: 0.2, mealVeg: 0.7 },
 };
 
+// ── 무작위 사건(파일럿): 매일 아침(일 넘김) 주사위 — 동시 활성 1개, 지속일 만료 시 자동 해제 ──
+// 원칙: 사건은 판을 흔들되 즉사시키지 않는다(늑대 이동철은 predator.minHp 로 hp 하한 클램프).
+// 추첨은 stepWorld 의 ambient rng 만 소비(createWorld 무접촉 — 절대좌표 테스트 보호). world.js rollDailyEvent.
+export const EVENTS = {
+  chancePerDay: 0.3, // 매일 아침 발생 확률(활성 사건이 없을 때만 주사위)
+  minDay: 3,         // 초반 학습 보호 — 이 날짜 전엔 발생하지 않음
+  defs: {
+    peddler: {
+      name: '유랑 행상', icon: '🧳', days: 1, sellMult: 1.5,
+      msg: '유랑 행상이 찾아왔습니다 — 오늘 하루 상인 매입가가 1.5배입니다!',
+    },
+    wolfseason: {
+      name: '늑대 이동철', icon: '🐺', days: 2,
+      predator: { types: ['wolf', 'bear', 'lion', 'tiger'], range: 2, power: 6, cd: 30, minHp: 5 },
+      msg: '야생 맹수들이 이동철에 들어 사나워졌습니다 — 이틀간 가까이 가지 마세요!',
+    },
+    tailwind: {
+      name: '풍요의 바람', icon: '🌬️', days: 1, cropMult: 2,
+      msg: '따뜻한 바람이 붑니다 — 오늘 하루 작물이 두 배로 빨리 자랍니다!',
+    },
+  },
+};
+
 // ── 낚시 ──
 // rodTier: 0=맨손, 1=나무, 2=강철, 3=황금. 높을수록 희귀 어종 확률↑·시간↓
 export const FISHING = { work: 18 };

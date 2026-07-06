@@ -4,6 +4,7 @@ import {
   RESEARCH_RATE_PER_PAWN, ENEMY, RAID, GIANT, GIANT_FAST_MULT, GIANT_JUMP, SEASON_DAYS, SEASONS, WINTER, STORAGE, RANCH, REGROW,
   ANIMAL_TYPES, ANIMALS, WILD_ANIMAL_TYPES, BARN, EGG_HATCH, WAREHOUSE_TIERS, UPGRADES, RANKS, HOUSE_POP_BONUS, HOUSE_POP_CAP_COUNT, DEFENSE_TIERS, OUTPOST_BRANCHES, CANNON, RELICS, ISLANDS, CANNIBAL, WARLORD, RAIDER, INVWARRIOR, ZOMBIE, SKELETON, DEMON, MINIDEMON,
   ARMOR, FISH_PLATFORM, LODGE_FARM_RADIUS, RARE_FISH_SPOT, FORTIFY_KINDS, INJURY, LIBRARY, FAITH,
+  TRADER, EVENTS,
   T_WATER, T_GRASS, T_SAND,
 } from './config.js';
 import { findPath } from './path.js';
@@ -173,6 +174,7 @@ export function createWorld(seed) {
     traderActive: false, // 떠돌이 상인 방문 중 여부
     traderDepartDay: 0,  // 상인이 떠나는 날짜(traderActive 일 때만 의미 있음)
     nextTraderDay: 0,    // 다음 상인 방문 예정일(0 이면 TRADER.firstDay 로 폴백)
+    activeEvent: null,   // 무작위 사건(파일럿): {id, endDay} — rollDailyEvent 가 관리, 동시 1개
     escaped: false,      // 탈출선(선체·엔진·반응로) 완성 후 탈출 성공(1회성) 여부
     autoEquip: false,    // 자동 무장 토글(관리): 유휴 정착민이 창고 무기를 미리 장착
     bossDefeated: false, // 최종 보스 「악마후배」 처치 여부
@@ -1096,14 +1098,49 @@ export function researchProgress(world, key, def) {
   return Math.min(1, world.research.points / def.cost);
 }
 
+// ── 무작위 사건(파일럿): 매일 아침 호출 — 만료 처리 + (활성 없으면) 새 사건 추첨 ──
+// rng 는 stepWorld 의 ambient 만 소비(createWorld 무접촉 — 절대좌표 테스트 보호).
+// 반환 {expired, started}: 각각 사건 def 또는 null — sim.js 가 토스트/이벤트 로그로 방출.
+export function rollDailyEvent(world, rng) {
+  var out = { expired: null, started: null };
+  var cur = world.activeEvent;
+  if (cur) {
+    if (world.day >= cur.endDay) {
+      out.expired = EVENTS.defs[cur.id] || null;
+      world.activeEvent = null;
+    } else {
+      return out; // 아직 진행 중 — 새 추첨 없음(동시 1개)
+    }
+  }
+  if (world.day < EVENTS.minDay) return out;
+  if (rng() < EVENTS.chancePerDay) {
+    var ids = Object.keys(EVENTS.defs);
+    var id = ids[(rng() * ids.length) | 0];
+    world.activeEvent = { id: id, endDay: world.day + EVENTS.defs[id].days };
+    out.started = EVENTS.defs[id];
+  }
+  return out;
+}
+
+// 상인 매입가(자원 1개당 금) — 유랑 행상(peddler) 사건 중엔 배율 적용. main.js onTradeSell 이 사용.
+export function tradeRate(world, type) {
+  var rate = TRADER.rates[type] || 0;
+  var ev = world.activeEvent;
+  if (ev && ev.id === 'peddler') rate *= EVENTS.defs.peddler.sellMult;
+  return rate;
+}
+
 // 작물 성장 (매 틱) — 성숙하면 stage 'ready' 전환만, 수확은 pawn job. 겨울엔 성장 정지.
+// 풍요의 바람(tailwind) 사건 중엔 성장 속도 배율.
 export function tickCrops(world, dtMin) {
   if (seasonDef(world).noFarm) return [];
+  var ev = world.activeEvent;
+  var mult = (ev && ev.id === 'tailwind') ? EVENTS.defs.tailwind.cropMult : 1;
   var readyNow = [];
   for (var i in world.crops) {
     var c = world.crops[i];
     if (c.stage !== 'growing') continue;
-    c.timer -= dtMin;
+    c.timer -= dtMin * mult;
     if (c.timer <= 0) {
       c.stage = 'ready';
       readyNow.push(+i);
@@ -1582,10 +1619,37 @@ export function tickTowers(world, dtMin, cb) {
   }
 }
 
-// 양 배회
-export function updateSheep(world, dtMin, rng) {
+// 양 배회 (+ 늑대 이동철 사건: 야생 맹수가 반경 내 정착민을 물어뜯음 — hp 하한 클램프, 죽이지는 않음)
+// 반환: 이벤트 배열 [{type:'predatorBite', pawn, dmg, animal}] — sim.js 가 enemyCbs.onHit 로 방출.
+export function updateSheep(world, dtMin, rng, pawns) {
+  var events = [];
+  var ev = world.activeEvent;
+  var pred = (ev && ev.id === 'wolfseason') ? EVENTS.defs.wolfseason.predator : null;
   for (var n = 0; n < world.sheep.length; n++) {
     var s = world.sheep[n];
+    // 늑대 이동철: 길들이지 않은 맹수는 반경 내 정착민이 있으면 배회 대신 공격
+    if (pred && pawns && !s.tamed && pred.types.indexOf(s.type) >= 0) {
+      var tgt = null, td = 1e9;
+      for (var pi = 0; pi < pawns.length; pi++) {
+        var pw = pawns[pi];
+        if (pw.state === 'dead') continue;
+        var d0 = Math.abs(pw.px - s.px) + Math.abs(pw.py - s.py);
+        if (d0 <= pred.range && d0 < td) { tgt = pw; td = d0; }
+      }
+      if (tgt) {
+        s.atkCd = (s.atkCd || 0) - dtMin;
+        if (s.atkCd <= 0) {
+          s.atkCd = pred.cd;
+          var dmg = Math.min(pred.power, Math.max(0, tgt.hp - pred.minHp)); // 즉사 금지: hp 하한 클램프
+          if (dmg > 0) {
+            tgt.hp -= dmg;
+            events.push({ type: 'predatorBite', pawn: tgt, dmg: dmg, animal: s });
+          }
+        }
+        if (s.px !== tgt.px) s.dir = tgt.px > s.px ? 1 : -1;
+        continue; // 공격 중엔 배회하지 않음
+      }
+    }
     // 이동 중이면 목표로 보간
     var dx = s.x - s.px, dy = s.y - s.py;
     var dist = Math.abs(dx) + Math.abs(dy);
@@ -1607,4 +1671,5 @@ export function updateSheep(world, dtMin, rng) {
       if (isWalkable(world, nx, ny)) { s.x = nx; s.y = ny; }
     }
   }
+  return events;
 }

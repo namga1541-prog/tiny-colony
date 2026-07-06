@@ -59,6 +59,11 @@
 - 적 `kind`: `'goblin'`(기본)·`'giant'`(괴민)·`'cannibal'`/`'skeleton'`(원정 섬 상주)·`'raider'`/`'warrior'`(=INVWARRIOR)/`'zombie'`/`'warlord'`(정복자 미니보스)(대침공 혼합군)·`'demon'`(최종 보스)·`'minidemon'`(악마후배가 소환하는 하수인) — `enemyStats(e)` 가 종류별 스탯 분기. **주의: kind 문자열은 `'warrior'`(설정 상수명은 `INVWARRIOR`)** — 둘이 다름.
 - **주의**: createWorld 안에 섬 콘텐츠·rng 소비 코드를 추가/삭제하면 이후 지형 생성 순서가 밀려 절대좌표 기반 테스트가 깨질 수 있음(RECIPES.md 레시피 2 함정 참고).
 
+## 무작위 사건 (world.activeEvent — 파일럿)
+- `config.EVENTS`(발생률 chancePerDay·minDay·defs 3종) · `rollDailyEvent(world,rng)`(world.js) — sim.js 일 넘김에서 호출, **ambient rng 만 소비**(createWorld 무접촉 — 절대좌표 테스트 보호). 동시 활성 1개, `world.activeEvent={id,endDay}`.
+- 효과 적용 지점: `peddler`→`tradeRate(world,type)`(world.js, main.js onTradeSell 사용) + 정규 상인 없으면 sim.js 가 하루짜리 방문 발동 / `wolfseason`→`updateSheep`(**pawns 4번째 인자**, `predatorBite` 이벤트 배열 반환 → sim.js 가 `enemyCbs.onHit` 재사용) / `tailwind`→`tickCrops` 성장 배율.
+- 원칙: **즉사 금지** — wolfseason 은 `predator.minHp` 로 hp 하한 클램프. 세이브: `activeEvent` 필드(save.js 명시 직렬화, v15 유지·`|| null` 폴백).
+
 ## window.game (디버그·테스트 훅, main.js 말미)
 `{ world, pawns, R, applyTool(tool,a,b), setSpeed(s), enterControl(pawn), exitControl(), keys }`
 - 브라우저 테스트는 이걸로 상태 조작·검증. **주의: 프리뷰 탭이 백그라운드면 PixiJS 티커가 멈춰** eval 기반 시간검증이 왜곡됨 → 시간 의존 검증은 Playwright(페이지 활성 유지) 사용.

@@ -10,7 +10,7 @@ import {
   canPlaceBridge, fishSpotTier, footprintTouchesWater, footprintAdjacentMine, ensureBossIsland, consumeGlobal, seasonDef, seasonIndex,
   boatCanEnter, spawnBoat, boatAt, boardBoat, disembarkBoat, syncBoats,
   tickRanches, hasBarn, storageCap, totalStored, dailyMineRegen, tickTowers, canAfford,
-  upgradeAdd, maxPop, canAdvanceRank, advanceRank, defenseStats,
+  upgradeAdd, maxPop, canAdvanceRank, advanceRank, defenseStats, tradeRate,
 } from './world.js';
 import { createPawn, updatePawn, manualInteract, equipWeapon, equipArmor } from './pawns.js';
 import { RESEARCH, ITEMS, HIRE, hireCost, UPGRADES, UPGRADE_CATS, TRADER, FEAST } from './config.js';
@@ -48,6 +48,7 @@ if (saved) {
   world.traderActive = saved.traderActive || false;
   world.traderDepartDay = saved.traderDepartDay || 0;
   world.nextTraderDay = saved.nextTraderDay || 0;
+  world.activeEvent = saved.activeEvent || null;
   world.escaped = saved.escaped || false;
   world.autoEquip = saved.autoEquip || false;
   world.bossDefeated = saved.bossDefeated || false;
@@ -236,7 +237,7 @@ var UI = createUI({
     var n = amt === 'all' ? have : Math.min(amt, have);
     if (n <= 0) return;
     consumeGlobal(world, type, n);
-    var gold = Math.floor(n * (TRADER.rates[type] || 0));
+    var gold = Math.floor(n * tradeRate(world, type)); // 유랑 행상 사건 중엔 매입가 배율(world.js)
     world.stock.gold = (world.stock.gold || 0) + gold;
     var names = { wood: '목재', iron: '철', food: '식량', meal: '소박한 식사', leather: '가죽',
       meat: '고기', delicacy: '진미', mealGood: '푸짐한 식사', mealFeast: '진수성찬', wool: '양털', carrot: '당근', mealVeg: '채소죽' };

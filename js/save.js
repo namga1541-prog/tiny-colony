@@ -34,6 +34,7 @@ export function saveGame(world, pawns) {
     traderActive: world.traderActive,
     traderDepartDay: world.traderDepartDay,
     nextTraderDay: world.nextTraderDay,
+    activeEvent: world.activeEvent,
     escaped: world.escaped,
     autoEquip: world.autoEquip,
     bossDefeated: world.bossDefeated,

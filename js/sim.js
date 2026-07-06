@@ -11,7 +11,7 @@ import {
   updateSheep, tickTowers, updateEnemies, tickResearch, tickFaith, tickCrops, tickRanches, tickBarns, tickHeaters, autoDesignateLodges,
   dailyRegrowth, dailyMineRegen, spawnRaid, seasonDef, seasonIndex, maxPop, grantRelic,
   dailyIslandRespawn, checkIslandDiscovery,
-  grantLegendaryRelic, warlordsAliveInWave, shipComplete,
+  grantLegendaryRelic, warlordsAliveInWave, shipComplete, rollDailyEvent,
 } from './world.js';
 import { updatePawn } from './pawns.js';
 import { checkGoals } from './goals.js';
@@ -76,7 +76,11 @@ export function stepWorld(world, pawns, dtMin, rng, ctx, enemyCbs) {
       if (pawns[n].state !== 'dead') aliveNow++;
     }
     if (world.feastCooldown > 0) world.feastCooldown = Math.max(0, world.feastCooldown - dt);
-    updateSheep(world, dt, rng);
+    // 늑대 이동철(사건) 중엔 야생 맹수가 정착민을 물어뜯음 — 피격 연출은 기존 onHit 재사용
+    var sev = updateSheep(world, dt, rng, pawns);
+    for (var se = 0; se < sev.length; se++) {
+      if (sev[se].type === 'predatorBite' && enemyCbs.onHit) enemyCbs.onHit(sev[se].pawn, sev[se].dmg);
+    }
     tickTowers(world, dt, enemyCbs);
     updateEnemies(world, pawns, dt, enemyCbs, rng);
     tickResearch(world, aliveNow, dt);
@@ -184,6 +188,22 @@ export function stepWorld(world, pawns, dtMin, rng, ctx, enemyCbs) {
       world.winterWarnedFor = nextWinterDay;
       ctx.onToast('❄️ ' + daysUntilWinter + '일 뒤 겨울이 옵니다 — 장작(난로 연료)과 식량을 비축하세요!', true);
       ctx.onEvent('❄️ 겨울 대비 경고 (' + daysUntilWinter + '일 전)');
+    }
+    // 무작위 사건(파일럿): 매일 아침 주사위 — 시작/종료 안내(ambient rng 만 소비)
+    var dev = rollDailyEvent(world, rng);
+    if (dev.expired) {
+      ctx.onToast(dev.expired.icon + ' 「' + dev.expired.name + '」이(가) 끝났습니다');
+      ctx.onEvent(dev.expired.icon + ' 사건 종료 — ' + dev.expired.name);
+    }
+    if (dev.started) {
+      ctx.onToast(dev.started.icon + ' ' + dev.started.msg, true);
+      ctx.onEvent(dev.started.icon + ' 사건 — ' + dev.started.name);
+      ctx.onSfx('alert');
+      // 유랑 행상: 정규 상인이 없으면 하루짜리 방문을 함께 발동(정규 스케줄 nextTraderDay 는 유지)
+      if (world.activeEvent && world.activeEvent.id === 'peddler' && !world.traderActive) {
+        world.traderActive = true;
+        world.traderDepartDay = world.day + 1;
+      }
     }
   }
 
