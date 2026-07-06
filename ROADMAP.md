@@ -59,12 +59,11 @@
   **렌더 전용**(대사 선택은 render.js — 시뮬 rng 무접촉이라 결정론 무영향). ctx 신규 콜백 불필요:
   기존 `onEvent`/상태 관찰로 렌더가 스스로 판단. 시작점: `render.js updatePawnSprite`(이미 pawn 상태 접근).
   수용: 브라우저 확인 + check:style(렌더는 Math.random 허용 파일인지 확인 — 아니면 시드 파생).
-- [ ] **사건 파일럿 3종** — 티어 2 본격화 전 최소 골격 검증. 매일 아침 훅(`sim.js` 일 넘김 부근)에서
-  ambient rng 주사위 → ①「유랑 행상」(그날 상인 매입가 1.5배) ②「늑대 이동철」(2일간 야생동물이
-  접근 시 선공 — `updateSheep` 에 공격 분기) ③「풍요의 바람」(1일 작물 성장 2배).
-  `config.EVENTS` 테이블(발생률·지속·효과) + `world.activeEvent` 저장(스키마 필드 추가 — v 유지, 폴백).
-  수용: sim-smoke 시드 고정으로 발생 재현 + 각 효과 1개씩 단언. **`createWorld` 가 아닌 stepWorld 의
-  rng 만 소비할 것**(절대좌표 테스트 보호 — ARCHITECTURE rng 규칙).
+- [x] **사건 파일럿 3종**(ceb4721) — 「유랑 행상」(매입가 1.5배 + 상인 없으면 하루 방문 소환) ·
+  「늑대 이동철」(2일간 맹수 선공, hp 하한 클램프로 즉사 금지) · 「풍요의 바람」(1일 작물 성장 2배).
+  `config.EVENTS` + `rollDailyEvent`/`tradeRate`(world.js) + sim.js 일 넘김 훅 + `world.activeEvent`
+  세이브(v15 유지). 30일 발생 빈도 5~9회(3~6일 1회꼴) 실측. sim-smoke 58(12단언) + 소크 통과.
+  **잔여 관찰**: 시드별 종류 편중(같은 사건 연속) — 티어 2 스토리텔러의 가중 추첨에서 개선.
 - [ ] **그래픽 마감(승계·미승인)** — ①성(castle) 대체 탐색(+`def.town` 렌더 우선순위 의문점 실물 확인:
   이전 로드맵 티어1 참고) ②겨울 눈 타일(Sunnyside) ③장식물 교체(Kenney 32px) ④야생동물 교체
   (MiniWorld/Sunnyside). 에셋 선정 프로토콜(메모리) 준수 — 라이선스·실물검수 먼저.
