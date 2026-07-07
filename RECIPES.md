@@ -88,11 +88,13 @@
 
 ### A. 스톡 자원(world.stock) 신규 키 — "자동 3 + 수동 3"
 - **자동(수정 불필요)**: `addItem`/`removeItem`(js/world.js:537~546, 키 무관 범용) · 세이브(save.js:16 `stock` 통째 직렬화, 버전 불필요) · `canAfford`/`consumeGlobal`.
-- **수동(누락 시 조용한 버그)**:
-  1. `totalRes`(js/world.js:550~559) — 빠지면 UI·요건판정에서 0 취급.
-  2. `totalStored`(js/world.js:623~627) — 빠지면 **저장용량을 차지하지 않고 무한 축적**(밸런스 버그). 단 무기·방어구는 설계상 원래 미포함.
-  3. UI 표시(js/ui.js:117~125 요소 참조 + 150~159 `updateRes`) — index.html 에 DOM 요소도 필요.
-- 판매 가능 자원이면 `TRADER.rates`(js/config.js:507)에도 추가.
+- **수동(누락 시 조용한 버그)** — 위치는 라인 드리프트 방지를 위해 FUNCTIONS.md 에서 이름으로 찾을 것:
+  1. `totalRes`(world.js) — 빠지면 UI·요건판정에서 0 취급.
+  2. `totalStored`(world.js) — 빠지면 **저장용량을 차지하지 않고 무한 축적**(밸런스 버그). 단 무기·방어구는 설계상 원래 미포함.
+  3. UI 표시(`updateRes` ui.js + 파일 상단 요소 참조 블록) — index.html 에 DOM 요소도 필요.
+  4. **한글 이름 매핑·목록 4곳(전부 인라인 리터럴 중복)** — ①ui.js:731~732 버리기 모달 name+types 배열 ②ui.js:763~764 상인 모달 name+types 배열 ③main.js:243 토스트 name map ④main.js:401 토스트 name map. `|| type` 폴백 탓에 누락돼도 크래시 없이 영어 키가 그대로 노출되는 조용한 버그.
+- 판매 가능 자원이면 `TRADER.rates`(js/config.js:608)에도 추가.
+- **마감 검사**: 기존 자원명 하나(예: `mealFeast`)로 `grep -n` 전수 스캔해서 나온 모든 위치에 새 키가 빠짐없이 들어갔는지 대조한다(위 목록이 낡았을 수 있음).
 
 ### B. 어종(FISH)
 - config.js FISH 배열(js/config.js:522~537)에 항목만 추가하면 끝. 필드: `food`·`gold`·`weight`(가중치)·`rare`(0~4, rare≥2 는 이벤트 메시지)·`delicacy`·`spotOnly`(true=일반낚시 제외, 희귀스팟 전용 풀 자동 편입).
